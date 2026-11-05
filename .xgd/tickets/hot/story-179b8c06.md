@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-09-10T13:36:32.177121+00:00'
+updated_at: '2026-11-05T21:27:22.715476+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -20,7 +20,7 @@ fields:
 
 ## Story
 **As a** site author (and the AI acting on my behalf), **I want** interactive
-features like carousels and contact forms to be supplied as vetted **behavior
+features like carousels, contact forms and sign-in chrome to be supplied as vetted **behavior
 modules** that I configure with behavioural settings and dress entirely with
 L1-authored presentation — including the form's own controls — **so that** I get
 safe, tested, shipping behaviour (scroll-snap, autoplay, form submission, spam
@@ -48,8 +48,9 @@ code the author/AI never writes) that exposes exactly four surfaces:
 
 ### What a behavior module *is*, as an artifact
 A behavior is a **plain typed function from props to markup**. It takes the
-instance's config, its slot subtrees, its instance id and the channel flag, and
-returns the HTML string it contributes to the page. It is not a template, and
+instance's config, its slot subtrees, its instance id, the channel flag, and the
+site's resolved locale and declared **capabilities**, and returns the HTML string
+it contributes to the page. It is not a template, and
 nothing has to compile it before it can run.
 
 That is the whole reason the module layer is portable. A module that ships a
@@ -90,7 +91,9 @@ contract had no vocabulary for "this element's look belongs to L1".
 
 The contract now carries the inverse direction as well. A behavior **declares**
 its leaf elements (which must exist, which are required, whether there is one per
-config-list item or one per repeated-slot subtree); an L1 `control` node inside a
+config-list item or one per repeated-slot subtree, and which tag each is: a form
+affordance such as `input` / `textarea` / `button` / `select`, the invariant
+`span`, or a **link** `a`, because not every control is part of a form, REQ-200); an L1 `control` node inside a
 slot subtree **names** one, and the published page emits that element carrying
 L1's class, geometry and every paint axis while the module contributes only the
 attribute bundle that makes it work — `type` / `name` / `required`, the
@@ -219,7 +222,48 @@ dropped, so a submit cannot leave the page the editor is working on.
   authored presentation has no visible controls at all, and failing that loudly at
   validation beats rendering an empty box.
 
-**Both survivors convert through the one mechanism, with no per-module
+### A third module on the same contract: `account-chrome` (REQ-200)
+Sign In and the account portal are **not platform chrome**. They are a feature
+of *any* site that has accounts, and the platform's own front page is simply the
+first such site. They therefore ship as a behavior module beside `contact-form`,
+bound to an L1 slot like any other, so **L1 decides where they go and what they
+look like**. A site can put the portal link in its footer and the Sign In
+control in its header.
+
+- **Gated by a site-level declaration, never derived.** A site declares what it
+  *has* in a small closed record on its own definition,
+  `config.capabilities.accounts`. The renderer hands the whole record to
+  **every** module as a prop, exactly as it hands down the locale, and the gate
+  is the module's own: `account-chrome` renders nothing unless `accounts` is
+  declared. The renderer grows no branch naming a capability. The flag is not
+  derived from "does this business have any members", because the first member
+  signs up *through* this control.
+- **Every state is in the published snapshot.** A published site is immutable
+  bytes, so the module renders all three states (signed out with a Sign In
+  control, signed in with a portal link, and the builder link) and marks the
+  module root as signed out. The serving Worker names the current state by
+  rewriting that one attribute, which this story does not own. The rules that
+  hide the non-current states are the module's own CSS: they express a
+  behavioural state no static L1 subtree can, the same reasoning as the
+  carousel's current-dot rule. The builder link is a third state, visible only
+  when the signed-in person **operates at least one business**. That is a fact
+  about the person, so the module has no branch on which site or business it
+  renders for.
+- **The no-JS baseline is a working sign-in.** The dialog is a real
+  `<form method="post">` against the configured sign-in endpoint, rendered
+  **open**. Script folds it behind the Sign In control, makes it a modal and
+  upgrades the submit to `fetch`, so script only ever subtracts.
+- **"Check your email" never reads the response.** The sent message appears when
+  the request completes, at any status, so a known and an unknown address are
+  indistinguishable by construction. Only a request that never reached the server
+  reports differently.
+- **The portal and builder controls are links**, which is why `a` joined the
+  control tags. Their `href` is the module's attribute and passes the module's
+  URL safety check.
+- It **ships an L2 slot preset** registered by behavior id: one L1 subtree for
+  each of its four required slots, so a site can mount it without authoring L1.
+
+**All three modules convert through the one mechanism, with no per-module
 machinery.** `contact-form` is the module three real sites actually mount;
 `carousel` is in the catalog and in no site — and it converts by exactly the same
 route, which is what proves nothing was special-cased for the module that
@@ -266,7 +310,11 @@ control check, **the page-level binding rule and its rejections (REQ-93)** and
 zero-CSS obligation and its two declared carve-outs (invariant
 elements as a real stylesheet, and the edit-channel settled state), the two
 reframed survivor behavior modules and their observable behaviour in both the
-filesystem and the edge runtime, the L2 default-look preset, the shipped-client-JS
+filesystem and the edge runtime, **the `account-chrome` module (REQ-200)**: its
+site-capability gate, its three-state snapshot, its no-JS baseline and
+status-blind sent message, its link controls and its slot preset, together with
+the capabilities prop every module receives and the `a` control tag. Also in
+scope are the L2 default-look presets, the shipped-client-JS
 asset, and the isolation conformance dimension — including its client-side half,
 that an enhancement never cancels a baseline it cannot itself complete.
 
@@ -278,8 +326,12 @@ and excluding invariant elements from the reproduction value gate; the CLI
 launcher's own server and the removal of the build framework from the repository
 (STORY-e15a19ef — a separate failure surface: this story is the module contract,
 that one is the launcher and the dependency); the builder origin, the store it
-reads and the routes that serve these channels (STORY-e674c60a); future behavior
-modules (payments, auth, email-capture); the deleted pre-pivot layout modules and
+reads and the routes that serve these channels (STORY-e674c60a). Also out of
+scope: the serving Worker's half of account-chrome (reading the session, checking
+the cookie domain, rewriting the state attribute, refusing the shared cache, and
+the apex site), which the public-site serving story owns; the sign-in issue
+endpoint and anything that mints a session (not built by REQ-200); future
+behavior modules (payments, email-capture); the deleted pre-pivot layout modules and
 their dials (superseded — tracked as upgrades to STORY-80/81/82).
 
 ## Technical Context
@@ -405,8 +457,57 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   end that collision. The operator confirmed the slot-attachment seam as Option A
   (a module *instance* carries L1 subtrees on named slots; the module wraps L1);
   REQ-96 adds the inverse seam for leaves rather than replacing it.
+- **account-chrome (REQ-200).** `account-chrome@1` (`modules/account-chrome/`)
+  joins `contact-form`, `carousel` and `account-portal` in the catalog.
+  `BehaviorProps` gains an optional `capabilities` (the site's
+  `SiteCapabilities`), which the generator passes to every module instance from
+  `site.config.capabilities ?? {}`. The marker the serving Worker rewrites
+  (`data-account-chrome="signed-out"` / `"signed-in"`, plus
+  `data-account-chrome-businesses`) is declared in the module's `session.ts` and
+  exported from the framework's worker entry, so producer and consumer are one
+  file. `L1ControlTag` gains `'a'`. The `control` node and its emitter remain
+  STORY-83's. What this story owns is that a module may *declare* a link control.
+  The preset lives in `l2/account-chrome.ts` and is registered in `l2/presets.ts`
+  under the behavior id. The sign-in POST sends `{ email }` as JSON with
+  `credentials: 'same-origin'`.
+- **Code issue: the capability record is not closed (contradicts REQ-200).**
+  REQ-200's "What was built" says the `capabilities` record is "closed rather
+  than an open bag, so a typo is a validation error and not a declaration nothing
+  reads". `siteCapabilitiesSchema` is a plain `z.object({ accounts })` without
+  `.strict()`, so zod **strips** an unknown key such as `acounts` instead of
+  rejecting it. The site validates and the misspelt declaration is silently
+  dropped. AC-2329 states the intent (an unknown capability key fails site
+  validation). This is a code issue for `fix_uat_coverage`: make the record
+  strict.
 
 ### Reconciliation Decisions
+
+**2026-11-05: account-chrome is recorded on this story, not on a new one.**
+REQ-200 calls it "the second such module" beside `contact-form` and builds it
+entirely on the existing contract: catalog, slots, controls, preset, conformance
+and the invariant stylesheet. It adds no new capability bucket, only a module in
+an existing catalog, a prop every module receives, and a control tag. The
+Worker-side half (session reading, cookie-domain check, cache refusal, the apex
+site) is a serving concern and stays with the public-site serving story.
+
+**2026-11-05: the error path and the edit-channel endpoint are formalised.**
+REQ-200 says only that a known and an unknown address are indistinguishable. The
+code also shows a distinct *could not reach the server* message when `fetch`
+throws, and leaves the form usable. In the edit render it omits the form's
+`action`. Both are formalised in AC-2330. The first is the only exception to
+status-blindness, and the ticket's own "What was built" justifies it as a fact
+about the network rather than the address. The second matches the edit-channel
+rule this story already holds for module-mounting pages (AC-1413).
+
+**2026-11-05: account-chrome's CSS fits the zero-paint line without a new
+carve-out.** Its stylesheet holds wrapper zeroing, state-visibility rules, the
+invariant label, and the modal geometry that applies only after enhancement. The
+first three map onto existing categories in AC-809: behavioural mechanics, a
+behavioural state signal like the carousel's current dot, and an invariant
+element. Modal geometry is behavioural mechanics, because a modal that did not
+cover the page would not be one. AC-809's wording ("neither survivor") is left
+for its owning reconciliation. AC-2331 states the obligation for this module
+directly.
 
 **2026-08-31 — the module's own escaping boundary is formalised as a criterion.**
 REQ-148's stated ACs cover the runtime, the mechanism, the two survivors, the
