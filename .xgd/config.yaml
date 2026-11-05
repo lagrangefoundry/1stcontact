@@ -1,8 +1,22 @@
 chat:
   provider: claude
 claude_code:
-  allow_api_key: false
   allowed_paths: []
+  sessions:
+    planner:
+      model: opus
+    builder:
+      model: opus
+    assessor:
+      model: opus
+    editor:
+      model: opus
+  rate_limit:
+    calls_per_hour: 9
+    enabled: false
+  timeout: 1800
+  allow_api_key: false
+  session_priming_max_attempts: 20
   headless_permission_mode: dontAsk
   headless_sandbox_enabled: true
   process_restart:
@@ -10,101 +24,19 @@ claude_code:
     max_attempts: 5
     token_limit_fallback_hours: 5
     token_limit_jitter_minutes: 3
-  rate_limit:
-    calls_per_hour: 9
-    enabled: false
-  session_priming_max_attempts: 20
-  sessions:
-    assessor:
-      model: opus
-    builder:
-      model: opus
-    editor:
-      model: opus
-    planner:
-      model: opus
-  timeout: 1800
-dashboard:
-  bind_address: 127.0.0.1
-  default_port: 8888
-  idle_timeout: NEVER
-dispatcher:
-  auto_push: true
-  costs:
-    auto_merge_back: 0.6
-    develop: 1.0
-    reconcile: 0.5
-    regression: 1.0
-  max_concurrent_capacity: 4
-  max_unmerged_feature_branches: 8
-  poll_interval_seconds: 30
-  regression:
-    mode: auto
-    scheduled_time: '23:00'
-incidents:
-  caps:
-    done_statuses:
-    - free_coded
-    - ready_to_reconcile
-    - reconciling
-    - free_and_reconciled
-    - implemented
-    - merged
-    implementing_statuses:
-    - free_coding
-    - in_progress
-    max_auto_turns: 20
-    max_contributions: 3
-    max_implementing_per_area: 2
-    max_implementing_per_incident: 2
-  opening_prompt: ''
-  plans:
-    allowed_commands:
-    - xgd
-    command_timeout_seconds: 600
-    output_cap_chars: 4000
-  routing: {}
-  start:
-    max_retries: 2
-    min_body_chars: 200
-    required_headings: []
-  sweep_max_age_hours: 24
-logs:
-  maintenance_interval_minutes: 60
-  max_entries: 2000
-  retention_days: 14
-  rotate_keep: 3
-  rotate_max_bytes: 20971520
-matrix_refactor:
-  max_uats_per_capability: 200
-  min_uats_per_capability: 20
-merge_back:
-  max_iterations: 5
-  max_repeated_head_cycles: 2
-  reconciliation:
-    auto_merge_back: true
-  regression:
-    auto_merge_back: true
-notifications:
-  backends:
-  - ntfy
-  enabled: false
-  events:
-    choice_point: true
-    process_completed: false
-    process_dispatched: false
-    process_error: true
-    process_failed: true
-    workflow_failed: true
-    workflow_success: false
-  macos:
-    sound: true
-  ntfy:
-    tags:
-    - xgd
-    - workflow
-    topic: xgd-notifications
-    url: https://ntfy.sh
+quality:
+  min_coverage_percent: 25.0
+  allow_test_skips: false
+  collection_timeout_seconds: 300
+retries:
+  max: 3
+resync:
+  max_iterations: 100
+reconcile:
+  pin_lock_wait_seconds: 300
+  pin_lock_stale_seconds: 600
+  story_generation_max_retries: 2
+  linked_chat_dialogue_max_chars: 5000
 override_audit:
   trust_boundary_patterns:
   - (?<![a-z0-9])untrusted
@@ -116,66 +48,107 @@ override_audit:
   - (?<![a-z0-9])denylist
   - (?<![a-z0-9])csrf
   - (?<![a-z0-9])xss
-project:
-  architecture: null
-  brd: null
-  dev_model: null
-  prd: null
-quality:
-  allow_test_skips: false
-  min_coverage_percent: 25.0
 quality_checks:
-  batch_iteration_buffer_percent: 50
-  max_attempts_per_phase: 3
   max_retry_attempts: 5
-  phase_limits:
-    build: 3
-    coverage: 10
-    lint: 3
-    tests: 10
-  phase_timeouts:
-    build: 600
-    coverage: 900
-    lint: 300
-    tests: 900
+  max_attempts_per_phase: 3
   test_batch_size: 5
-reconcile:
-  linked_chat_dialogue_max_chars: 5000
-  pin_lock_stale_seconds: 600
-  pin_lock_wait_seconds: 300
-  story_generation_max_retries: 2
-required_files:
-- README.md
-- ARCHITECTURE.md
+  batch_iteration_buffer_percent: 50
+  phase_limits:
+    lint: 3
+    build: 3
+    tests: 10
+    coverage: 10
+  phase_timeouts:
+    lint: 300
+    build: 600
+    tests: 900
+    coverage: 900
 resource_limits:
   enabled: true
-  max_concurrent_simulators: 2
-  max_load_average: null
-  max_total_retry_hours: 2.0
   min_free_memory_gb: null
-resync:
-  max_iterations: 100
-retries:
-  max: 3
+  max_load_average: null
+  max_concurrent_simulators: 2
+  max_total_retry_hours: 2.0
 sprint:
   max_tasks_per_sprint: 5
   skip_validation: true
+notifications:
+  enabled: false
+  backends:
+  - ntfy
+  events:
+    workflow_failed: true
+    choice_point: true
+    workflow_success: false
+    process_dispatched: false
+    process_completed: false
+    process_failed: true
+    process_error: true
+  macos:
+    sound: true
+  ntfy:
+    topic: xgd-notifications
+    url: https://ntfy.sh
+    tags:
+    - xgd
+    - workflow
+required_files:
+- README.md
+- ARCHITECTURE.md
 ticketing:
+  root_dir: .xgd/tickets
+  strict_mode: false
+  include_archived_default: false
+  lock_timeout_ms: 10000
+  staging_dir: .xgd/_staging
+  locks_dir: .xgd/_locks
   audit_interval_seconds: 3600
+  index_wait_seconds: 900
   commits:
     enabled: true
-    lock_retry_budget_ms: 30000
     message_template: 'xgd(ticket): {op} {type} {uid}'
-  include_archived_default: false
-  index_wait_seconds: 900
-  lock_timeout_ms: 10000
-  locks_dir: .xgd/_locks
-  root_dir: .xgd/tickets
-  staging_dir: .xgd/_staging
-  strict_mode: false
+    lock_retry_budget_ms: 30000
+workflow:
+  min_free_ram_mb: 500
+  memory_poll_interval_s: 30
+  no_op_guard_threshold: 3
+logs:
+  rotate_max_bytes: 20971520
+  rotate_keep: 3
+  retention_days: 14
+  max_entries: 2000
+  maintenance_interval_minutes: 60
+dispatcher:
+  poll_interval_seconds: 30
+  auto_push: true
+  max_unmerged_feature_branches: 8
+  max_concurrent_capacity: 4
+  costs:
+    develop: 1.0
+    reconcile: 0.5
+    auto_merge_back: 0.6
+    regression: 1.0
+  regression:
+    mode: auto
+    scheduled_time: '23:00'
 watchdog:
   max_fix_cycles: 20
-workflow:
-  memory_poll_interval_s: 30
-  min_free_ram_mb: 500
-  no_op_guard_threshold: 3
+merge_back:
+  max_iterations: 5
+  max_repeated_head_cycles: 2
+  regression:
+    auto_merge_back: true
+  reconciliation:
+    auto_merge_back: true
+matrix_refactor:
+  min_uats_per_capability: 20
+  max_uats_per_capability: 200
+dashboard:
+  idle_timeout: NEVER
+  default_port: 8888
+  bind_address: 127.0.0.1
+project:
+  prd: null
+  brd: null
+  architecture: null
+  dev_model: null

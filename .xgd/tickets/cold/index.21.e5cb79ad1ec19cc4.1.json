@@ -2,11 +2,184 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-05T15:28:19.313548+00:00",
-  "ticket_count": 0,
+  "ticket_count": 7,
   "rebuild_epoch": 1793892499.31335,
-  "tickets": {},
-  "by_type": {},
-  "by_field": {},
-  "id_to_uid": {},
+  "tickets": {
+    "comment-1b348242": {
+      "id": "COMMENT-602",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-05T19:15:52.142778+00:00",
+      "created_at": "2026-11-05T19:15:52.142778+00:00",
+      "completed_at": null,
+      "title": "Claude response for overlap_survey report",
+      "fields": {
+        "subject_uid": "report-8bc8d791",
+        "kind": "note"
+      }
+    },
+    "comment-c7185d0d": {
+      "id": "COMMENT-603",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-05T19:15:52.152713+00:00",
+      "created_at": "2026-11-05T19:15:52.152713+00:00",
+      "completed_at": null,
+      "title": "Claude response for overlap_resolution report",
+      "fields": {
+        "subject_uid": "report-4cfbbd04",
+        "kind": "note"
+      }
+    },
+    "report-00041bea": {
+      "id": "REPORT-1074",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-05T19:15:52.162101+00:00",
+      "created_at": "2026-11-05T19:15:52.162101+00:00",
+      "completed_at": null,
+      "title": "Report: structural_health for report-98fc5946",
+      "fields": {
+        "subject_uid": "report-98fc5946",
+        "report_kind": "structural_health"
+      }
+    },
+    "report-03a2adc2": {
+      "id": "REPORT-1075",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-05T19:15:52.172271+00:00",
+      "created_at": "2026-11-05T19:15:52.172271+00:00",
+      "completed_at": null,
+      "title": "Regression quality: fail (131 tests, 1 failed)",
+      "fields": {
+        "subject_uid": "dccfa99b",
+        "report_kind": "quality"
+      }
+    },
+    "report-0d908354": {
+      "id": "REPORT-1076",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-05T19:15:52.181735+00:00",
+      "created_at": "2026-11-05T19:15:52.181735+00:00",
+      "completed_at": null,
+      "title": "Report: fix_plan for dccfa99b",
+      "fields": {
+        "subject_uid": "dccfa99b",
+        "report_kind": "fix_plan",
+        "batches_pending": false
+      }
+    },
+    "report-4cfbbd04": {
+      "id": "REPORT-1073",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-05T19:15:52.191313+00:00",
+      "created_at": "2026-11-05T19:15:52.191313+00:00",
+      "completed_at": null,
+      "title": "Overlap resolution: cluster done \u2014 BLOCKED, anchor ticket missing",
+      "fields": {
+        "subject_uid": "report-98fc5946",
+        "report_kind": "overlap_resolution"
+      }
+    },
+    "report-559f3ab3": {
+      "id": "REPORT-1080",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-05T19:15:52.199726+00:00",
+      "created_at": "2026-11-05T19:15:52.199726+00:00",
+      "completed_at": null,
+      "title": "Regression success: none caught (regression)",
+      "fields": {
+        "subject_uid": "regression",
+        "intent_uid": "",
+        "report_kind": "regression_success",
+        "cycle": "regression"
+      }
+    }
+  },
+  "by_type": {
+    "comment": [
+      "comment-1b348242",
+      "comment-c7185d0d"
+    ],
+    "report": [
+      "report-00041bea",
+      "report-03a2adc2",
+      "report-0d908354",
+      "report-4cfbbd04",
+      "report-559f3ab3"
+    ]
+  },
+  "by_field": {
+    "subject_uid": {
+      "report-8bc8d791": [
+        "comment-1b348242"
+      ],
+      "report-4cfbbd04": [
+        "comment-c7185d0d"
+      ],
+      "report-98fc5946": [
+        "report-00041bea",
+        "report-4cfbbd04"
+      ],
+      "dccfa99b": [
+        "report-03a2adc2",
+        "report-0d908354"
+      ],
+      "regression": [
+        "report-559f3ab3"
+      ]
+    },
+    "kind": {
+      "note": [
+        "comment-1b348242",
+        "comment-c7185d0d"
+      ]
+    },
+    "report_kind": {
+      "structural_health": [
+        "report-00041bea"
+      ],
+      "quality": [
+        "report-03a2adc2"
+      ],
+      "fix_plan": [
+        "report-0d908354"
+      ],
+      "overlap_resolution": [
+        "report-4cfbbd04"
+      ],
+      "regression_success": [
+        "report-559f3ab3"
+      ]
+    },
+    "batches_pending": {
+      "false": [
+        "report-0d908354"
+      ]
+    },
+    "intent_uid": {
+      "": [
+        "report-559f3ab3"
+      ]
+    },
+    "cycle": {
+      "regression": [
+        "report-559f3ab3"
+      ]
+    }
+  },
+  "id_to_uid": {
+    "COMMENT-602": "comment-1b348242",
+    "COMMENT-603": "comment-c7185d0d",
+    "REPORT-1074": "report-00041bea",
+    "REPORT-1075": "report-03a2adc2",
+    "REPORT-1076": "report-0d908354",
+    "REPORT-1073": "report-4cfbbd04",
+    "REPORT-1080": "report-559f3ab3"
+  },
   "backlinks_index": {}
 }
