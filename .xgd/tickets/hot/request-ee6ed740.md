@@ -5,10 +5,10 @@ type: request
 title: 'The Contacts tab: add a Lead, invite a selection, and see what was sent'
 created_by: xgd
 created_at: '2026-09-06T00:02:09.757977+00:00'
-updated_at: '2026-09-06T21:45:00.805653+00:00'
+updated_at: '2026-11-05T19:26:48.257341+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 5
@@ -25,6 +25,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.120
+  bundled_in: bundle-7988e925
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-196]], [[REQ-197]], [[REQ-198]], and on the
