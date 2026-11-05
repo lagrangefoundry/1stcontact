@@ -5,9 +5,9 @@ type: bundle
 title: REQ-45 + REQ-39 + REQ-40 + REQ-46 + REQ-47 + 1 more
 created_by: xgd
 created_at: '2026-07-09T23:59:26.312625+00:00'
-updated_at: '2026-07-10T02:31:58.733554+00:00'
+updated_at: '2026-10-17T20:08:26.472602+00:00'
 completed_at: '2026-07-10T02:31:55.799972+00:00'
-last_field_updated: result
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -26,6 +26,7 @@ fields:
   skipped_commits:
   - a96677a7ecf66bf3c482678df92ac89bf13d53af
   merged_at_commit: 4367f235abfb70019544bbca6d0a7fc9a09b5a99
+  bundle_type: reconcile
 result: pass
 ---
 

@@ -5,8 +5,8 @@ type: request
 title: 'Terms of service: accepted before the builder loads'
 created_by: xgd
 created_at: '2026-09-01T00:51:21.466375+00:00'
-updated_at: '2026-11-01T13:58:45.270238+00:00'
-completed_at: '2026-11-01T13:58:39.718106+00:00'
+updated_at: '2026-11-01T14:05:13.438071+00:00'
+completed_at: '2026-11-01T14:05:13.438071+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:

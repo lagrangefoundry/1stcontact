@@ -6,8 +6,8 @@ title: 'The template ticket type: message bodies are content, with a placeholder
   that refuses'
 created_by: xgd
 created_at: '2026-09-05T23:44:41.124618+00:00'
-updated_at: '2026-11-04T22:21:08.071443+00:00'
-completed_at: '2026-11-04T22:20:53.732197+00:00'
+updated_at: '2026-11-05T19:15:28.971667+00:00'
+completed_at: '2026-11-05T19:15:28.971667+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,11 +18,13 @@ fields:
   chat_comment: comment-ee83c1ee
   commits:
   - working_sha: 242a8bf969984f641d5c900b74d3d29ef0d69b90
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   - working_sha: bb73eb6d06aa063ee2ace24377823273ca17d98b
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   version: 0.2.103
   bundled_in: bundle-5052a63c
 ---

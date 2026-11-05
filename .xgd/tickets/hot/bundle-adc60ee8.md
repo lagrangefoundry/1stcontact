@@ -5,9 +5,9 @@ type: bundle
 title: REQ-26 + REQ-27 + REQ-28 + REQ-20 + REQ-31 + 5 more
 created_by: xgd
 created_at: '2026-07-09T21:43:05.246289+00:00'
-updated_at: '2026-07-09T23:59:15.002263+00:00'
+updated_at: '2026-10-17T20:08:30.139050+00:00'
 completed_at: '2026-07-09T23:59:11.936631+00:00'
-last_field_updated: result
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -34,6 +34,7 @@ fields:
   - old_sha: 87539548a51c264f4103a5eb41530e87d2bb3902
     new_sha: 51fa3ccacfd4a68797d13faab6f1336776a9cd33
   merged_at_commit: bccfc9591626446c85fece524346e82a9064a464
+  bundle_type: reconcile
 result: pass
 ---
 

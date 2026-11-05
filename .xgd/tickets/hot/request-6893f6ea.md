@@ -6,10 +6,10 @@ title: 'The system KB in the Worker: bundle-resident index, AI binding, knowledg
   surface on the builder toolbox'
 created_by: xgd
 created_at: '2026-08-28T21:12:01.399464+00:00'
-updated_at: '2026-09-09T21:32:50.270415+00:00'
-completed_at: null
+updated_at: '2026-09-11T10:28:21.807176+00:00'
+completed_at: '2026-09-11T10:28:21.807176+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 8
@@ -105,33 +105,54 @@ Three of the premises above are now stale — [[REQ-159]] and [[REQ-163]] both l
 
 Two further pieces of item 4 exist already: `r2IndexSource` and `WorkersAiEmbedder({binding: env.AI})` are both in `apps/control-app/src/knowledge.ts`, and `projectKnowledgeFor` shows the whole opener shape end to end. This is more of a wiring ticket than it was.
 
-**3. The size argument needs restating against a new baseline — and it is now measured, not projected.** "Roughly 50KB of document vectors and well under 1MB with chunks" was measured against a 322 KiB Worker. [[REQ-163]] shipped `unpdf` and `@anthropic-ai/sdk`, and a dry-run deploy now puts the bundle at **1052 KiB gzip with **`KB = null` — that is the Worker before any KB exists at all.
+**3. The size argument needs restating against a new baseline — and it is now
+measured, not projected.** "Roughly 50KB of document vectors and well under 1MB
+with chunks" was measured against a 322 KiB Worker. [[REQ-163]] shipped `unpdf`
+and `@anthropic-ai/sdk`, and a dry-run deploy now puts the bundle at **1052 KiB
+gzip with `KB = null`** — that is the Worker before any KB exists at all.
 
-Building the corpus and measuring `apps/control-app/src/generated/kb.js` directly:
+Building the corpus and measuring `apps/control-app/src/generated/kb.js`
+directly:
 
-bytes
+| | bytes |
+|---|---|
+| Source markdown, 4 documents | 107,305 (105 KiB) |
+| `kb.js`, raw | 520,730 (509 KiB) |
+| `kb.js`, **gzip** | 294,767 (**288 KiB**) |
 
-Source markdown, 4 documents
+A dry run of the full bundle with that corpus measures **1341 KiB gzip**, which
+matches the 288 KiB module delta.
 
-107,305 (105 KiB)
+**The compressed module is 2.75× the markdown it was built from, and that is the
+load-bearing fact.** The vectors account for 228,864 bytes of float32 — exactly
+`145 chunks × 384 × 4` plus `4 docs × 384 × 4`. Base64-encoded that is 305 KB of
+near-random text, and gzip can undo base64's 4/3 expansion and nothing more, so
+it floors at ~223 KiB. The 105 KiB of markdown and 94 KiB of chunk metadata
+compress ~3× into the remaining ~65 KiB. So **~78% of the compressed payload is
+vectors, and vectors do not compress.** Bundle size tracks *chunk count*, not
+text volume; the inlined documents are nearly free.
 
-`kb.js`, raw
+Extrapolating on chunk count: all 39 `doc` tickets total 642,230 bytes, ~6× the
+present corpus, which puts ~1.7 MiB of KB on top of the 1052 KiB baseline —
+**~2.7 MiB gzip against the 10 MiB paid ceiling**, or 3.6× headroom. That is a
+pessimistic ceiling rather than a forecast: **29 of the 39 are
+`doc_kind: architecture`**, which [[DOC-39]] §3.1 excludes from the KB, so all
+39 migrating is the case that will not happen.
 
-520,730 (509 KiB)
+The decision does not change — bundle-resident is still right at this scale, and
+R2 would buy a cold-start fetch for nothing. What changes is the margin. An
+earlier revision of this section projected **1.9 MiB**; that was optimistic by
+about 40%, and the real headroom is 3.6× rather than the ~5× it implied. It is
+27% of the ceiling rather than a rounding error, and **chunks are four fifths of
+the payload**. If it ever tightens, chunks are what moves to R2 through the
+`IndexSource` seam, and `r2IndexSource` already exists to receive them.
 
-`kb.js`, **gzip**
-
-294,767 (**288 KiB**)
-
-A dry run of the full bundle with that corpus measures **1341 KiB gzip**, which matches the 288 KiB module delta.
-
-**The compressed module is 2.75× the markdown it was built from, and that is the load-bearing fact.** The vectors account for 228,864 bytes of float32 — exactly `145 chunks × 384 × 4` plus `4 docs × 384 × 4`. Base64-encoded that is 305 KB of near-random text, and gzip can undo base64's 4/3 expansion and nothing more, so it floors at 223 KiB. The 105 KiB of markdown and 94 KiB of chunk metadata compress ~3× into the remaining ~65 KiB. So **78% of the compressed payload is vectors, and vectors do not compress.** Bundle size tracks _chunk count_, not text volume; the inlined documents are nearly free.
-
-Extrapolating on chunk count: all 39 `doc` tickets total 642,230 bytes, 6× the present corpus, which puts ~1.7 MiB of KB on top of the 1052 KiB baseline — **2.7 MiB gzip against the 10 MiB paid ceiling**, or 3.6× headroom. That is a pessimistic ceiling rather than a forecast: **29 of the 39 are **`doc_kind: architecture`, which [[DOC-39]] §3.1 excludes from the KB, so all 39 migrating is the case that will not happen.
-
-The decision does not change — bundle-resident is still right at this scale, and R2 would buy a cold-start fetch for nothing. What changes is the margin. An earlier revision of this section projected **1.9 MiB**; that was optimistic by about 40%, and the real headroom is 3.6× rather than the ~5× it implied. It is 27% of the ceiling rather than a rounding error, and **chunks are four fifths of the payload**. If it ever tightens, chunks are what moves to R2 through the `IndexSource` seam, and `r2IndexSource` already exists to receive them.
-
-**And the corpus is scoped, not merely grown.** There are **39 **`doc`** tickets, 642,230 bytes** in total (the ticket says 33), but only **4 carry **`doc_kind: system_kb`, so `kb/system/` holds those 4 and `1c kb build` has now run against them — `index/`, `chunks/` and `awareness.md` all exist. Item 1 is therefore satisfied for the marked subset; the remaining 35 depend on [[DOC-39]] §10's pending marker migration, which is not this ticket's work.
+**And the corpus is scoped, not merely grown.** There are **39 `doc` tickets,
+642,230 bytes** in total (the ticket says 33), but only **4 carry
+`doc_kind: system_kb`**, so `kb/system/` holds those 4 and `1c kb build` has now
+run against them — `index/`, `chunks/` and `awareness.md` all exist. Item 1 is
+therefore satisfied for the marked subset; the remaining 35 depend on
+[[DOC-39]] §10's pending marker migration, which is not this ticket's work.
 
 ## Answers to the open questions (2026-08-31)
 

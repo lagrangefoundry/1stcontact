@@ -5,8 +5,8 @@ type: request
 title: platform_admin is two capabilities wearing one flag
 created_by: xgd
 created_at: '2026-09-04T23:51:48.220142+00:00'
-updated_at: '2026-11-01T22:57:25.283051+00:00'
-completed_at: '2026-11-01T22:57:22.047789+00:00'
+updated_at: '2026-11-01T23:05:00.663995+00:00'
+completed_at: '2026-11-01T23:05:00.663995+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,14 +19,15 @@ fields:
   - REQ-184
   commits:
   - working_sha: 2103d2e63b88301c65af56727f1bc99be3f1b1fe
-    reconcile_sha: null
+    reconcile_sha: 24d5f74fc92114b5e3fd7678f7f17b9eed9edefe
     main_sha: null
     working_sha_history: []
   - working_sha: 75b37bc1c16f10bed1a0c5827d3c346f558dc7d2
-    reconcile_sha: 7bbdef1dc1e70a7886ed942355419ddcd70b7285
+    reconcile_sha: 7ecd81981c5c8614d5dd5833783161d56ee739a5
     main_sha: null
     working_sha_history: []
   version: 0.2.70
+  bundled_in: bundle-39edf66d
 ---
 
 # `platform_admin` is two capabilities wearing one flag

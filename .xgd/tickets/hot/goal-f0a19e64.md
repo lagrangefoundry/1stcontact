@@ -5,10 +5,10 @@ type: goal
 title: Web editor
 created_by: xgd
 created_at: '2026-08-06T00:53:28.131390+00:00'
-updated_at: '2026-08-06T00:53:28.131390+00:00'
+updated_at: '2026-09-07T18:33:13.102761+00:00'
 completed_at: null
-last_field_updated: created_at
-status: in_progress
+last_field_updated: status
+status: underway
 fields:
   provenance: planned
   children:

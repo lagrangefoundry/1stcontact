@@ -5,8 +5,8 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-11-04T22:21:11.006522+00:00'
-completed_at: '2026-11-04T22:21:01.762755+00:00'
+updated_at: '2026-11-05T19:15:19.234620+00:00'
+completed_at: '2026-11-05T19:15:19.234620+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,42 +17,23 @@ fields:
   chat_comment: comment-ed878559
   commits:
   - working_sha: 5c012c3758da8ff9369cb98ac706c69df44006a8
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 8991acc153b0f792f533620e99e068b7462d5134
+    main_sha: 8991acc153b0f792f533620e99e068b7462d5134
     working_sha_history: []
   - working_sha: a007aabc451fa2fd8302efb4e9287bf6499c316a
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 33eacee9a411fad87c354b1dc26ba7be99e37a78
+    main_sha: 33eacee9a411fad87c354b1dc26ba7be99e37a78
     working_sha_history: []
   - working_sha: e862cec72c416905656a920b9ec35906719650aa
-    reconcile_sha: a546fd36b82684a52eb92d2930c012f6a46b7176
-    main_sha: null
+    reconcile_sha: 94823501e9bae1841eba3532b41b1d081ee80575
+    main_sha: 94823501e9bae1841eba3532b41b1d081ee80575
     working_sha_history: []
   - working_sha: 19c5e62c64d9b7f75f7514af7342bbcf6f465767
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 82cf48c27b6388a7f58f0bf28b8d2a591f84dad8
+    main_sha: 82cf48c27b6388a7f58f0bf28b8d2a591f84dad8
     working_sha_history: []
   version: 0.2.85
   bundled_in: bundle-5052a63c
----
-
----
-uid: request-3a87d4a1
-id: REQ-190
-type: request
-title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
-created_by: xgd
-created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-05T23:30:32.412829+00:00'
-completed_at: null
-last_field_updated: body
-status: draft
-fields:
-  priority: high
-  story_points: 5
-  auto_merge_back: true
-  needs_review: false
-  chat_comment: comment-ed878559
 ---
 
 # Data is not a key: opaque keys across the schema, in one rebaseline

@@ -5,10 +5,10 @@ type: goal
 title: Deployment
 created_by: xgd
 created_at: '2026-08-06T00:53:43.010427+00:00'
-updated_at: '2026-08-06T00:53:43.010427+00:00'
+updated_at: '2026-09-07T18:33:12.877905+00:00'
 completed_at: null
-last_field_updated: created_at
-status: in_progress
+last_field_updated: status
+status: underway
 fields:
   provenance: planned
 ---

@@ -6,7 +6,7 @@ title: 'Test suite: 27 failures + 30 collection errors — a half-finished insta
   a stale asset build, and eleven UATs superseded by later work'
 created_by: xgd
 created_at: '2026-09-01T19:01:30.821719+00:00'
-updated_at: '2026-09-19T15:15:31.624433+00:00'
+updated_at: '2026-09-19T15:15:46.300383+00:00'
 completed_at: '2026-09-14T10:29:13.489970+00:00'
 last_field_updated: status
 status: free_and_reconciled

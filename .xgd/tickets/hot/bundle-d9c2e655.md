@@ -5,9 +5,9 @@ type: bundle
 title: REQ-51 + REQ-52 + REQ-53 + REQ-54 + REQ-55 + 2 more
 created_by: xgd
 created_at: '2026-07-13T18:05:07.624372+00:00'
-updated_at: '2026-07-28T18:01:33.682804+00:00'
+updated_at: '2026-10-17T20:08:16.243070+00:00'
 completed_at: '2026-07-28T18:01:33.682804+00:00'
-last_field_updated: status
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -55,6 +55,7 @@ fields:
     main_sha: 825a95c87ee69e43f99a9a344c92ad24412d0dd4
   auto_merge_back: true
   priority: medium
+  bundle_type: reconcile
 ---
 
 # Bundle

@@ -5,9 +5,9 @@ type: bundle
 title: REQ-155 + BUG-40 + REQ-160 + BUG-41 + BUG-42 + 3 more
 created_by: xgd
 created_at: '2026-09-11T18:53:53.741845+00:00'
-updated_at: '2026-09-19T15:19:02.855469+00:00'
+updated_at: '2026-10-17T20:07:21.954954+00:00'
 completed_at: '2026-09-14T10:28:58.377424+00:00'
-last_field_updated: result
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -74,6 +74,7 @@ fields:
   merged_at_commit: 734a93bc8505fd39ec3118f814ecc3f0683cb8df
   session_assessor: 70a68df3-49be-4044-ad69-1d349df4350e
   session_assessor_started_at: '2026-09-19T15:16:34.170537+00:00'
+  bundle_type: reconcile
 result: pass
 ---
 

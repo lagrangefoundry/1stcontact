@@ -5,8 +5,8 @@ type: request
 title: A person's name is a table, and every part of it is optional
 created_by: xgd
 created_at: '2026-09-05T21:48:44.015345+00:00'
-updated_at: '2026-11-04T22:21:09.357252+00:00'
-completed_at: '2026-11-04T22:20:57.817044+00:00'
+updated_at: '2026-11-05T19:15:24.201844+00:00'
+completed_at: '2026-11-05T19:15:24.201844+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,17 +17,21 @@ fields:
   chat_comment: comment-5165b19e
   commits:
   - working_sha: 0d170e40c08aeed77d06481e76733304e1eae7e1
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   - working_sha: b38dbdabf1e2055334970bf9ed7f2a2cdc4779f3
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   - working_sha: fbb90d875cd58bf0f5b10076d329d73d3a2b6d1f
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   - working_sha: 1da94d715af74dd8533d8978fc18fade48581168
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   version: 0.2.93
   bundled_in: bundle-5052a63c
 ---

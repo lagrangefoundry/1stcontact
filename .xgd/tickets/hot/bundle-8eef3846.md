@@ -5,9 +5,9 @@ type: bundle
 title: BUG-39 + REQ-154
 created_by: xgd
 created_at: '2026-08-31T05:05:09.213055+00:00'
-updated_at: '2026-09-01T00:00:07.956062+00:00'
+updated_at: '2026-10-17T20:07:35.727510+00:00'
 completed_at: '2026-08-31T23:59:50.119536+00:00'
-last_field_updated: result
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -16,6 +16,7 @@ fields:
     main_sha: 90527353c0fa4b9fd3ae91ba6285c7d791a25c53
   auto_merge_back: true
   priority: medium
+  bundle_type: reconcile
   orphan_commits:
   - old_sha: e6eae913748d88e82431570e40b7b8d33491b40d
     new_sha: 88cec5bb25aa851af4b6ccabbb0b24780824886d

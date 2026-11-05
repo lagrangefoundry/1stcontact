@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T00:40:58.877479+00:00'
+updated_at: '2026-09-07T20:08:07.148393+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -555,5 +555,974 @@ DOC-37's obligation now has new surfaces: REQ-198 stores rendered bodies and rec
 - **You'll see "Sign In" on your own homepage.** You're keeping Access, but an Access JWT doesn't set a session cookie — so `account-chrome` on the apex won't know you're signed in even while you're logged into the builder. Cosmetic, but you'll hit it immediately and it'll look like a bug.
 
 My suggestion: the first one deserves its own ticket and a decision from you before the beta, and items 2–4 fold naturally into the auth-consumption ticket when you write it. Want me to file the post-acceptance landing question?
+
+<!-- xgd-turn id="3b05c8fe-668b-4bfd-b8ea-b7bfff8bfc97-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T20:51:36.173613+00:00" -->
+#### You
+ok everything except REQ-199 and REQ-200 is implemented. I would like to walk through a full end-to-end cycle:
+1. Create a contact 
+2. Invite the contact
+3. Contact Signs-up and sees the sight
+
+Can you help me with the build and start up please?
+
+<!-- xgd-turn id="3b05c8fe-668b-4bfd-b8ea-b7bfff8bfc97-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:55:21.337769+00:00" -->
+#### Claude
+Let me establish what's actually landed first — the repo has been moving.
+
+Repo state differs from your description in one important way. Let me confirm before we start.
+
+Now I have the real picture. Let me check the runtime prerequisites.
+
+Prerequisites are in place (wrangler, `dist-assets`, local D1 state). Seeding first, since a live miniflare holds those SQLite files open.
+
+Local D1 is on the pre-rebaseline schema. Previewing the reset before I wipe anything.
+
+Stopping before the destructive step — and I've found something that changes the plan.
+
+Startup got as far as seeding and stopped on a real problem, and separately the ticket state isn't what you described. Both matter before we go further.
+
+## Two tickets are the reverse of what you said
+
+- **REQ-200 is `free_coded`** — done, commit `9ff5975` "account-chrome L2 module, session-aware apex", with `packages/framework/src/modules/account-chrome/` and two UAT files.
+- **REQ-199 is `free_coding`** with an **empty branch** — `free-REQ-199` exists but has zero commits ahead of `xgd-working`. It was cut and nothing was written.
+
+What *has* landed on `xgd-working`: REQ-196 (`mail.ts`), REQ-197 (`templates.ts`), REQ-198 (`messages.ts`, `email-webhook.ts`), REQ-195 (`contact_events`), REQ-200, and the rebaseline — `db/migrations/0001_baseline.sql` with `users`, `user_emails`, `user_names`, `accounts`.
+
+## The walkthrough can't complete yet, and it's not only REQ-199
+
+**The auth consumption was never built.** The baseline has no `login_tokens` and no `sessions` table, and `router.ts` has no sign-in route. REQ-134 is `ready_to_reconcile` in lagrange-framework, but nothing wires it into 1stcontact. That's the ticket I flagged as deferred and we never wrote.
+
+REQ-200 built the module correctly — `account-chrome/meta.ts` takes `signIn`, `portal` and `businesses` as **config URLs**, per-cookie-domain exactly as designed. It renders the Sign In control. There is simply no endpoint behind it.
+
+Against your three steps:
+
+| Step | State |
+|---|---|
+| 1. Create a contact | No UI — `addContact` doesn't exist (REQ-199). A contact can only be created *by* inviting, or from the seed fixture. |
+| 2. Invite the contact | The DB transition works and writes `contact_events`. **No email is sent** — `invitePerson`'s docstring says so explicitly and points at REQ-197/198 as owning the message and the record. Joining invite → template → mail → record is REQ-199's job. |
+| 3. Contact signs up | **Nothing to sign up with.** No token table, no issue endpoint, no redeem page. |
+
+So the end-to-end needs REQ-199 *plus* an auth-consumption ticket that doesn't exist.
+
+## The startup blocker
+
+`./bin/seed` failed:
+
+```
+ERROR  table tenants has no column named owner_account_id: SQLITE_ERROR
+seed: wrangler refused the seed. Has the schema been applied?
+```
+
+Your local D1 predates the rebaseline — REQ-190 replaced nine migrations with one baseline and wiped rather than migrated, so the local store is on the old schema. The documented fix is `./bin/1c reset --yes`, then apply migrations, then seed.
+
+**I haven't run it.** It removes `apps/control-app/.wrangler/state` — 171 files, 9.1 MB, which is every local site, ticket, chat transcript and revision in your dev store. `storage/` (the git-tracked authored sites) is untouched, so a re-seed and `bin/publish` rebuilds most of it, but any local-only builder work goes. Say the word and I'll do it.
+
+Everything else is ready: wrangler is installed, `dist-assets` is built, and `bin/access-sim` gives us a real signed-in identity through the real Access verification path.
+
+## What I'd suggest
+
+Reset and start the builder regardless — it gets you the Contacts list, the existing invite, and the apex with `account-chrome` rendering its signed-out state, which is worth seeing.
+
+But the thing actually blocking your walkthrough is the auth-consumption work. We now know REQ-134's real surface rather than my guess at it, so that ticket can be written properly — including the two open questions from earlier: **which tenant `resolveSubject` answers in**, and **who serves the Continue page**. Want me to write it?
+
+<!-- xgd-turn id="7550b86a-ab05-4a03-8c9e-8607dd320182-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T21:49:48.980292+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c reset --yes
+Emptied the local dev store:
+  apps/control-app/.wrangler/state
+
+Next start is a fresh store; seed it with `bin/publish`.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Both 199 and 200 are now finished - what do I do next?
+
+<!-- xgd-turn id="7550b86a-ab05-4a03-8c9e-8607dd320182-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T21:51:50.679013+00:00" -->
+#### Claude
+REQ-199 and REQ-200 both landed. And I was wrong about one thing that matters: the invite **doesn't** need the magic link — `invites.ts` sets `ctaUrl` to the deployment origin, so the invitee lands at the front door and Access identifies them. Your three-step walkthrough is fully runnable now.
+
+Applying the schema to the fresh store.
+
+Seed succeeded and printed the exact startup recipe. Following it.
+
+Both servers are up. Checking who the sim offers.
+
+Everything's running. Here's your walkthrough.
+
+## Running now
+
+| | |
+|---|---|
+| Access simulator | http://127.0.0.1:8799/login |
+| Builder | http://localhost:8788 |
+
+The builder returns 401 until you log in at the sim — that's the real Access verification path running against keys the sim minted, not a bypass.
+
+`MAIL_FROM` is `no-reply@1stcontact.io` and there's **no `RESEND_API_KEY`**, so `mailerFor` selects the capturing mailer: the invite is composed, rendered and recorded but nothing leaves the machine. That's what you want for a dry run.
+
+## The three steps
+
+**1. Become the operator.** Open http://127.0.0.1:8799/login and sign in as `alice@plumbing.example`. The seed puts her in the **1st Contact** business — she's your operator. (`alice@oldsalon.example` is her second address; REQ-191 made that possible, and either works.) Then open http://localhost:8788.
+
+**2. Add a contact.** Contacts tab → `+` → address and optional name. It lands as a **Lead**, sends nothing, and writes a `contact.created` event.
+
+**3. Invite.** Tick the row → **Invite** → the modal with From (fixed), Subject, `To-List:` and Body prefilled from the `invite` template. Send.
+
+Then check the contact's detail pane — the message history from REQ-198 shows what was composed, with the rendered body. That's where the invite text lives, since no mail is sent locally.
+
+**4. Play the invitee.** Go back to the sim and log in as the address you just invited. `invites.ts` sets `ctaUrl` to the deployment origin, so this is exactly what clicking the button does: front door → `admit` → the terms interstitial → accept → in.
+
+## What I expect you to hit at step 4
+
+The **admitted-but-unentitled** wall I flagged earlier. Your new contact has a `users` row and now a `tos_accepted_at`, but no membership and no entitlement — and `admit` refuses a business with no active grant covering now. REQ-188's body names this explicitly as out of its scope.
+
+I haven't verified it on this store, so it may be that accepting the terms drops them somewhere reasonable. Walk it and see what actually happens — that's the most useful thing this run can tell you, and it's the one unknown left in the flow.
+
+If you do hit the wall, the decision is what an accepted invitee should land on: a holding page, an auto-provisioned business, or the portal. That's the gap with no ticket, and it's the last thing between you and a beta.
+
+Two notes: the seed's `bob/carol/dave` are people of **Alice's Plumbing**, not this deployment, so they'll get `no_user` — that's correct, not a bug. And an access-sim was already running on 8799, so I used it rather than starting a second; the one I launched exited with `EADDRINUSE`.
+
+<!-- xgd-turn id="b9321fa9-a827-45bb-9c92-5a29234519f6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:00:30.106597+00:00" -->
+#### You
+http://127.0.0.1:8799/login <-- no longer has the list of roles, we deleted them, I believe the was a ticket for a script to repopulate them (REQ-192)
+
+<!-- xgd-turn id="b9321fa9-a827-45bb-9c92-5a29234519f6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:02:09.020474+00:00" -->
+#### Claude
+Builder is down (the background shell was stopped). And the sim's list is a real bug — let me look before restarting.
+
+The on-disk query works and returns all five. So the code is fine — the **running sim is a stale process** started before commit `3d9529a` (REQ-192) fixed that query for the new schema. It needs restarting.
+
+Found it — PID 35981 on 8799, plus two other sims on 8801/8802 from other sessions. Restarting the stale one and bringing the builder back up.
+
+Can't kill it — it's your process, outside my sandbox. Rather than block on that, I'll stand up a fresh sim on another port and point the builder at it. The cookie is set on `127.0.0.1` and cookies ignore ports, so this works transparently.
+
+The list is back. Confirming the builder came up against it.
+
+Fixed, and it wasn't REQ-192 being missing — REQ-192 already landed and includes the fix.
+
+## What was wrong
+
+`knownPeople()` in `bin/access-sim` reads the identity list from D1. REQ-191 moved addresses off `users` into `user_emails`, so the old `SELECT email FROM users` began failing outright. The function catches errors deliberately — the comment even names this symptom:
+
+> the symptom was not an error but a login page that had silently stopped listing anybody
+
+Commit `3d9529a` (REQ-192, "the test data is a command, not hand-typed SQL") already rewrote that query to join `user_emails`. I ran it directly and it returns all five people.
+
+**The code was fine. The running process was stale** — started before 11:54 today, so it still held the pre-REQ-191 query in memory. `knownPeople()` runs per request, but a process can't re-read its own source.
+
+I couldn't kill PID 35981 — it's yours, outside my sandbox — so rather than block, I started a fresh sim on **8800** and repointed the builder at it. Cookies ignore ports, so nothing else changes.
+
+## Running now
+
+| | |
+|---|---|
+| Access simulator | **http://127.0.0.1:8800/login** ← new port |
+| Builder | http://localhost:8788 |
+
+The login page now lists all five: `alice@plumbing.example`, `alice@oldsalon.example`, `bob@`, `carol@`, `dave@`.
+
+The new sim generates a fresh keypair at boot, so any token from the old one is now invalid — sign in again from 8800. The `kid` carries the pid precisely so the Worker treats a restart as a key rotation and picks it up immediately rather than caching the dead key for an hour.
+
+Your stale sim on 8799 is still holding that port, along with sims on 8801 and 8802 from other sessions. Worth killing 35981 when convenient so the default port is clean.
+
+The walkthrough from my last message is unchanged apart from the port — log in as `alice@plumbing.example`, then Contacts → `+` → tick → Invite.
+
+<!-- xgd-turn id="d96b796e-501d-4eea-b9b8-7dd4b3e92f65-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:27:33.509103+00:00" -->
+#### You
+I killed 35981 but I see no server running on 8800
+
+Lets walk through it please - can you first give me the commands to clean up and then the commands to start the server
+
+<!-- xgd-turn id="d96b796e-501d-4eea-b9b8-7dd4b3e92f65-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:28:13.161056+00:00" -->
+#### Claude
+Both my background servers died with the previous session — that's why 8800 is empty. Let me check what's actually running now.
+
+Everything I started died with my session — that's expected, background shells don't outlive the process. **Run these in your own terminal so the servers persist.**
+
+Current state: ports 8788, 8799 and 8800 are all free. Your D1 is migrated and seeded (5 addresses intact), so no need to redo that.
+
+## Cleanup
+
+Four stray sims left over from other agent sessions:
+
+```bash
+kill 20544 32856 41609 67717
+```
+
+That's every `access-sim` except none — all four are strays on 8801–8804. Verify with:
+
+```bash
+pgrep -fl access-sim
+```
+
+Should print nothing.
+
+## Start — terminal 1 (the Access simulator)
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+./bin/access-sim --print-env > .dev.vars.local
+./bin/access-sim
+```
+
+Leave it running. It prints its sign-in URL on boot. The `--print-env` line regenerates `.dev.vars.local` for the default port 8799 — it currently still points at 8800 from my last attempt, so don't skip it.
+
+## Start — terminal 2 (the builder)
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 --env-file .dev.vars --env-file ../../.dev.vars.local
+```
+
+Wait for `Ready on http://localhost:8788`.
+
+## Check before you walk it
+
+```bash
+curl -s http://127.0.0.1:8799/login | grep -oE '[a-z@.]+example[a-z.]*'
+```
+
+Should list all five (`alice@plumbing.example`, `alice@oldsalon.example`, `bob@`, `carol@`, `dave@`). If it's empty, the sim is stale again — restart terminal 1.
+
+`curl -o /dev/null -w '%{http_code}' http://localhost:8788/` should give **401**. That's correct: the Access gate is live and you aren't signed in yet.
+
+## Then the walkthrough
+
+1. Open **http://127.0.0.1:8799/login** → click `alice@plumbing.example`. She's the operator of the 1st Contact business.
+2. Open **http://localhost:8788** → Contacts tab.
+3. **`+`** → add a contact with any address. Lands as a **Lead**, sends nothing.
+4. Tick its row → **Invite** → the modal with From / Subject / `To-List:` / Body. Send.
+5. Open that contact's detail pane — the message history shows the composed invite with its rendered body. No `RESEND_API_KEY` is set, so the capturing mailer records it instead of sending.
+6. Back to the sim, sign in as the address you invited. That's what clicking the invite button does, since `ctaUrl` is the deployment origin.
+
+Step 6 is the one worth watching — that's where the admitted-but-unentitled question gets answered. Tell me what you see and we'll take it from there.
+
+<!-- xgd-turn id="c482efb9-dcab-43e7-82b7-5700dff43a7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:31:17.345395+00:00" -->
+#### You
+Wait there is no way to sign in as me?
+
+<!-- xgd-turn id="c482efb9-dcab-43e7-82b7-5700dff43a7d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:31:57.609262+00:00" -->
+#### Claude
+Right — and that's deliberate. `bin/seed` says so in its header:
+
+> **IT DOES NOT SEED AN OPERATOR.** `PLATFORM_ADMINS` … is how somebody gets into an empty deployment
+
+Let me get you the exact mechanism.
+
+There is — it's `PLATFORM_ADMINS`, and it's deliberately empty by default. `wrangler.toml:119` calls it **break glass**, and the builder log confirmed `PLATFORM_ADMINS ("")`.
+
+The old `0005_operator_membership.sql` used to seed you directly, but REQ-190's rebaseline deleted it — the fixture now carries only Alice and friends, and seeding a real person into a database customers are in was exactly the defect that removal took out.
+
+## How to become yourself
+
+Add one line to `apps/control-app/.dev.vars` (git-ignored, local only):
+
+```bash
+echo 'PLATFORM_ADMINS = "martin-github@westhead.me"' >> apps/control-app/.dev.vars
+```
+
+Use whichever address you want to be — that's the one the retired migration used. Then **restart the builder** (terminal 2), since it's an env change.
+
+Now sign in. The sim mints for *any* address, not just the listed ones — the list is just links:
+
+```
+http://127.0.0.1:8799/login?email=martin-github@westhead.me
+```
+
+On that first admission `ensurePlatformOperator` writes the rows the migration used to: your `users` row and `user_emails` row, an **owner** membership on the 1st Contact business, an entitlement for the platform business's own capacity, and `platform_operator` on the user.
+
+Two properties worth knowing:
+
+- **It's idempotent** — the `WHERE NOT EXISTS` shape. Signing in again finds what it would have written.
+- **Emptying the var afterwards doesn't undo it.** The rows persist. That's what makes it break-glass rather than a permanent second authorisation path — so once you're in, you can blank `PLATFORM_ADMINS` again and stay in.
+
+The var is also why it isn't a hole in the model: it can't be exercised by anyone who can merely receive email, only by someone who can edit deployment config.
+
+## For the walkthrough
+
+You now have a choice, and they exercise different things:
+
+- **As yourself** — platform operator of 1st Contact, with the hosting capability. The realistic beta rehearsal.
+- **As `alice@plumbing.example`** — an ordinary owner, no `platform_operator`. Better for checking the Contacts tab behaves the same viewed from a customer's business, which is DOC-42 §3's whole claim.
+
+I'd do it as yourself first, since that's the actual beta path. Everything else in the walkthrough is unchanged.
+
+<!-- xgd-turn id="c281edcb-8f27-4874-aefc-afdb766e9a0b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:34:28.137612+00:00" -->
+#### You
+Your access to 1st Contact has ended. Please get in touch and we will sort it out.
+
+<!-- xgd-turn id="c281edcb-8f27-4874-aefc-afdb766e9a0b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:35:18.421180+00:00" -->
+#### Claude
+That's `DENIED_MESSAGE` — the single message shown for **any** refused admission, deliberately not distinguishing the reason to the visitor. So this isn't a lapse; it's `admit` refusing outright. The real reason is in the logs.
+
+Found it — and it's my mistake. I appended with `>>` without checking whether the key already existed:
+
+Fixed. You already had `PLATFORM_ADMINS = "martin@westhead.me"` on line 29 — my `>>` appended a second line below it, and dotenv takes the **last** value, so the var was silently `martin-github@westhead.me`. Signing in as `martin@westhead.me` therefore matched no admin and `admit` refused you. I've deleted my line; yours is back.
+
+## Do this
+
+Restart the builder (terminal 2) — `.dev.vars` is read at startup, so the edit won't take effect otherwise. Then:
+
+```
+http://127.0.0.1:8799/login?email=martin@westhead.me
+```
+
+## One thing to note about the message you saw
+
+`DENIED_MESSAGE` is a single constant shown for **every** refused admission — `no_user`, `user_inactive`, `no_entitlement`, all of them. That's deliberate: a visitor isn't told which. But it means the message you got is genuinely ambiguous, and I read it as a lapse at first glance, which it wasn't.
+
+It also cost us a diagnosis: `admit`'s `DenialReason` never reached the builder log, so there was nothing to grep. Working out *why* you were refused required reading `.dev.vars` rather than any log line. Worth a bug — a refusal an operator can't diagnose from a running system is a gap, and the fix is server-side only (log the reason, keep telling the visitor nothing). Say the word and I'll file it.
+
+## If it still refuses
+
+Then `ensurePlatformOperator` isn't finding a path, and the next thing to check is whether it wrote rows at all:
+
+```bash
+cd apps/control-app && npx wrangler d1 execute DB --local \
+  --command "SELECT u.id, u.platform_operator, e.email FROM users u JOIN user_emails e ON e.user_id=u.id WHERE e.email LIKE '%westhead%'"
+```
+
+Empty means it never ran — which would point at the var not reaching the Worker rather than at the seed.
+
+<!-- xgd-turn id="fdd8a6aa-a924-42df-8caf-d6f4e070e700-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:37:18.851613+00:00" -->
+#### You
+I can't get martin or martin-github to work - I have tried both
+
+<!-- xgd-turn id="f75aa159-6f8a-466d-a033-195c9be944c1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:40:32.891739+00:00" -->
+#### You
+This builder has no Anthropic API key, so nothing that needs the assistant can run — no conversation, and no describing the material you upload. Set ANTHROPIC_API_KEY on the deployment and reload.
+
+<!-- xgd-turn id="f75aa159-6f8a-466d-a033-195c9be944c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:41:03.143583+00:00" -->
+#### Claude
+You're in — that message is the chat panel, which means sign-in worked.
+
+That notice is a side effect of how we started wrangler. `1c builder` normally layers a **third** env file holding your personal key; we invoked wrangler directly with only two.
+
+It exists and holds **only** `ANTHROPIC_API_KEY`, so adding it can't clobber your Access or `PLATFORM_ADMINS` vars.
+
+Restart terminal 2 with the third file appended:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file ../../.dev.vars.local \
+  --env-file "$HOME/Documents/secrets/1c.dev.env"
+```
+
+Later files win, which is why the key goes last. This is exactly the layering `1c builder` does for you — `dev-env.ts` looks for `$HOME/Documents/secrets/1c.dev.env` by default, overridable with `ONECONTACT_SECRETS`. I dropped it when I switched to invoking wrangler directly to get the access-sim vars in.
+
+**This doesn't block your walkthrough.** The assistant is only needed for the chat panel and for describing uploaded material. Adding a contact, inviting, and the terms gate need none of it — so if you'd rather not restart again, carry on and the notice is just noise.
+
+Where you are now: signed in as `martin@westhead.me`, `ensurePlatformOperator` has written your `users` row, `user_emails` row, owner membership on 1st Contact, and the entitlement. You can blank `PLATFORM_ADMINS` whenever you like — the rows persist, which is what makes it break-glass rather than a standing second auth path.
+
+Next: **Contacts tab → `+`** → add a contact → tick it → **Invite**. Then open that contact's detail pane to see the composed message, since the capturing mailer records rather than sends.
+
+<!-- xgd-turn id="967371bb-b1dd-40b9-96ed-2a093bf9f9fd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:45:53.532864+00:00" -->
+#### You
+[mail] not sent (no provider configured): to=dennis-1c-test@westhead.me subject=Your invitation <-- console output
+
+<!-- xgd-turn id="967371bb-b1dd-40b9-96ed-2a093bf9f9fd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:46:51.171166+00:00" -->
+#### Claude
+That's the full invite path working — contact added, template rendered, message composed, capturing mailer logging instead of sending. Let me confirm REQ-198 recorded it.
+
+Recorded exactly as designed — including `address_id`, so a bounce attaches to the address rather than the person. Let me pull the rendered body to check the CTA substituted.
+
+The invite is exactly right — welcome, button CTA, **and** the paste-fallback with the full URL, no unsubstituted tokens. All three parts REQ-197 demanded.
+
+The CTA is `http://127.0.0.1:8788` — the deployment origin, as `invites.ts` intends.
+
+Now walk step 4: sign in at the sim as `dennis-1c-test@westhead.me`, then open `http://127.0.0.1:8788`.
+
+I can tell you what you'll hit, and it's worth seeing yourself. Your invited contact has an active `users` row and an address, but **no membership** — `invitePerson` deliberately writes neither a membership nor an entitlement (DOC-42 §5). So `admit` returns `no_membership`, which lands on the same single `DENIED_MESSAGE`:
+
+> Your access to 1st Contact has ended. Please get in touch and we will sort it out.
+
+That's the admitted-but-unentitled wall, and the walkthrough has now put a concrete face on it. Two separate problems, and the second is worse than the architectural one:
+
+**The message is actively false here.** It tells a person you invited thirty seconds ago that their access *ended*. Nothing ended — they never had any, and the correct sentence is closer to "you're nearly there" than to "get in touch". `DENIED_MESSAGE` is one constant covering all five `DenialReason` values, and `no_membership`-after-invite is the single most travelled path a beta user will take. Every invitee you send to hits it.
+
+**And nothing distinguishes it server-side either.** The reason never reaches the log — that's what made your own sign-in failure undiagnosable earlier and forced me to read `.dev.vars`. Same gap, hit twice in one session.
+
+So the honest state of your three steps:
+
+| | |
+|---|---|
+| 1. Create a contact | ✅ works |
+| 2. Invite the contact | ✅ works — rendered, recorded, `address_id` and all |
+| 3. Contact signs up and sees the site | ❌ blocked at `admit` |
+
+Steps 1 and 2 are done and correct. Step 3 needs a decision you haven't made yet: **what should an accepted invitee land on?** A holding page, an auto-provisioned business, or their portal. `provisionBusiness` exists but is a manual operator action today.
+
+I'd file two tickets: a **bug** for the denial message and the missing log line (small, self-contained, fixable now), and a **request** for the post-invite landing (needs your decision first). Want me to write them — and which landing do you want?
+
+<!-- xgd-turn id="bf7f70d3-c6b7-4322-aa4c-d6ff7980e444-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:49:27.149872+00:00" -->
+#### You
+Wait That message said no email was configured or sent - that is the stage we are at - how do I configure the email to be sent?
+
+<!-- xgd-turn id="bf7f70d3-c6b7-4322-aa4c-d6ff7980e444-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:50:03.324461+00:00" -->
+#### Claude
+Right — `[mail] not sent (no provider configured)` is the capturing adapter. `mailerFor` has no mode flag: an empty `RESEND_API_KEY` *is* what selects it.
+
+```js
+const apiKey = (env.RESEND_API_KEY ?? '').trim()
+if (apiKey === '') return capturingMailer(...).send
+return resendMailer(apiKey, deps.fetch)
+```
+
+So you configure sending by supplying the credential.
+
+## Local dev
+
+It's a bearer credential that can send as your domain, so it belongs in your secrets file — already layered in, mode `600`, outside the repo:
+
+```bash
+echo 'RESEND_API_KEY=re_xxxxxxxxxxxx' >> ~/Documents/secrets/1c.dev.env
+```
+
+Then restart terminal 2 with all three `--env-file` flags. `MAIL_FROM` is already set to `no-reply@1stcontact.io` from `wrangler.toml`, so nothing else changes.
+
+## But the key alone won't deliver to Dennis
+
+This is the part that will bite you. **Resend refuses to send from an unverified domain.** Until `1stcontact.io` is verified you can only send from their shared `onboarding@resend.dev` sender, and only to the address you signed up with. A key plus `MAIL_FROM=no-reply@1stcontact.io` on an unverified domain gets rejected at the API — you'll see a `MailSendError` rather than a delivered invite.
+
+So the real answer is **TODO-5** — that's the ticket with the full procedure. The short form:
+
+1. Sign up at resend.com
+2. Add `1stcontact.io` as a sending domain
+3. Paste the SPF/DKIM/DMARC records it returns into Cloudflare DNS
+4. Verify
+5. Create an API key scoped to **sending only**
+
+Watch the two traps I wrote into TODO-5: **merge into any existing SPF record** rather than adding a second (two `v=spf1` records is a hard fail that breaks all mail from the domain), and **start DMARC at `p=none`**.
+
+## If you want to see a real email in the next five minutes
+
+Skip verification and send one to yourself only:
+
+```bash
+echo 'RESEND_API_KEY=re_xxxxxxxxxxxx' >> ~/Documents/secrets/1c.dev.env
+echo 'MAIL_FROM = "onboarding@resend.dev"' >> apps/control-app/.dev.vars
+```
+
+Restart, then invite a contact whose address is **your Resend signup address**. That proves the whole path — template → render → Resend → inbox — without waiting on DNS.
+
+Remember to remove that `MAIL_FROM` line afterwards. And note `.dev.vars` already has a `MAIL_FROM`-shaped precedent for exactly the duplicate-key trap I hit earlier: last one wins, so check with `grep -n MAIL_FROM apps/control-app/.dev.vars` before and after rather than appending blind.
+
+For deployments the key goes through `bin/deploy.d/secrets/20-resend-api-key` as a `wrangler secret`, never a var.
+
+<!-- xgd-turn id="1001020e-157f-423f-8699-c8ccd48a629a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:50:39.856539+00:00" -->
+#### You
+The domain IS verrified
+
+<!-- xgd-turn id="1001020e-157f-423f-8699-c8ccd48a629a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:51:11.294096+00:00" -->
+#### Claude
+Then it's just the key. Let me check what a successful send looks like so you can confirm it took.
+
+Verified domain means you only need the key.
+
+```bash
+echo 'RESEND_API_KEY=re_xxxxxxxxxxxx' >> ~/Documents/secrets/1c.dev.env
+```
+
+Restart terminal 2 with all three env files:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file ../../.dev.vars.local \
+  --env-file "$HOME/Documents/secrets/1c.dev.env"
+```
+
+Then just **re-invite Dennis** — tick the row and press Invite again. There's no already-invited skip: `invitePerson` won't restamp `invited_at`, but the send happens every press, and REQ-198 records each one as a separate message. That's by design, so chasing a contact is visible.
+
+## Confirming it worked
+
+The `[mail] not sent (no provider configured)` line disappears — that string only exists in the capturing adapter.
+
+Then check the record carries a provider id:
+
+```bash
+cd apps/control-app && npx wrangler d1 execute DB --local \
+  --command "SELECT substr(fields,1,400) FROM tickets WHERE type='email' ORDER BY rowid DESC LIMIT 1"
+```
+
+You want `provider_id` populated. `resendMailer` treats accepted-with-no-id as a **failure**, deliberately — REQ-198 joins bounce webhooks on that value, so a missing id would be a hole that only surfaced the first time something bounced.
+
+## If it refuses
+
+You'll get a `MailSendError` carrying Resend's own words and the HTTP status, truncated to one useful sentence. The likely candidates on a verified domain are a bad key or a `from` that isn't on the verified domain — `MAIL_FROM` is `no-reply@1stcontact.io` from `wrangler.toml`, so check you haven't got a stale override:
+
+```bash
+grep -n MAIL_FROM apps/control-app/.dev.vars
+```
+
+Should return nothing. If you added the `onboarding@resend.dev` line from my last message, remove it — with the domain verified you don't want it, and last-one-wins means it would silently take precedence.
+
+Once the mail actually lands in Dennis's inbox, steps 1 and 2 are done for real, and the only thing left is what he sees when he clicks — which is the `no_membership` wall and the decision about where an accepted invitee should land.
+
+<!-- xgd-turn id="a9ac00cf-1e00-47a1-b374-3ef115680319-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:56:33.316285+00:00" -->
+#### You
+ok I am not seeing an email
+
+<!-- xgd-turn id="a9ac00cf-1e00-47a1-b374-3ef115680319-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:57:23.611847+00:00" -->
+#### Claude
+That log is my dead instance — yours writes to your own terminal. The database is shared though, and it records the outcome.
+
+Good news — it's already working. The two records tell the story:
+
+| | `provider_id` | |
+|---|---|---|
+| Dennis, 22:45 | `local_6ee91225…` | capturing mailer — before the key |
+| Emma, 22:55 | `82564a32-7864-48e8-bdce-4936094b89a9` | **a real Resend message id** |
+
+Let me confirm that prefix is what I think it is.
+
+Confirmed. `local_` is the capturing mailer's synthetic id; a bare UUID is Resend's.
+
+**Your configuration is working.** The 22:55 send to `emma-1c-test@westhead.me` went to Resend's API, Resend accepted it and returned message id `82564a32-7864-48e8-bdce-4936094b89a9`. `resendMailer` throws on any non-OK response and throws again if no id comes back, so an id in the record means a genuine `200` from Resend.
+
+So the problem isn't configuration — it's what happened after Resend took it.
+
+## Where to look
+
+1. **The Resend dashboard**, message `82564a32-7864-48e8-bdce-4936094b89a9`. It'll show delivered / bounced / complained and the receiving server's response. That's authoritative and nothing local can tell you.
+2. **Spam.** First-ever mail from a newly verified domain with no sending history is the classic case, and `no-reply@` doesn't help.
+3. **Does `emma-1c-test@westhead.me` actually receive?** If `westhead.me` has no catch-all and that alias doesn't exist, it'll be a hard bounce — which the dashboard will show as `bounced`.
+
+## Why the local record can't tell you
+
+The status will sit at `sent` forever on this machine. REQ-198's delivery and bounce webhook is how `sent` becomes `delivered` or `bounced`, and **Resend cannot reach `localhost:8788`** to deliver it. So locally you get "we handed it over" and nothing after.
+
+That's expected rather than broken, but it does mean the dashboard is your only feedback loop until this runs somewhere Resend can call back. If you want that loop closed locally, a tunnel (`cloudflared tunnel --url http://localhost:8788`) pointed at the webhook route would do it — worth it only if you're debugging bounces specifically.
+
+Meanwhile steps 1 and 2 of your walkthrough are genuinely complete: contact added, template rendered with a working CTA and paste-fallback, message composed, sent through Resend, and recorded against both the contact and the address. The remaining unknown is step 3, where Dennis or Emma clicking that link hits `no_membership`.
+
+<!-- xgd-turn id="65805d1f-2817-4905-a4c7-5f2b460ca801-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:57:45.784599+00:00" -->
+#### You
+It went straight to gmail spam!
+
+<!-- xgd-turn id="65805d1f-2817-4905-a4c7-5f2b460ca801-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:58:34.541238+00:00" -->
+#### Claude
+That's actually a good outcome — it delivered, authenticated, and landed. Now it's a content and reputation problem. Let me check one thing in the sender.
+
+Landing in spam is the expected first result here, and there are four contributors. One of them is an artifact of local dev, one is a real defect.
+
+## 1. Your email's only link is `http://127.0.0.1:8788`
+
+That's the button `href` *and* the pasteable URL. A message whose sole call to action points at a non-routable private address is close to a textbook phishing signature. I'd expect this to be the dominant factor.
+
+It's local-dev-only — `invites.ts` sets `ctaUrl` from the request origin, which is right for a real deployment and useless here. So this particular spam verdict doesn't predict production. **Re-test from a deployment, or a `cloudflared tunnel`, before drawing conclusions about the other three.**
+
+## 2. HTML-only with no `text/plain` part — a real gap
+
+`Message.body` is one field and `resendMailer` sends `html:` only. The docstring argues a second body is one more thing every template can get wrong, and that the pasteable-URL paragraph covers clients that mangle the button.
+
+That reasoning is about **rendering**, and it doesn't reach **spam scoring**, which is a different problem. HTML-only messages score worse at Gmail; `multipart/alternative` is a standard positive signal. REQ-197 deferred this as "the body is one thing until there is a reason" — this is the reason arriving.
+
+## 3. Zero sending reputation
+
+`1stcontact.io` verified today and has never sent mail. A brand-new domain sending invites is inherently suspect. This one fixes itself with consistent low volume over days, not with configuration.
+
+## 4. `no-reply@` with no Reply-To
+
+A mild negative, and it's the inbound-mail decision TODO-5 flagged as "a decision, not a step". A sender you can't reply to reads as bulk.
+
+## Do this first
+
+In Gmail, open the message → **⋮ → Show original**. That gives you `spf=`, `dkim=`, `dmarc=` results.
+
+- **All three pass** → your TODO-5 DNS is correct and this is purely content plus reputation, i.e. items 1–4.
+- **Any fail** → the DNS needs fixing and that's the whole story. Check the two traps from TODO-5: a second `v=spf1` record, and DKIM alignment against the `From` domain.
+
+Don't just click "Not spam" and move on — that trains your own filter and tells you nothing about what a beta user will see.
+
+## Worth filing
+
+The text-part gap is a genuine finding with evidence behind it, and it's small: add an optional `text` to `Message`, send `multipart/alternative`, and derive the text from the template body. Want me to write it up as a bug against REQ-196/197? I'd hold it until you've seen the "Show original" output, since that may reprioritise it below whatever the headers say.
+
+<!-- xgd-turn id="54a1128f-fba5-4837-a2ab-726fa3b8f730-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:59:52.607065+00:00" -->
+#### You
+I don't want to go too deep in this - it said DMARC failed
+
+<!-- xgd-turn id="54a1128f-fba5-4837-a2ab-726fa3b8f730-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:02:18.527787+00:00" -->
+#### Claude
+DMARC fail explains the spam verdict entirely — ignore everything I said about content and reputation, that's all secondary. Let me check your DNS directly.
+
+Definitive answer: **`1stcontact.io` has no TXT records at all** — no SPF, and no DMARC record at `_dmarc.1stcontact.io`. Let me check whether the DKIM key is published.
+
+One missing DNS record. Here's the complete picture:
+
+| Record | Status |
+|---|---|
+| `resend._domainkey.1stcontact.io` | ✅ DKIM key published |
+| `send.1stcontact.io` | ✅ SPF `v=spf1 include:amazonses.com ~all` |
+| `1stcontact.io` | no TXT at all (no SPF) |
+| `_dmarc.1stcontact.io` | ❌ **no DMARC record** |
+
+You added Resend's two records — DKIM on the apex, SPF on the `send.` return-path subdomain — which is why Resend reports the domain verified. **Resend treats DMARC as recommended, not required, so verification passes without it.** That's the trap; TODO-5 lists it as step 2 precisely because it's the one Resend won't nag you about.
+
+## The fix — one TXT record in Cloudflare DNS
+
+```
+Name:  _dmarc
+Type:  TXT
+Value: v=DMARC1; p=none; rua=mailto:dmarc@1stcontact.io
+```
+
+Keep `p=none` as TODO-5 says. Point `rua` at a mailbox you actually read, or drop it — but a policy with no reporting address tells you nothing when this goes wrong later.
+
+That should be enough on its own: your DKIM key is on the apex, so it signs `d=1stcontact.io`, which aligns with `From: no-reply@1stcontact.io`. DMARC passes on DKIM alignment alone. SPF won't align (Resend's return path is `send.1stcontact.io`) and doesn't need to — DMARC passes if *either* aligns.
+
+Optionally add an apex SPF too, harmless and one less oddity:
+
+```
+Name: @   Type: TXT   Value: v=spf1 include:amazonses.com ~all
+```
+
+## Then
+
+Wait a few minutes, re-invite, and check **Show original** again — you want `dkim=pass` and `dmarc=pass`.
+
+If it still lands in spam after that, it's the remaining items and I'd bet on the `http://127.0.0.1:8788` link, which disappears the moment you send from a real deployment. Not worth chasing until then.
+
+<!-- xgd-turn id="b2d4b04c-60a2-4c63-abff-c027ad1e8d56-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:09:02.107619+00:00" -->
+#### You
+why amazonses.com?
+
+<!-- xgd-turn id="b2d4b04c-60a2-4c63-abff-c027ad1e8d56-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:09:26.869630+00:00" -->
+#### Claude
+Because **Resend is built on Amazon SES.** It's a developer-experience layer — API, dashboard, webhooks, React Email — on top of SES as the actual mail transfer agent. Your messages are physically sent by SES infrastructure, so SPF has to authorise SES's sending IPs. The DNS record you were given is correct, not a misconfiguration.
+
+That also explains the shape of the rest of the setup:
+
+- **Why SPF is on `send.1stcontact.io` and not the apex.** SES sets the envelope sender (Return-Path) to a bounce domain it controls, so bounce handling works. SPF authenticates *that* domain, not the `From:` header. Hence the subdomain.
+- **Why SPF can't align for DMARC.** Alignment compares the SPF-authenticated domain (`send.1stcontact.io`) against the `From:` domain (`1stcontact.io`). They differ, so SPF alignment fails by construction. That's fine — DMARC passes if *either* SPF or DKIM aligns, and your DKIM key is on the apex signing `d=1stcontact.io`, which aligns. This is exactly why the missing `_dmarc` record is the whole problem: DKIM is doing the work and there's no policy record for Gmail to evaluate it against.
+- **`~all` rather than `-all`** is SES's standard softfail — deliberately lenient, since a hard fail on a shared platform breaks forwarding.
+
+Two practical consequences:
+
+**Your deliverability is SES's, on shared IP pools.** New Resend accounts sit on shared IPs whose reputation you don't control. Mostly fine for transactional mail at your volume, and it's another reason the first few sends are treated cautiously.
+
+**If you ever switch to Postmark, these DNS records change.** REQ-196's `sendEmail` port makes the code side a one-adapter swap, but the domain setup is provider-specific and would need redoing — worth knowing before you build reputation on one and then move.
+
+Nothing to act on here. The record is right; you're still just missing `_dmarc`.
+
+<!-- xgd-turn id="8596a886-6858-48bd-a060-0d1ee23f6160-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:15:15.909176+00:00" -->
+#### You
+ok lets talk about the email then - the link just takes the user to 
+
+http://127.0.0.1:8788/ Which says Cloudflare Access rejected this request: no Access token was presented.
+
+<!-- xgd-turn id="8596a886-6858-48bd-a060-0d1ee23f6160-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:15:58.002094+00:00" -->
+#### Claude
+That's the design gap we identified at the very start, now concrete — and it corrects something I said earlier. I told you the invite didn't need the magic link because `ctaUrl` is the origin and "Access identifies them". That's the intent in `invites.ts`, but it only holds where Access is actually attached and willing to challenge a stranger. Locally there's nothing to challenge them, so the link is a hard rejection.
+
+## What the link does in each environment
+
+**Locally:** access-sim is a picker, not a challenge flow. A stranger arriving at `127.0.0.1:8788` has no token and no way to get one, so `access.ts` refuses — fail closed, exactly as designed. Untestable by construction.
+
+**In production:** Cloudflare Access *would* challenge them and it would work — at the cost of the thing we flagged in the first conversation. They'd get **a second, Cloudflare-branded email** with a 6-digit code before ever seeing your welcome page. Two emails per invite, and the first thing a beta user meets isn't yours.
+
+So `invites.ts` isn't broken. It implements the option we called (a) — keep Access, accept the double email — and you're seeing its cost.
+
+## The fix is the ticket that was never written
+
+This is precisely what **REQ-134** was built for and it's the one piece never wired into 1stcontact. There's still no `login_tokens` table, no `sessions` table, and no issue or redeem route here.
+
+With it, the invite carries a token instead of a bare origin:
+
+`https://…/invite/<token>` → Continue page → POST redeems → session → terms interstitial → in.
+
+One email, yours, testable locally, and no Cloudflare branding. It also collapses into the same mechanism as the public-site Sign In, since an invite link is just a sign-in link for someone whose `tos_version` is unset.
+
+## But that still isn't the whole invitee path
+
+Past authentication, your contact hits `no_membership` and gets `DENIED_MESSAGE` — "your access has ended", to someone invited five minutes ago. So the invitee needs **two** things that don't exist:
+
+1. **A way to authenticate** — the auth-consumption ticket (REQ-134 wiring)
+2. **Somewhere to land** — the decision you haven't made: holding page, auto-provisioned business, or portal
+
+## What I'd file
+
+Three tickets, and I can write the first two now:
+
+- **Auth consumption** — wire REQ-134's two ports, `login_tokens`/`sessions` in a migration, issue + Continue + redeem routes, `access.ts` accepting a session *or* an Access JWT. Includes the two open questions: which tenant `resolveSubject` answers in, and who serves the Continue page.
+- **Invite carries a token** — `invites.ts` stops using the bare origin; `ctaUrl` becomes a redeemable invite URL. Small, but it depends on the above.
+- **Post-invite landing** — needs your decision before it can be written.
+
+Want me to write the first two? And which landing do you want for an accepted invitee — I'd suggest a holding page for the beta, since auto-provisioning a business per invitee is a much bigger commitment and you can always provision manually from the Contacts tab while the numbers are small.
+
+<!-- xgd-turn id="cf96cc9f-a1c6-48b8-8483-023ffd2dee43-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:17:04.850550+00:00" -->
+#### You
+**In production:** Cloudflare Access *would* challenge them and it would work — at the cost of the thing we flagged in the first conversation. They'd get **a second, Cloudflare-branded email** with a 6-digit code before ever seeing your welcome page. Two emails per invite, and the first thing a beta user meets isn't yours.
+
+So `invites.ts` isn't broken. It implements the option we called (a) — keep Access, accept the double email — and you're seeing its cost. WHAT! I thought we agreed that we were going to go to the trouble of developing this ourselves and not use the Cloudflare access controls. That was the decision that we made and we had three tickets based on that what's going on
+
+<!-- xgd-turn id="cf96cc9f-a1c6-48b8-8483-023ffd2dee43-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:19:04.206519+00:00" -->
+#### Claude
+You're right, and my last message mischaracterised it. Nobody chose option (a). Let me say what actually happened.
+
+The decision stands and REQ-134 **is built** — it's `ready_to_reconcile` in lagrange-framework. What's missing is the piece I chose not to write. When I handed you the six tickets I said:
+
+> **The auth-consumption ticket** — wiring 1stcontact's two ports to REQ-134 and standing the sign-in routes up. I've deliberately not written it: it should be written against the component's actual surface once you've built it, not against my guess at it.
+
+That was defensible then and I never came back to it. You asked "what do I do next?" and I answered with startup commands instead of "write the consumption ticket." So REQ-199 got implemented against a dependency that didn't exist — and with nothing to mint a token from, `ctaUrl` could only be the bare origin. That's a gap left by a missing ticket, not an implemented option. Calling it "option (a)" was wrong.
+
+REQ-134's surface is now known, which is the condition I was waiting for. Let me write it against the real thing.
+
+The component came out exactly as specified — 30 min / 30 days / 90 days, `SameSite=Lax`, and it grew a third port (`buildUrl`) I hadn't anticipated. Writing the ticket against the real surface.
+
+**REQ-202** — *Consume auth-passwordless: sessions, sign-in routes, and the invite link carries a token*.
+
+Written against the component's real surface rather than my earlier guess. Two things differ from what I'd sketched:
+
+- It takes **three** ports, not two — `buildUrl({token, purpose})` was added, which is what makes the invite URL constructible.
+- The defaults already match everything we settled: sign-in 30 min, invite 30 days, session 90 days, `HttpOnly; Secure; SameSite=Lax`. Nothing needs overriding.
+
+The ticket settles the two questions I'd left open:
+
+**Which tenant `resolveSubject` answers in** — the tenant of the host the request arrived on, one instance per resolved tenant. `idx_users_tenant_email` is tenant-scoped on purpose, so a `resolveSubject` that searched across tenants would be a cross-tenant identity leak in the shape of a helper. There's a falsifier on it: any query without a `tenant_id`.
+
+**Who serves the Continue page** — the control-app, since redemption sets the session and that's where identity lives.
+
+It also folds in the `invites.ts` change rather than splitting it, because splitting ships a half that changes nothing observable — the invite stays broken until both halves land.
+
+Access stays as your own route in, as you decided. It becomes a second supported producer of the same verified identity, not a legacy mode — `admit` already consumes only that, so it's additive.
+
+## What's still not covered
+
+Past authentication your invitee meets `no_membership` and gets "your access has ended". REQ-202 explicitly does not fix that, because it needs a decision rather than code: **where should an accepted invitee land?**
+
+- a holding page
+- an auto-provisioned business
+- their portal
+
+For a beta I'd take the holding page — auto-provisioning a business per invitee is a much larger commitment, and you can provision manually from the Contacts tab while the numbers are small. Tell me which and I'll write it.
+
+Separately, still unfiled from earlier: the `DENIED_MESSAGE` bug (one constant for all five `DenialReason` values, telling a fresh invitee their access "ended", with the reason never reaching the log). Small and self-contained. Want that one too?
+
+<!-- xgd-turn id="78300143-842e-4aa0-a786-61cb985d0086-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:25:12.462651+00:00" -->
+#### You
+auto-provisioning a business per invitee is a much larger commitment <-- sorry maybe you missed that it is part of the requirement. I'm not sure how else you think it could work. When an invitee signs up they will land on an onboarding flow. since we don't have an onboarding flow right now I would like them to go straight to the Site tab of the app
+
+<!-- xgd-turn id="78300143-842e-4aa0-a786-61cb985d0086-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:27:00.820628+00:00" -->
+#### Claude
+You're right — I had that backwards. It's a site builder; an invited beta user needs their own business and site or there's nothing for them to sign into. Let me read what provisioning already does.
+
+`addContact` already mints a fresh `accounts` row per contact, so every invitee has their own account and `provisionBusiness` is directly usable. Let me check how the Site tab is addressed.
+
+`SITE_TAB` is already first in `TABS`, so once they own a business the builder opens there naturally. Writing the ticket.
+
+**REQ-203** — *An accepted invitee gets a business, a starter site, and lands on the Site tab*.
+
+Two things I found while writing it that are worth knowing:
+
+**Nothing new is needed.** `provisionBusiness` already writes the whole thing — tenant row, `owner` membership for every person on the owning account, entitlement, and a starter site via `createStarterSite`. And `addContact` already mints an `accounts` row alongside every contact, *including* a Lead nobody will ever bill, specifically so no row names none. So the invitee already has an account and this just passes `users.account_id` through. There's a falsifier against any `INSERT INTO accounts` on this path — minting a second would give one person two accounts and put the payer somewhere no reader looks.
+
+**The idempotency case is real, not theoretical.** The hook is terms acceptance, and `needsAcceptance` compares `tos_version` against `TERMS_VERSION`. So **the day you edit the terms, every existing member re-accepts** — and a naive implementation would provision each of them a second business with a second starter site, on a document revision. The guard is `tenants.owner_account_id`, and it's an acceptance criterion rather than a note.
+
+I put the hook on acceptance rather than redemption because `guardTerms` blocks everything until then, so provisioning earlier would build a business, a site and a grant for someone who closes the tab without agreeing. It's also the fact that makes them a Member under REQ-188.
+
+The grant is open-ended — a dated one would expire someone out of their own business mid-beta, which is the reasoning `0005` used for your own grant.
+
+## Where that leaves the flow
+
+| | |
+|---|---|
+| Add a contact | ✅ REQ-199, working |
+| Invite, render, send, record | ✅ REQ-196/197/198/199, working — real mail through Resend |
+| Invitee authenticates | REQ-202 |
+| Invitee lands somewhere useful | REQ-203 |
+| Sign In from the public site | REQ-200 built; needs REQ-202's endpoint |
+
+REQ-202 and REQ-203 are the two that close it, in that order.
+
+Two loose ends from earlier, both still unfiled:
+
+- The **`DENIED_MESSAGE` bug** — one constant for all five `DenialReason` values, and the reason never reaches the log. REQ-203 removes the invitee from that path but doesn't fix the message or the missing log line, and that gap already cost us a diagnosis when your own sign-in failed.
+- The **`_dmarc` record**, which is still missing and is why your invite went to spam.
+
+Want the bug written up?
+
+<!-- xgd-turn id="6365cb10-db3a-4d34-b604-eb5b91fb2f19-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:37:35.758289+00:00" -->
+#### You
+yes
+
+Can you also confirm that the contact is going to recieve an email with a unique link that will allow them to login as them?
+
+<!-- xgd-turn id="6365cb10-db3a-4d34-b604-eb5b91fb2f19-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:38:57.881004+00:00" -->
+#### Claude
+256 bits from the platform CSPRNG, base64url, keyed to the subject, single-use. Let me check the logging convention before writing the bug.
+
+**BUG-62** — *Every denial says access "has ended" and none of them says why*. It carries your own sign-in failure as the evidence for the second half: nothing in the running system said why, and the answer was found by reading `.dev.vars`.
+
+## On your question — no, not today
+
+I can confirm this concretely, because I read the message you actually sent. Its only link is:
+
+```
+http://127.0.0.1:8788
+```
+
+That's the bare origin. It is **identical for every recipient**, carries no identity, and authenticates nobody. Emma's email and Dennis's email contain the same URL. In production it would be `https://app.1stcontact.io` — still the same for everyone, which is why Cloudflare Access has to challenge them with its own OTP.
+
+## After REQ-202, yes
+
+`buildUrl({token, purpose: 'invite'})` produces a per-contact URL carrying a token that is:
+
+- **256 bits from the platform CSPRNG**, base64url — `ID_BYTES = 32`
+- **keyed to that subject** — `login_tokens.subject_id`, minted per issue
+- **single-use** — `used_at`, set by a conditional `UPDATE` checking rows-affected
+- **30-day expiry** for invites, 30 minutes for sign-ins
+
+Clicking it → Continue page → POST redeems → session cookie → signed in as them, with no Access challenge.
+
+Three properties worth being explicit about, because they're consequences rather than choices:
+
+**It is a bearer credential.** Anyone holding that URL signs in as that contact. Forwarding the invite email forwards the account. That's inherent to magic links everywhere; the mitigations are single-use and expiry, and both are present.
+
+**It is deliberately not bound to a device or browser.** That's what makes "request on laptop, open mail on phone" work — the failure mode of "hardening" it is the one that gives magic links a bad name.
+
+**Single-use is why redemption is a POST behind a Continue button.** A mail scanner fetching the URL would otherwise burn the token before the recipient ever clicked.
+
+## Current state
+
+REQ-202 and REQ-203 are the two remaining tickets. Until REQ-202 lands, an invite is a real, delivered, well-formed email whose link does not log anyone in — which is exactly what you saw when Emma's link hit `no Access token was presented`.
+
+Still outstanding and not a ticket: the missing `_dmarc.1stcontact.io` TXT record, which is why the mail went to spam.
+
+<!-- xgd-turn id="9cd4d9f0-323d-45bc-b6f3-2cbcdc3b0dbc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T20:06:13.379781+00:00" -->
+#### You
+So those two tickets have landed - can I run the complete cycle now?
+
+<!-- xgd-turn id="9cd4d9f0-323d-45bc-b6f3-2cbcdc3b0dbc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T20:08:04.270677+00:00" -->
+#### Claude
+Let me verify rather than assume — last time the repo state differed from the description.
+
+All three landed. Note `login_tokens` went into `0001_baseline.sql` rather than a new migration — which matters for your local store. Let me check what's actually applied.
+
+Sessions are already configured in `wrangler.toml` (`SESSION_COOKIE_NAME = "session"`). The only gap is your local database.
+
+The auth DDL is at lines 800–829 of the baseline, all `IF NOT EXISTS` — and wrangler already recorded `0001_baseline.sql` as applied, so it won't re-run. I can add just those tables without wiping your store.
+
+Yes — with one thing I had to fix first.
+
+## What I found and did
+
+All three landed (`ready_to_reconcile`), and the wiring is real: `sessions.ts` wraps `PasswordlessAuth`, `index.ts` uses `sessionIdentityFor` so a session is a second identity producer, and `router.ts:1656` now builds the invite CTA through `inviteUrlIssuer` instead of the bare origin.
+
+**But the auth tables went into `0001_baseline.sql` rather than a new migration file.** Wrangler tracks migrations by filename and had already recorded `0001_baseline.sql` as applied, so it would never have re-run — your local store had no `login_tokens` and no `sessions`, and every sign-in would have failed against a missing table.
+
+The DDL is all `IF NOT EXISTS`, so I extracted lines 800–828 and applied them directly rather than resetting. **Your data is intact** — 10 addresses now, up from the 5 seeded, so your operator row and the contacts you added are all still there.
+
+That's worth knowing generally: **editing the baseline after it's been applied is invisible to `d1 migrations apply`.** Anyone else with an existing local store hits the same thing, and it looks like a code bug rather than a schema one.
+
+## Restart and run it
+
+The Worker needs restarting to pick up the new code. In terminal 2:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file ../../.dev.vars.local \
+  --env-file "$HOME/Documents/secrets/1c.dev.env"
+```
+
+Then the full cycle:
+
+1. Sign in at the sim as `martin@westhead.me`, open the builder
+2. Contacts → **+** → add a fresh contact (use a new address — your earlier ones already have `invited_at` set)
+3. Tick it → **Invite** → send
+4. Open the invite email — the link should now be a `/sign-in`-style URL carrying a token, **not** `http://127.0.0.1:8788`
+5. Click it in a different browser or a private window → Continue → terms → Site tab
+
+Step 4 is the quickest check that REQ-202 actually took. If the link is still the bare origin, the invite path didn't pick up `inviteUrlIssuer`.
+
+Use a private window for step 5 — otherwise your operator session is already present and you won't be testing what an invitee experiences.
+
+Two things still outstanding, neither blocking: the missing `_dmarc.1stcontact.io` record (so mail still lands in spam), and BUG-62 is written but `ready_to_reconcile` rather than merged.
 
 <!-- xgd-chat-end -->

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-29
 created_by: xgd
 created_at: '2026-10-29T23:35:13.589538+00:00'
-updated_at: '2026-10-31T18:01:55.389689+00:00'
+updated_at: '2026-11-03T21:26:16.062378+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -187,5 +187,160 @@ It also says:
 I've noted DOC-80 on EPIC-29.
 
 **Decision for you:** publishing DOC-80 (changing its `legal_status` to `published`) makes every level 1 user accept the Terms again. If no beta user has accepted the 2026-10-30 version yet, I can put this text into DOC-76 instead and delete DOC-80, so no one has to accept twice. Which do you want?
+
+<!-- xgd-turn id="e2be13e2-f36b-4758-9853-06d5cfe387f0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-03T18:04:33.394171+00:00" -->
+#### You
+Please review the transcript of EPIC-9 and its notes on your ticket. we have firmed up some decisions about content deletion and cancellation that need to be added to the ToS can you update them creating a new version please? Will that propagate to the site with bin/build and bin/deploy? Will customers who have already accepted be asked to sign the new ToS?
+
+<!-- xgd-turn id="e2be13e2-f36b-4758-9853-06d5cfe387f0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-03T18:07:58.924151+00:00" -->
+#### Claude
+Reading EPIC-9's decisions and REQ-640's spec for the Terms, then I'll draft the new version and check how publishing reaches the site.
+
+Now drafting. First checking DOC-37's exact deletion timing, since EPIC-9's transcript and REQ-640 word the 30-day clock slightly differently.
+
+Drafting the new Terms version now: DOC-80's text plus the EPIC-9 deletion, retention and cancellation changes.
+
+Section numbering is unchanged, so references from the Beta Terms still hold. Creating the new draft version ticket.
+
+Now recording it on EPIC-29 (appending, existing body kept).
+
+I've written the new Terms of Service version as **DOC-84 (Terms of Service 2026-11-03)** and left it as a **draft**. It contains everything from DOC-80, including the harassment and doxing section, plus the deletion and cancellation decisions from EPIC-9. DOC-80 is now replaced. It was never published, so nobody accepted it; it stays a draft and should never be published. Section numbers are unchanged, so the Beta Terms' references to them still work.
+
+**What's new:**
+- **Section 8 (your site's own legal duties):**
+  - Payments taken through a client's site go through the client's own Stripe account.
+  - We keep our own record of each of those payments for disputes.
+  - There's a sentence clients can put in their own privacy notice to tell buyers this.
+  - Subscriptions a client sells are on the client's own terms.
+- **Section 9, point 7 (handling a client's customer data):**
+  - Deleting a contact, or closing the account, is the client's instruction to delete. The information is hidden at once and deleted 30 days later.
+  - The exception is payment records. We keep them for 7 years as the controller of our own copy, with the buyer reduced to name and billing address, and use them only for disputes and legal requirements.
+- **Section 12, new part on closing an account:**
+  - Nothing renews, and a term already paid for runs to its end.
+  - The account is hidden when it's closed, or when the paid term ends if that's later.
+  - Content is deleted 30 days after that.
+  - Payment records, both what the client paid us and their own sales, are kept for 7 years from each payment. Clients are offered an export of their sales records before closing.
+  - Deletion can be delayed while a dispute, chargeback or unpaid balance is open. The reason is recorded and reviewed at least every 180 days.
+  - Domains are kept until they're transferred out or lapse.
+- **Section 12, new part on cancelling a paid plan:**
+  - Outside a cooling-off period, cancelling stops renewal and there's no refund.
+  - Inside one, the plan ends at once and the unused part is refunded automatically. The periods are the first 14 days, 14 days after each renewal of a plan of a year or more, and 14 days after a trial converts to paid.
+  - The cooling-off periods apply to everyone, and any extra rights a user has under local law are kept.
+
+I've noted all this on EPIC-29.
+
+**Your questions:**
+
+1. **Does it reach the site with `bin/build` and `bin/deploy`?** Yes, but only once you publish it. `bin/build` reads the legal document tickets and bundles every published version; drafts are skipped. So set DOC-84's `legal_status` to `published`, then build and deploy. When you do, change its `legal_version` to the actual publication date.
+
+2. **Will people who already accepted have to accept again?** Yes. The check compares the version each person accepted with the current version of each document. Anyone who accepted the 2026-10-30 Terms will see the acceptance page, with only the Terms box to tick, next time they open the app. A builder tab that's already open will show errors until it's reloaded (a known quirk, BUG-317).
+
+**Before you publish:**
+- **Privacy Notice:** DOC-84 refers to it for what we keep, and it still says "deleted within one month". The new Privacy Notice version hasn't been drafted yet; I can draft it next. Publish the two together so people accept once, not twice.
+- **Timing:** EPIC-9 says not before the first live payment, and only after a lawyer has checked:
+  - that we can keep our own copy of a business's sales records;
+  - the cooling-off wording, and when the UK rule on cooling-off after renewals comes into force;
+  - the clause asking buyers to confirm the service starts straight away.
+
+<!-- xgd-turn id="c70a5240-c92c-4775-85cb-d36173435dca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-03T18:15:12.381379+00:00" -->
+#### You
+please make the privacy notice changes
+
+please ignore EPIC-9 on publishing dates - there is no downside to publishing early terms that apply to payments obviously are not ineffect in advance of taking payments.
+
+I would like to publish this now so its done
+
+<!-- xgd-turn id="c70a5240-c92c-4775-85cb-d36173435dca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-03T18:16:49.612437+00:00" -->
+#### Claude
+Drafting the Privacy Notice version now (REQ-640 §2).
+
+Both drafts exist. Publishing them now, then checking the build accepts them.
+
+The build will pick these up: no two published versions share a date, and DOC-84 and DOC-85 are now the newest Terms and Privacy Notice. Recording on EPIC-29.
+
+I've written the Privacy Notice changes and published both documents. They reach the live site at your next production build and deploy. I haven't deployed: a deploy ships everything else currently on `xgd-working` as well, so I've left that step to you. From the main checkout:
+
+```
+bin/build
+bin/deploy --env production
+```
+
+**What's published:**
+- **DOC-84, Terms of Service 2026-11-03:** the draft from earlier, now published. DOC-80 is replaced and stays an unpublished draft.
+- **DOC-85, Privacy Notice 2026-11-03**, which changes the 2026-10-30 version as follows:
+  - **Section 2:** a new "Payments" category. It covers billing name and address and payment records, and says card details stay with Stripe. It gives the legal grounds for keeping them: the contract, our legal duty to keep tax records, and our interest in handling disputes.
+  - **Section 4:** Stripe is added to the provider table. Payments made to a business through its site go through that business's own Stripe account, not ours.
+  - **Section 6:** "deleted within one month" is replaced with:
+    - information is hidden straight away and deleted 30 days later, or 30 days after a paid term ends;
+    - payment records are kept for 7 years, reduced to name and billing address;
+    - deletion can be delayed during a dispute, chargeback or unpaid balance, with each delay reviewed at least every 180 days;
+    - when a business closes, its domains are kept and it's offered a copy of its sales records first.
+  - **Section 9:** buyers on client sites are told we keep our own record of their payment for 7 years, and that we're responsible for that record.
+  - I've left out the permanent fingerprint that keeps a deleted email off future mailing lists, because it doesn't exist in code yet.
+
+**Checked:** I read the ticket list the way the build does. There are no duplicate published versions, and DOC-84 and DOC-85 are now the current Terms and Privacy Notice, so the build will accept them.
+
+**After the deploy:** every client sees the acceptance page once, with the Terms and Privacy Notice boxes to tick. The Beta Terms haven't changed, so that box won't appear. A builder tab that's already open will show errors until it's reloaded.
+
+I've recorded on EPIC-29 that you chose to publish now, replacing EPIC-9's timing. A lawyer's review of both documents before the paid launch is still listed as outstanding.
+
+<!-- xgd-turn id="c7afbc49-f579-448b-85d1-56fdcd7e9fec-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-03T21:24:09.800717+00:00" -->
+#### You
+Is there more work for 640 to do?
+
+<!-- xgd-turn id="c7afbc49-f579-448b-85d1-56fdcd7e9fec-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-03T21:24:41.184820+00:00" -->
+#### Claude
+Yes, one thing: **the portal's "Closing your account" page** (section 1 of REQ-640). It hasn't been started. The ticket is still a draft with no commits, and the page still has the old wording.
+
+The rest of REQ-640 is done: the Privacy Notice changes (section 2) and the Terms changes (section 3) are what we just published as DOC-85 and DOC-84.
+
+**What the portal page still needs:**
+- **Payment records:** "Your invoices and payments, with you reduced to the least the law allows" becomes specific: kept for 7 years from each payment, with you reduced to your name and billing address.
+- **A line on delays:** deletion can be paused while a dispute, chargeback or unpaid balance is open.
+- **Timing:** what you've paid for runs to the end of its term, and deletion happens 30 days after your request, or 30 days after the term ends if that's later.
+- **Tests** that check the page shows these statements.
+
+The page's current wording is vaguer than the new Privacy Notice, but not wrong, so this isn't urgent. It's code, so it belongs in REQ-640's own session, not this one.
+
+I've added a note to REQ-640 saying sections 2 and 3 are done and published, only the portal page is left, and its wording should match the new Privacy Notice's section 6. Its session can pick up the scope from that note.
+
+<!-- xgd-turn id="851bdf44-c24e-49f2-b65e-8d042dd782b9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-03T21:25:26.955942+00:00" -->
+#### You
+Can you update 640 to make its oustanding scope clear and correct?
+
+<!-- xgd-turn id="851bdf44-c24e-49f2-b65e-8d042dd782b9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-03T21:26:14.171270+00:00" -->
+#### Claude
+I've rewritten REQ-640 so that only the portal page is left to do. Its new body has:
+
+- **Outstanding scope:** the "Closing your account" panel in `apps/control-app/src/portal.ts`, which a client's customers see. Its wording must match the published Privacy Notice (DOC-85), and where the ticket and DOC-85 disagree, DOC-85 wins. Four changes:
+  1. Payment records are kept for 7 years from each payment, reduced to name and billing address. The reason given becomes both the law's record-keeping rules and disputes; today the page gives only the law.
+  2. Add the timing: information is hidden as soon as deletion is asked for and deleted 30 days later. If something already paid for is still running, the 30 days start when its term ends.
+  3. Add a line saying deletion can be paused while a dispute, chargeback or unpaid balance is open.
+  4. Keep the closing sentence, "the three above are the whole of the difference", accurate after those additions.
+- **Unchanged:** "Ask us and we will do it", the email-fingerprint item, and the existing rule that checks the page's wording.
+- **Done:** the Privacy Notice and Terms changes are recorded as published (DOC-85 and DOC-84), with your decision to publish early. The portal change has no timing gate.
+- **Out of scope:** the legal documents, building the 30-day deletion job and dispute holds, and a self-serve close-account button.
+- **Test plan:** tests that the page shows each new statement, and that "Ask us and we will do it" is still there.
+
+Two things for you:
+
+1. **The title** still says "portal, privacy notice and terms", which is no longer accurate. I left it because titles are yours. I'd suggest "Portal: Closing your account page matches the deletion lifecycle".
+2. **The page already promises something that isn't built.** It lists "a one-way fingerprint of your email address" as something kept after deletion. That fingerprint doesn't exist in code yet, which is why I left it out of the Privacy Notice. The page has said this since before REQ-640, and the ticket's earlier wording said to leave it alone, so I've kept it unchanged. It does conflict with the rule that the page never describes something that doesn't exist. Do you want REQ-640 to remove it until the fingerprint is built?
 
 <!-- xgd-chat-end -->

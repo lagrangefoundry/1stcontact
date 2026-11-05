@@ -5,8 +5,8 @@ type: request
 title: 'Capture to ticket: bundles become corpus members'
 created_by: xgd
 created_at: '2026-08-31T21:38:56.541751+00:00'
-updated_at: '2026-11-01T05:03:20.520983+00:00'
-completed_at: '2026-11-01T05:03:18.076161+00:00'
+updated_at: '2026-11-01T05:09:20.474992+00:00'
+completed_at: '2026-11-01T05:09:20.474992+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -36,6 +36,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.54
+  bundled_in: bundle-53d0f468
 ---
 
 # Capture → ticket: bundles become corpus members

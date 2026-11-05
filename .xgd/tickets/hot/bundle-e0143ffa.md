@@ -5,9 +5,9 @@ type: bundle
 title: REQ-108 + REQ-109 + REQ-110 + REQ-111 + REQ-113 + 1 more
 created_by: xgd
 created_at: '2026-08-06T04:56:55.100675+00:00'
-updated_at: '2026-08-06T19:46:25.551669+00:00'
+updated_at: '2026-10-17T20:07:59.852505+00:00'
 completed_at: '2026-08-06T19:46:25.551669+00:00'
-last_field_updated: status
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   priority: medium
   merged_at_commit: 1ee6aaf2d2026aeb7541d2b92d682c5e3f02b87d
+  bundle_type: reconcile
 ---
 
 # Bundle

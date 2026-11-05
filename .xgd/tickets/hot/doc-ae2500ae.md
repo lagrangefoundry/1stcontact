@@ -5,7 +5,7 @@ type: doc
 title: 'The test gutter: how manufactured traffic is marked, hidden, and collected'
 created_by: EPIC-15
 created_at: '2026-09-17T04:32:20.771169+00:00'
-updated_at: '2026-09-17T21:19:42.370572+00:00'
+updated_at: '2026-11-03T17:12:03.903451+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,7 +13,6 @@ fields:
   doc_kind: architecture
   epic_parent: epic-312f9446
 ---
-
 
 **Audience: whoever builds or reviews a write path, a read path, or a probe.** This
 document carries `doc_kind: architecture`, so it is excluded from the production
@@ -123,6 +122,13 @@ is the same code as R4's collector (§2.7).
 
 > **Falsified by:** a delete that leaves the event spine intact — the *"we deleted them
 > but kept the history"* mistake `0001_baseline.sql` explicitly warns about.
+
+**The one exception: records of money moving** ([[DOC-37]] §6.1, amended 2026-11-03). A
+contact who has paid the business keeps their orders, invoices, credit notes and payments
+for 7 years, with their identity reduced to name and billing address ([[DOC-37]] §6.3). A
+real delete follows [[DOC-37]] §7.1's lifecycle: hidden at once, destroyed after 30 days
+unless deferred. A **synthetic** contact is still collected whole and at once by R4, since
+no real money moved.
 
 ### Non-requirements, recorded so they are not re-proposed
 

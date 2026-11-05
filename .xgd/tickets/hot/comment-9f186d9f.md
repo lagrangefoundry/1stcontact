@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-72
 created_by: xgd
 created_at: '2026-10-25T18:04:43.171225+00:00'
-updated_at: '2026-10-25T18:44:32.466714+00:00'
+updated_at: '2026-10-30T00:23:12.020795+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -17,10 +17,11 @@ fields:
 <!-- xgd-session
 {
   "id": "f10fd6be-86a2-4b3b-89f8-227759418a2e",
-  "role": "chat",
-  "backend": "claude_code",
+  "role": "chat2",
+  "backend": "claude_code+km",
   "filter_tool_use": false,
-  "backend_ref": ""
+  "backend_ref": "aa8a494b-497a-4c4d-a60c-a8644c74290e",
+  "chat_ticket_uid": "chat-8b933ff1"
 }
 -->
 
@@ -178,5 +179,51 @@ The project already has the right tool: `1c capture page <url>` renders a page a
 3. Turn off sandboxing for this whole session. It works, but it's broader than this task needs.
 
 For the "what makes the new look friendlier" answer, I've studied the old site's real screenshots and every page of the new site's markup. I can write it up now with that caveat, or wait for new-site screenshots so it rests on a proper side-by-side at desktop and mobile. I'd wait for option 2 if you can run it.
+
+<!-- xgd-turn id="595a2b31-2666-4b4b-a02c-ced0c00c8cc8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-26T00:46:42.299850+00:00" -->
+#### You
+I ran it - what does it tell us?
+
+<!-- xgd-turn id="595a2b31-2666-4b4b-a02c-ced0c00c8cc8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-26T00:49:49.521119+00:00" -->
+#### Claude
+The new site is captured at all six widths. I only have the old site's home page, so I'll try capturing the old site's inner pages using the `--single-process` workaround from memory.Comparing screenshots side by side. The desktop and mobile home pages are done; next are the services pricing and contact form, then I'll write it up.
+
+Your captures show that "more user friendly" mostly comes down to a handful of repeatable design habits applied consistently to Sarah's existing words, not new content or bespoke artistry. I compared your new-site captures at 1440 px and 375 px against the earlier capture of the old home page. I couldn't capture the old inner pages, so those were compared from their markup.
+
+**What it means in practice:**
+
+1. **Every heading states a benefit.** Old headings were labels in shouty caps ("WHO USES OUR SERVICES", "HOW IT WORKS"). New sections have a small tag, a headline saying what the customer gets, and a short paragraph: `[ WEEKLY · BI-WEEKLY · MONTHLY ]` / "A fridge full of ready-to-heat meals. A kitchen left sparkling clean." Someone skimming only the headings still gets the pitch. This is the biggest single change.
+2. **The next step is always visible.** A yellow "Get started" sits in a sticky header on every page, and each section ends with a relevant link (See packages, Her story, Start the questionnaire). On the old home page the only hero button was a small "Learn More", and its "Get Started" button went to the FAQ.
+3. **Price is answered up front.** A dark band headed "How much does a personal chef cost?" shows three side-by-side $500 package cards. The old site gave the price twice, with conflicting serving sizes. Visitors decide whether they can afford it before writing in.
+4. **Food is shown, not described.** There's a scrolling row of 8 dishes with photos and dairy-free/gluten-free badges, a photo for every service, and Sarah plating food. The old home page had about 3 small images.
+5. **Calmer, more legible styling.** Mustard and white text on mid-grey becomes green on cream and cream on dark green, in sentence case, with one accent colour kept for buttons. It reads more premium, which suits postpartum and wellness buyers.
+6. **Reviews you can read at a glance.** A strip of short quotes ("Sarah Joy is a WIZARD." · "10/10 hire her.") moved up the page, with three full reviews below for anyone who wants them.
+7. **Fewer worries about what happens next.** The process is five numbered steps with timings: a 20-minute consult, a reply within 24–48 hours, a trial dinner before signing, menus 48–72 hours before cook day.
+8. **Designed for phones.** The old mobile site was the desktop layout squeezed into long centred grey text. The new one keeps the menu and "Get started" pinned at the top, with left-aligned text and cards.
+9. **The contact form coaches people.** Interest options are tappable buttons, and the message box prompts "How many people, any dietary restrictions, how often…". Better inquiries arrive.
+
+**The downsides:**
+- The mobile home page is about twice as long (roughly 14,400 px tall vs 6,800 px).
+- The light, thin headline font is borderline at smaller sizes.
+- The hero relies on its looping videos. Before they play, or for visitors who turn off motion, it looks darker and emptier than the old bright food photo.
+- The dish carousel hides items behind horizontal scrolling.
+
+**The lesson for us:** almost all of this can be written down as rules our starter design and the consultant apply by default:
+- a tag plus a benefit headline for every section;
+- a pinned main button, plus one relevant button at the end of each section;
+- a standard layout for each kind of content: comparison cards for price, numbered steps for process, short quotes plus full reviews for testimonials, photo cards for services;
+- forms that coach the visitor;
+- a phone-first layout;
+- answering the questions people have before they get in touch.
+
+The builder's value was knowing these conventions and applying them consistently.
+
+I've added this as §9 of DOC-69, with an old-vs-new table, the downsides, and the eight rules. I also updated §7 to point at your captures in `storage/references/joyful-culinary-creations.vercel.app/`.
+
+The `--single-process` workaround does get Chromium running here, but it can't reach live sites (`ERR_ACCESS_DENIED`). So for captures of external sites, you'll still need to run them yourself or exempt the capture command from the sandbox.
 
 <!-- xgd-chat-end -->

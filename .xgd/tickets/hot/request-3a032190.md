@@ -5,8 +5,8 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-11-04T22:21:08.718932+00:00'
-completed_at: '2026-11-04T22:20:55.922827+00:00'
+updated_at: '2026-11-05T19:15:26.490571+00:00'
+completed_at: '2026-11-05T19:15:26.490571+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,14 +17,17 @@ fields:
   chat_comment: comment-33d260ac
   commits:
   - working_sha: 3d9529a4913eeecc0d6084bb2759170c9e2744d4
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   - working_sha: a89fc80a4304a1f7afd7972025ba81fd172b7e33
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   - working_sha: 7c25b0c830f5bd55912919df264db0e583279214
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    main_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    working_sha_history: []
   version: 0.2.113
   bundled_in: bundle-5052a63c
 ---

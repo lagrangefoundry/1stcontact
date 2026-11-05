@@ -5,9 +5,9 @@ type: bundle
 title: REQ-164 + REQ-159 + REQ-165 + REQ-163 + REQ-161 + 2 more
 created_by: xgd
 created_at: '2026-09-09T21:32:49.456670+00:00'
-updated_at: '2026-09-11T10:29:52.027752+00:00'
-completed_at: '2026-09-11T10:28:16.975510+00:00'
-last_field_updated: result
+updated_at: '2026-10-17T20:07:25.526184+00:00'
+completed_at: '2026-09-11T10:28:18.581583+00:00'
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -656,6 +656,7 @@ fields:
   merged_at_commit: 66e172dd4c0dc0ac26775c9b8aacf520bb5e7505
   session_assessor: 45e0cd68-5fea-474d-a9a0-0aabfe15b232
   session_assessor_started_at: '2026-09-11T10:29:18.423025+00:00'
+  bundle_type: reconcile
 result: pass
 ---
 

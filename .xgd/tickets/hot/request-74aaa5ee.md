@@ -6,10 +6,10 @@ title: 'Comparison board: rename "The look we''re going for" to "Look summary", 
   the consultant calls it that'
 created_by: EPIC-19
 created_at: '2026-10-27T22:20:15.773081+00:00'
-updated_at: '2026-10-27T23:58:05.411351+00:00'
+updated_at: '2026-11-04T19:02:51.006473+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   parent_uid: epic-95bc3b15

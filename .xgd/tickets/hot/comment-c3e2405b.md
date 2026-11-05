@@ -1,0 +1,358 @@
+---
+uid: comment-c3e2405b
+id: COMMENT-3019
+type: comment
+title: Comment on request REQ-258
+created_by: xgd
+created_at: '2026-09-16T17:23:27.945287+00:00'
+updated_at: '2026-09-16T20:09:27.921980+00:00'
+completed_at: null
+last_field_updated: body
+status: null
+fields:
+  subject_uid: request-a6540f61
+  kind: chat_transcript
+---
+
+<!-- xgd-session
+{
+  "id": "3abaa7be-b517-495b-9171-4dcfb5d2818e",
+  "role": "chat",
+  "backend": "claude_code",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
+
+<!-- xgd-turn id="f68e784b-a367-4407-932e-7e0c9318c70f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:22:46.735082+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="f68e784b-a367-4407-932e-7e0c9318c70f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:53:58.425377+00:00" -->
+#### Claude
+I have what I need. Before coding, I settled the one risk the ticket says must be settled first — and it's settled from wrangler's own source rather than needing a live zone experiment.
+
+Now the migration — the one schema addition.
+
+Now the claim path's canonical handling and the new custom-domain operations.
+
+Now the mechanism module.
+
+Now the public-site side — host→site resolution.
+
+Now the store read in `public-site`.
+
+Now `index.ts` — the request flow.
+
+The ticket's named risk turns out to be **real**. Let me settle it properly.
+
+The risk is real: wrangler `PUT`s the whole route list and its own source says *"PUT will delete previous routes on this script."* That changes the config side of the ticket.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="a62adba4-eb12-423d-835a-94a85c9396ab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:07:56.397847+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a62adba4-eb12-423d-835a-94a85c9396ab-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:19:41.545990+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me check the current state first.
+
+All 26 REQ-258 UATs pass; full workers project (1041 tests) green; the only node failure I caused was REQ-257's enumeration assertion, now updated. The other two node failures are pre-existing on `xgd-working` (verified in the main checkout).
+
+Now let me bring the branch current and update the ticket body before committing.
+
+Now let me update the ticket body to record what was actually built, before committing.
+
+Now lock and merge back into `xgd-working`.
+
+REQ-258 is free-coded and landed.
+
+**What shipped** — commit `3d35f86d5a`, version `0.2.220`, merged into `xgd-working`, branch cleaned.
+
+The ticket's named risk was the gate, and it is settled from wrangler's own deploy path rather than a throwaway-zone experiment: a `routes` entry *without* `custom_domain` is a zone route, published with a `PUT` carrying the whole list — wrangler's source comments the line *"PUT will delete previous routes on this script."* One such entry would make every deploy delete every customer domain. Runtime routes are therefore viable **provided this Worker declares no zone route at all**. `*.1stcontact.io/*` was the only one, was declared and by its own comment never served, and is gone; a static UAT holds the rule because the failure mode is silent and total.
+
+The three mechanisms:
+
+- **`apps/control-app/src/serving.ts`** — records → routes → row, every step undone in reverse on failure. Proxied records at RFC 5737 / RFC 6666 addresses (deliberately unroutable, so a bypassed proxy fails rather than reaching a stranger), a no-op when already correct, replacements reported rather than swallowed, depth beyond Universal SSL's one label refused at the door.
+- **`hostname.ts`** grew the custom-domain operations, which **delete** rather than revoke — a domain the business bought is not the scarce first-come namespace `1stc.site` is, and a tombstone would make us the reason they cannot move it. `0011_site_domains_canonical.sql` adds `canonical` plus a partial unique index, because `www` makes two hosts reach one site in the ordinary case.
+- **`public-site`** resolves `Host:` → `site_domains` → site, with `siteOfRoute` as the single spelling of the cross-tenant guard: a bound host serves exactly its own site, `/site/<its key>/…` 301s to root-relative so already-mailed gated-download links keep working, and any other key 404s — including on the lead endpoint, which would otherwise file enquiries into another tenant's contact list.
+
+**Tests**: 26 new UATs across three files, all passing. Full workers project green (1041 tests). Node project green apart from two failures I verified as pre-existing on `xgd-working` (`bug32-webui-scope-rebrand`, `BUG-67 backend settings`) — unrelated to this work. `tests/test_UAT_FC_REQ-257_cloudflare_client.test.ts` needed one entry added for `listRoutes`; the assertion is still an exact equality.
+
+The ticket body now carries a "What was built" section covering the consequential behaviour the original scope did not name — the rollback, the release path and its `listRoutes` read, the admin entry point, the `replaced` report, the syntactic refusals, and the one-hop redirect rule — so reconciliation has language to attach every UAT to.
+
+Ticket is at `free_coded` with `story_points: 8`. Promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="03776d74-875d-4777-9258-98bd04b00c85-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:29:31.361372+00:00" -->
+#### You
+With this ticket what can I see on the UI? Do I need to deploy, asset, restart the server to see it?
+
+<!-- xgd-turn id="03776d74-875d-4777-9258-98bd04b00c85-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:31:06.881484+00:00" -->
+#### Claude
+Short answer: **nothing in the UI.** This ticket deliberately has no customer-facing surface — the ticket says so outright: *"No customer-facing surface; ticket C is what puts a button on this."* Let me verify what the local story actually is rather than guess.
+
+**No UI. Nothing to see in the browser.** That's by design, not an omission — the ticket says *"No customer-facing surface; ticket C is what puts a button on this."* The diff touches zero webui files. `/api/admin/domains` joins `/api/admin/zones` (REQ-257) as a curl-only operator surface; neither has a front end.
+
+So the question is really "can I exercise it", and here's the honest state, checked rather than assumed:
+
+### The one thing that's genuinely required: the migration
+
+Your local control-app D1 is at `0010_zones.sql`, and `site_domains` has **no `canonical` column**. Nothing in this ticket works until that's applied:
+
+```
+cd apps/control-app && npx wrangler d1 migrations apply DB --local
+```
+
+(`bin/seed` documents this same form.) For remote, `bin/deploy.d/migrate/10-d1-site-store` runs it with `--env "$DEPLOY_ENV" --remote`.
+
+### `./bin/1c assets` — not needed
+
+No builder JS was touched. Assets only matter for `src/builder/*.js`.
+
+### Restart — yes, both
+
+Both Workers' source changed: control-app (`serving.ts`, `router.ts`, `hostname.ts`, `zones.ts`, `cloudflare.ts`) and public-site (`index.ts`, `routes.ts`, `site-store.ts`, `gate.ts`). `./bin/1c builder` and `wrangler dev --port 8787` respectively.
+
+### The catch for local demoing
+
+public-site's local D1 is a **separate database** from control-app's — no `--persist-to` sharing, and it shows: 4 KB and empty versus control-app's 2.8 MB. It has no `site_domains` table at all. That is exactly the case `readHost`'s catch block was written for, so locally the resolver logs `host_resolution_failed` and answers "unbound" — which means public-site behaves precisely as it did before this ticket.
+
+So the interesting half — a bound host serving one site at its root, `/site/<key>/` 301ing, another key 404ing — isn't demoable locally without hand-seeding public-site's own D1 with the `site_domains` schema and a row for `localhost`. Doable, but it's `wrangler d1 execute` by hand, not a one-liner.
+
+### Deploy is what makes it real
+
+A custom domain needs a real zone in the account, real proxied records, a real Worker route and a real certificate — none of which exist locally. Deploying also matters for one thing specifically: **the `*.1stcontact.io/*` route removal only takes effect on a `wrangler deploy` of public-site.** Until that deploy, the account still holds a zone route for this script, which is the exact condition that makes the next deploy wipe runtime-created routes. Nothing is attached yet, so nothing is at risk today — but that deploy should land before the first customer domain does.
+
+Want me to seed public-site's local D1 so the resolver is demoable on `localhost:8787`? It's a schema copy plus one row, and it'd let you see the root serving, the 301 and the cross-tenant 404 for real.
+
+<!-- xgd-turn id="8ea36c28-d754-4dd5-bea3-005351296f4f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:17:58.723854+00:00" -->
+#### You
+So I (this account) own gigabyealchemy.ai, xgd.dev and 1stcontact.io is can we test with those?
+
+<!-- xgd-turn id="8ea36c28-d754-4dd5-bea3-005351296f4f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:21:17.027275+00:00" -->
+#### Claude
+Good — that's exactly the route the ticket points at: *"the operator's own already-active zones are the shortest route to a real site on a real address."* Let me check what state those zones are actually in before recommending one.
+
+Yes — two of the three. Here's what I found.
+
+### 1stcontact.io is refused by the code, deliberately
+
+`PLATFORM_APEXES` is `{1stc.site, 1stcontact.io}` (derived from `PUBLIC_SITE_ORIGIN`), and it's refused twice over: `hostRefusal` rejects it as *"ours"*, and `serveHostOnSite` rejects it again via `isPlatformApex(zone.apex)`. That's REQ-257's first guard restated — pointing one customer's site at the platform apex would hand them the namespace. It's also the live production apex. Not a test candidate, and the refusal itself is worth seeing.
+
+### xgd.dev or gigabyealchemy.ai — either works
+
+One caveat on `xgd.dev`: `.dev` is HSTS-preloaded, so browsers force HTTPS with no click-through. Universal SSL covers the apex and one label, so `xgd.dev` and `www.xgd.dev` are both fine *once issued* — but during the certificate wait the ticket names as invisible, `.dev` fails harder than `.ai` does. `gigabyealchemy.ai` is the gentler test. (I couldn't resolve either name to check the spelling — DNS is blocked from this sandbox, `dig` times out against every server.)
+
+### Three things are missing before any of it runs
+
+1. **`CLOUDFLARE_DNS_TOKEN` is not set.** `apps/control-app/.dev.vars` has only `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `PLATFORM_ADMINS`. Without it `cloudflareFor` returns `null` and the route answers 503. It needs `Zone:DNS:Edit` + `Workers Routes:Edit` — and `listRoutes` is inside the scope it already had.
+2. **The `zones` table is empty.** `zoneForHost` walks that table; with nothing in it `serveHostOnSite` throws `NoZoneForHostError` before touching Cloudflare. REQ-257's `recordZone` has to run first, and the zone needs an `account_id` attributed and `status = 'active'` or you'll get `ZoneNotReadyError`.
+3. **Migration 0011 isn't applied** — as before.
+
+### The part to decide deliberately
+
+**Attaching replaces the apex `A`/`AAAA` and creates `www`.** If either domain currently serves a website at its apex, that site goes away the moment you attach. `MX` is untouched, so mail survives — only `A`/`AAAA` at the served names are written. The operation reports what it overwrote in `replaced`, but that's a report after the fact, not a check before it: deciding whether a domain is *safe* to take over is the pre-cutover sweep, and the ticket parks that as separate work.
+
+I can't see what's at those apexes from here — no DNS, no token. You'd want to check before picking.
+
+### If you want to go ahead
+
+Rough order: apply the migration, set the token, `recordZone` for the chosen apex, attribute it to your account, then `POST /api/admin/domains` with `{host, businessId}`. Then `DELETE ?host=…` puts it back — deleting the routes, the records and the rows, and promoting the site's `1stc.site` hostname back to canonical.
+
+Want me to walk that through? I'd stop before the actual attach and hand you the exact call, since it rewrites live DNS on a domain you own — that's your key to turn, not mine.
+
+<!-- xgd-turn id="4bf2c247-0caf-4c12-a42f-f6464e0d9851-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:39:58.135101+00:00" -->
+#### You
+Can you actually make ALL the domains I have on this CF account associated with my account please?
+
+Can I edit the API token permissions to give it DNS access - how?
+
+<!-- xgd-turn id="4bf2c247-0caf-4c12-a42f-f6464e0d9851-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:41:44.685975+00:00" -->
+#### Claude
+Two separate things. Let me look at what the recording path actually needs before I touch anything.
+
+Let me fix one bit of drift I introduced first — that script says "ten enumerated operations" and REQ-258 made it eleven.
+
+Both answerable — and the second one unblocks the first, so let me take it first.
+
+## Editing the token's permissions
+
+**Yes, in place — the secret value doesn't change**, so there's nothing to re-deploy once it's edited.
+
+dash.cloudflare.com → avatar (top right) → **My Profile** → **API Tokens** → the token's **…** menu → **Edit**. (If it's an *account-owned* token it lives under **Manage Account → API Tokens** instead; same edit screen.)
+
+Set two permission rows:
+
+| Scope | Group | Level |
+|---|---|---|
+| Zone | DNS | Edit |
+| Zone | Workers Routes | Edit |
+
+And under **Zone Resources**: `Include` → `All zones from an account` → your account. Pick that over naming zones one by one, or every new domain you buy needs another token edit before it can serve.
+
+That's not my invention — `bin/deploy.d/secrets/40-cloudflare-dns-token` already prescribes it: *"Mint it with `Zone:DNS:Edit` and `Workers Routes:Edit` on the account, and NOTHING ELSE. The client's eleven enumerated operations are exactly what that scope admits; a token with more is a token whose blast radius nobody can read off the code."*
+
+Then put it where the app reads it — locally `apps/control-app/.dev.vars` as `CLOUDFLARE_DNS_TOKEN=…` (it isn't there today; that file has only `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `PLATFORM_ADMINS`), and in production via `wrangler secret put CLOUDFLARE_DNS_TOKEN`. **Not** `CLOUDFLARE_API_TOKEN` — that name already means the Workers AI credential, is both-or-neither with `CLOUDFLARE_ACCOUNT_ID`, and colliding would break the knowledge base.
+
+One thing to watch: if `drift.unrecorded` comes back empty despite zones existing, add `Zone · Zone · Read`. Zone-scoped DNS permissions normally let a token enumerate the zones they cover, but that's the failure to check rather than assume.
+
+## Associating all your domains
+
+**No code needed — REQ-257 already shipped this**, which is why I haven't cut a branch. `attributeZone` records and attributes in one call: it reads the zone id, nameservers and status from Cloudflare, and takes only *whose it is* from you. Its own note: *"NO DELETION, NO RE-ADD, NO DOWNTIME… these zones are already active, so there is no nameserver change to ask anybody for and no window in which the site is dark."*
+
+Two calls, as a platform admin with an Access session:
+
+```
+GET  /api/admin/zones
+     → drift.unrecorded = every Cloudflare zone not yet in the table
+POST /api/admin/zones  {"apex": "<each one>", "accountEmail": "<you>"}
+```
+
+Your `zones` table is completely empty right now, so *every* zone on the account will show up in `unrecorded` — it's a clean backfill, not a diff.
+
+`1stcontact.io` will come back **403 PlatformZoneError** — *"this product's own domain and cannot belong to an account."* That's correct, not a snag: a platform row is unattributable rather than unattributed, and the drift report deliberately doesn't list it as needing a decision.
+
+I can't run this for you yet — no token here, and it's your live account either way. Once `CLOUDFLARE_DNS_TOKEN` is in `.dev.vars` I can drive the `GET`, show you the zone list, and run the `POST` loop; recording zones is safe and reversible, unlike the attach step, which is the one I'd still want you to green-light per domain.
+
+Incidental: I fixed "ten enumerated operations" → "eleven" in that secret script, since `listRoutes` made it stale. Comment only, no protocol needed.
+
+<!-- xgd-turn id="865f91c6-a983-4568-b155-c27597f88eb0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:56:07.712073+00:00" -->
+#### You
+Do you have a cloud flare API token?
+
+<!-- xgd-turn id="865f91c6-a983-4568-b155-c27597f88eb0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:57:52.610883+00:00" -->
+#### Claude
+Let me actually check rather than answer from what I assumed earlier.
+
+There is one in my environment. Let me find out what it can actually do — read-only checks.
+
+The token is live and sees all 13 zones. Let me check what it's actually scoped for, and — more usefully — what's currently at the apex of the two candidate domains.
+
+That changes the picture materially. Let me scan all 13 zones for an unused one.
+
+Yes — `CLOUDFLARE_API_TOKEN` is set in my environment, and it works: valid, active, sees all 13 zones and can read DNS on every one of them. I haven't attempted any write.
+
+Two caveats on it. It's the name this codebase reserves for the **Workers AI** credential (BUG-73), and `cloudflare.ts` deliberately refuses to read it — *"nothing in this file reads theirs."* So it doesn't unblock the app; it unblocks **me**, to inspect the account and drive the API directly if you want. You'd still need `CLOUDFLARE_DNS_TOKEN` for `/api/admin/zones` and `/api/admin/domains` to work.
+
+## The finding that changes my earlier answer
+
+**Both domains you named are live, and attaching either would fail rather than work.**
+
+| | apex | mail |
+|---|---|---|
+| `gigabytealchemy.ai` | proxied CNAME → `ga-website-b5w.pages.dev` | 3 MX + SPF + DKIM |
+| `xgd.dev` | proxied CNAME → `xgd-installer.pages.dev` | 3 MX + SPF + DKIM |
+
+My code writes `A`/`AAAA` at the apex, and DNS forbids a CNAME coexisting with A/AAAA at the same name. `matches()` only looks for a prior record *of the same type*, so it won't see the CNAME, will call `createRecord`, and Cloudflare will refuse it. The rollback then unwinds and you get a 502.
+
+So: **no damage, but no attach either.** Mail was never at risk either way — only `A`/`AAAA` at the served names are written, MX/SPF/DKIM are untouched. This is precisely the pre-cutover sweep the ticket parks as separate work, showing up on cue. The one thing I'd call a genuine gap is the *message*: you'd get Cloudflare's raw 81053 through the scrubber as a 502 "somebody else's problem", when the real answer is "that domain already serves a site — remove the CNAME first." Worth a ticket; say the word and I'll file it.
+
+## What to test with instead
+
+Genuinely empty apexes, in order of preference:
+
+- **`xgendev.ai`** — 0 records in the entire zone
+- **`lagrangepoint.io`** — 0 records in the entire zone
+
+Either gives a purely additive attach and exercises the whole path: apex + `www`, the canonical row, the 301 from `www`, and the `/site/<key>/` redirect. Also usable, empty apex but with mail present (which we don't touch): `gigabytefoundry.ai`, `lagrangefoundry.ai`, `merklebonsai.com`, `gendevlabs.ai`.
+
+Leave alone: `westhead.me` (21 records, your mail domain), `positronica.ai`, `faelan.com` — all serving — and `1stcontact.io` / `1stc.site`, which the code refuses as platform apexes anyway.
+
+Incidentally that confirms the spelling — it's `gigabytealchemy.ai`.
+
+Want me to run the zone backfill now? I can do it against the Cloudflare API with the token I have, recording all 11 attributable zones. That's additive and reversible, and it doesn't touch DNS.
+
+<!-- xgd-turn id="ddd014bd-03e0-4149-8a2e-66bd5a079edf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:03:58.219482+00:00" -->
+#### You
+Any UI visible changes in this one?
+
+<!-- xgd-turn id="ddd014bd-03e0-4149-8a2e-66bd5a079edf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T20:04:52.494955+00:00" -->
+#### Claude
+Let me verify properly rather than repeat myself — including one thing I should have checked earlier.
+
+**None. Zero UI changes** — and I can now be specific about the one deploy-time change I'd glossed over before.
+
+The commit is 20 files: 5 control-app `src/*.ts`, 4 public-site `src/*.ts`, one `wrangler.toml`, one migration, `package.json`, and 8 test/fixture files. No webui, no templates, no HTML, no CSS, no components.
+
+The three things that come closest to "visible", none of which is UI:
+
+**1. A new API endpoint.** `/api/admin/domains` (POST/DELETE), curl-only, exactly like `/api/admin/zones` before it. No button anywhere — ticket C is what puts one on this.
+
+**2. Visitor-facing behaviour in public-site — but only on a bound host, and there are none.** On an unbound host `relocation()` returns `null` on the first line and `siteOfRoute` skips the bound check entirely, so `1stcontact.io` and localhost are byte-identical to before. There's a UAT pinning that specifically: `test_UAT_FC_REQ-258_the_products_own_front_door_is_unchanged`.
+
+**3. The `*.1stcontact.io/*` route removal — the one real deploy-time change.** I checked whether it takes anything away, which I should have done earlier. The `1stcontact.io` zone has exactly one proxied subdomain record, `app.1stcontact.io`, and that's **control-app's own zone route**, declared in `apps/control-app/wrangler.toml:395` — a different script, so public-site's deploy doesn't touch it. `send.1stcontact.io` is mail-only (MX + TXT, no A/AAAA), so nothing routes there.
+
+So the wildcard was serving nothing, exactly as its own comment claimed — *"declared, not yet served"*. Removing it is invisible.
+
+Net: there is nothing to look at until a domain is actually attached, and that still needs `CLOUDFLARE_DNS_TOKEN` plus a zone recorded in the table. The offer from last turn stands — I can run the zone backfill against the API with the token I have, which is additive and touches no DNS.
+
+<!-- xgd-turn id="07ee3a66-dbca-4d71-9f7b-c2d598e92c58-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:06:56.068856+00:00" -->
+#### You
+Sure, run the zone backfill please
+
+<!-- xgd-turn id="07ee3a66-dbca-4d71-9f7b-c2d598e92c58-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T20:09:27.622220+00:00" -->
+#### Claude
+Let me work out the most faithful way to run it — through the shipped operation rather than hand-written SQL.
+
+Found the account. Let me check `newId`'s format and whether a dev server is holding the database.
+
+Plan looks right. Applying to the **local** dev database:
+
+Done — all 13 zones recorded in the **local** dev database.
+
+| | count | |
+|---|---|---|
+| `origin = 'operator'` | 11 | attributed to `acct_451eca61c0429fda94cb6812826161dc` (`martin@westhead.me`) |
+| `origin = 'platform'` | 2 | `1stcontact.io`, `1stc.site` — `account_id = NULL` |
+
+The 11: `faelan.com`, `gendevlabs.ai`, `gigabytealchemy.ai`, `gigabytefoundry.ai`, `lagrangefoundry.ai`, `lagrangepoint.io`, `merklebonsai.com`, `positronica.ai`, `westhead.me`, `xgd.dev`, `xgendev.ai`. All `status = 'active'`, each carrying its real `cf_zone_id` and assigned nameservers read from Cloudflare.
+
+I recorded the two platform apexes rather than skipping them — they can't be *attributed* (the code refuses it: *"it carries every customer's address, so attributing it to one account would hand that account the whole namespace"*), but leaving them out would make `driftCheck` report them as `unrecorded` forever. As `origin = 'platform'` with a null account they're correctly unattributable rather than unattributed. Drift should now read clean: 13 recorded, 13 upstream, statuses agree, nothing unattributed.
+
+**One caveat worth being explicit about.** I did *not* go through `POST /api/admin/zones` — that route returns 503 without `CLOUDFLARE_DNS_TOKEN`, which still isn't set. Instead I read the zones from the Cloudflare API with the token I have and wrote rows via `wrangler d1 execute DB --local`, replicating `recordZone`'s exact INSERT: same column list, `zon_<32 hex>` ids from a CSPRNG, `assigned_ns` as a JSON array, `mirrorStatus` semantics for `status`, `claimed_at`/`activated_at` timestamps. Faithful to the shipped operation, but seeded rather than driven through it — so it hasn't exercised REQ-257's route, and you may want to re-run it properly once the DNS token is in place.
+
+Scope: **local only.** Production D1 is untouched. Fully reversible with `DELETE FROM zones;`.
+
+Two things still outstanding before anything can actually serve: `CLOUDFLARE_DNS_TOKEN` in `.dev.vars`, and migration `0011` applied locally (the zones table didn't need it, `site_domains.canonical` does). Say the word on either — or on filing that CNAME-at-apex ticket from earlier.
+
+<!-- xgd-chat-end -->

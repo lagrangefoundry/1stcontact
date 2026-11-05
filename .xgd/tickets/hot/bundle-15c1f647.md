@@ -5,9 +5,9 @@ type: bundle
 title: REQ-117 + REQ-115 + REQ-44
 created_by: xgd
 created_at: '2026-08-07T01:30:25.518467+00:00'
-updated_at: '2026-08-07T04:16:33.258360+00:00'
+updated_at: '2026-10-17T20:07:49.870924+00:00'
 completed_at: '2026-08-07T04:16:33.258360+00:00'
-last_field_updated: status
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   priority: medium
   merged_at_commit: 1741ee5d1d20eb5ff9bb81564ed3c088ff47731f
+  bundle_type: reconcile
 ---
 
 # Bundle

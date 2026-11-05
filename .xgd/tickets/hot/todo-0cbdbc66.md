@@ -6,10 +6,10 @@ title: 'claude_prompt assembly: task payload and inject_tickets missing from spa
   session'
 created_by: xgd
 created_at: '2026-08-12T16:47:08.726088+00:00'
-updated_at: '2026-08-12T16:47:08.726088+00:00'
+updated_at: '2026-10-31T01:01:32.149790+00:00'
 completed_at: null
-last_field_updated: created_at
-status: open
+last_field_updated: status
+status: wont_do
 fields:
   kind: review
   auto_merge_back: true

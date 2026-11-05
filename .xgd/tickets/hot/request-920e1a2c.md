@@ -6,8 +6,8 @@ title: 'Email sending: a sendEmail port, a Resend adapter, and a verified sendin
   domain'
 created_by: xgd
 created_at: '2026-09-05T23:44:40.147333+00:00'
-updated_at: '2026-11-04T22:21:07.231763+00:00'
-completed_at: '2026-11-04T22:20:51.965103+00:00'
+updated_at: '2026-11-05T19:15:31.426627+00:00'
+completed_at: '2026-11-05T19:15:31.426627+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,11 +18,13 @@ fields:
   chat_comment: comment-4f6b5d9b
   commits:
   - working_sha: 164e51cba73f93580ddad61fe30a7332d891092f
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   - working_sha: b3b210b025a0d63a16044f8a0027aff66e0ff17c
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    main_sha: 5545a52a33786f05e97552110fdbe652274b6e05
+    working_sha_history: []
   version: 0.2.98
   bundled_in: bundle-5052a63c
 ---

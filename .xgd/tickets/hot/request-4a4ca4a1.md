@@ -5,8 +5,8 @@ type: request
 title: The Account is a table, and a business is owned by one
 created_by: xgd
 created_at: '2026-09-05T22:45:59.255932+00:00'
-updated_at: '2026-11-04T22:21:03.748522+00:00'
-completed_at: '2026-11-04T22:21:03.748522+00:00'
+updated_at: '2026-11-05T19:15:38.211435+00:00'
+completed_at: '2026-11-05T19:15:38.211435+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -14,19 +14,22 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d079cf1f
   commits:
   - working_sha: d1b3fa897b668717020ae152ac2920087d9e3e88
-    reconcile_sha: 2c23da50b705d864468336794152878b813caad1
-    main_sha: null
+    reconcile_sha: 6f6dde2817cfff914e5c0d7685181b52602cf282
+    main_sha: 6f6dde2817cfff914e5c0d7685181b52602cf282
     working_sha_history: []
   - working_sha: 7ea4e12b724f90d5cfc114c31a105c8d811ea5e0
-    reconcile_sha: 2d48c51ce2b5244a290a33d15e1611fc5eb103c5
-    main_sha: null
+    reconcile_sha: b70f2444ff48d942d195d73f45c0c5b2e3b9e9ac
+    main_sha: b70f2444ff48d942d195d73f45c0c5b2e3b9e9ac
     working_sha_history: []
   - working_sha: e1fbf4319d33b5bc75c34e641ba367d3e2bcd8c8
-    reconcile_sha: 55c637191e0c7570e4c3b7696a4af827ffcb170b
-    main_sha: null
+    reconcile_sha: c400451ec176c52d50d80132ead616da26013583
+    main_sha: c400451ec176c52d50d80132ead616da26013583
     working_sha_history: []
+  version: 0.2.114
+  bundled_in: bundle-5052a63c
 ---
 
 # The Account is a table, and a business is owned by one
@@ -159,3 +162,7 @@ a business prefix and `acct_` is freed for the thing it names.
   grant keeps its `NULL` subject and its meaning ([[REQ-184]])
 - no permission check anywhere reads `role`
 - no id prefixed `acct_` is a business
+- `findAccount` returns an account, and the chrome is told who is signed in under
+  the noun for a person
+- the platform business names no owner; provisioning refuses an absent or empty
+  one

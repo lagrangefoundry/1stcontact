@@ -5,14 +5,16 @@ type: epic
 title: 'Billing and payments: Stripe, subscriptions, invoices'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:33.626917+00:00'
-updated_at: '2026-09-17T21:39:49.813968+00:00'
+updated_at: '2026-11-03T21:20:54.096168+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
 fields:
   priority: medium
+  chat_comment: comment-cb96f2ef
 ---
 
+> **Revised 2026-11-02 ([[CHAT-86]]).** Decisions from scoping the first shop ([[EPIC-31]], [[GOAL-55]]) are in "Decisions taken 2026-11-02" below. Where an earlier line in this epic says otherwise, that section wins. Scope item 5 and open questions 2 and 3 are amended in place.
 
 > **Rewritten 2026-09-12.** The first draft of this epic scoped billing as *"what
 > the account pays us"* and argued at length that it could not be a tab. That was
@@ -147,18 +149,22 @@ simply the whole of it.
 
 1. **Connect onboarding** — connected account creation, the KYC journey, and the
    states a business can be in before it may charge.
+   *Split 2026-11-02:* **linking an existing account** (Stripe-hosted OAuth, plus a Payments section in the Settings tab (operator confirmed) showing the business's connected state) is in [[GOAL-55]]'s minimum. **Creating an account inside our UI** is a fast follow: we create the account through Stripe's API and embed Stripe's onboarding component, so Stripe collects the identity details without the owner leaving 1st Contact. A business with no account can already create one from Stripe's hosted page at launch. Confirm at design time that embedded onboarding supports accounts with full Stripe dashboard access (Standard-like); if not, a Stripe-hosted Account Link is the fallback.
 2. **The billing tab** — business-scoped: prices, cadences, offers, review state,
    and what is currently owed to this business.
 3. **The User Portal** — [[DOC-42]] §5's surface: what I owe, pay it, invoices,
    card, details, delete button. Built once, used at both levels.
-4. **Charging** — one-off and recurring, on a connected account.
-5. **Invoices and payment records** — retained by us, not fetched live from
-   Stripe on every read.
+4. **Charging** — one-off and recurring, on a connected account. One-off charging must support **manual capture** (hold, then capture or release) and partial refunds. [[EPIC-31]] captures when the owner ships.
+5. **Invoices and payment records.** ~~Retained by us, not fetched live from
+   Stripe on every read.~~ *Amended 2026-11-02:*
+   - One-off invoices, orders and credit notes are **our** records.
+   - Subscription invoices are **Stripe's**.
+   - Every Stripe-owned record we hold (payments, refunds, subscriptions, subscription invoices) is a **cache**, not a copy. See "Decisions taken 2026-11-02".
 6. **Entitlement** — the grant the shell already checks
    (`apps/control-app/src/builder/app.js:270`) becomes something billing drives.
    Note [[DOC-42]] §6: the subject is an **account**, and per-business capacity
    and per-account access are different grants.
-7. **One-off charges for domains** at cost, from [[EPIC-6]].
+7. **Domain charges** at cost, from [[EPIC-6]]. *Corrected 2026-11-02:* these are a **subscription** (a domain renews yearly), not a one-off charge.
 
 ## Decisions taken, and why
 
@@ -176,6 +182,72 @@ with money in it.
 **Nothing is built platform-only** ([[DOC-40]] §2.1 rule 1). Every screen in this
 epic must be reachable by a customer business, or it is the bespoke admin billing
 page the document forbids. This is the acceptance test for the whole epic.
+
+## Decisions taken 2026-11-02 ([[CHAT-86]])
+
+Taken while scoping [[EPIC-31]] (the Shop) for its first customer, Lauren Owens Jewellery.
+
+**Stripe is the only payments integration.** No other third party: no cart service, and no billing engine such as Lago or Kill Bill. The open-source commerce and billing engines (Medusa, Vendure, Saleor, Lago, Kill Bill, Invoice Ninja) all need their own server and Postgres. Running one would mean a second backend outside Cloudflare. Open source is welcome at the library level: `stripe` (runs on Workers), Dinero.js for money, and `pdf-lib` for invoice PDFs.
+
+**Subscriptions are owned by Stripe Billing.** Running subscriptions ourselves was considered and rejected by the operator as "way more complex than people give it credit". Stripe Billing owns the subscription, its invoices, failed-renewal retries, re-authentication and dunning emails. Its fee is roughly 0.7% of subscription volume; check the current rate.
+
+**One-off invoices are ours, not Stripe Invoicing's.** Shop orders and deposits are invoiced by us (domain charges are a subscription; see scope item 7), and the money is taken by a plain Stripe payment. Stripe Invoicing charges 0.4% per paid one-off invoice (Starter tier), and Checkout's `invoice_creation` option triggers that fee. **Never enable `invoice_creation`.**
+
+**One Invoice concept, two sources.**
+- An invoice record has a source of either `internal` or `stripe`.
+- `internal` invoices are authoritative records. `stripe` invoices are cache entries keyed by the Stripe invoice ID.
+- The owner sees one invoice list.
+- Numbering uses two series with distinct prefixes. Our series is gap-free per business and assigned when the money is taken, so an abandoned checkout never consumes a number. As far as we know, EU VAT permits more than one sequential series; confirm with an Irish accountant.
+
+**Every payment is linked to an invoice.** *Strengthened 2026-11-02 (operator: "every payment and payment attempt should have an invoice that links the payment to an order or a subscription").*
+- **Invoice objects always exist.** Whether an invoice becomes a PDF, is emailed, or is shown to the buyer is a separate, later question. The record is not optional, and it is not deferred, whatever the business's VAT position.
+- **Every payment attempt has an invoice, from the moment the attempt is made.** The invoice exists, as a draft, before any money moves. One invoice can have many attempts, for example a declined card followed by a retry.
+- **Every invoice links to exactly one order or exactly one subscription.** The invoice is the join between a payment and what it pays for. Payments never link to orders or subscriptions directly.
+- A one-off payment carries `{business_id, invoice_id}` (plus `order_id` for shop orders) in its Stripe metadata.
+- A subscription payment is linked to its Stripe invoice (`source = stripe`), and that invoice links to the subscription.
+- **A draft invoice has no number.** The gap-free number is assigned when the money is taken. An abandoned or expired attempt voids its draft invoice, so it never consumes a number.
+- A refund issues our credit note against an internal invoice.
+- **Domain charges are a subscription** (operator, 2026-11-02), so their invoices link to a subscription like any other, and no third kind of target is needed. Two constraints carry over from [[EPIC-6]]:
+  - **The consequence of a failed renewal differs.** A lapsed subscription blocks the tabs; a lapsed domain takes the website and email off the internet. Stripe Billing's retry settings are largely account-wide, so the difference has to live in how we handle a domain subscription that is `past_due`.
+  - **The charge must lead the registrar's renewal date**, with enough margin to retry a failed card before the domain actually expires.
+
+**Cache, not copy** (operator: "I am nervous about maintaining a copy of the data").
+- Stripe is the single source of truth for every money state.
+- Our D1 rows for Stripe objects are a cache keyed by Stripe ID. A webhook refreshes or drops a row, and a cache miss reads from Stripe.
+- Any cache row can be deleted with no loss.
+- Records we own (orders, internal invoices, credit notes, inventory) are not cache, and each one points at Stripe by ID.
+
+**Connect account type: Standard,** because it is the only type that can **link an existing Stripe account**. Lauren already has one, through the WooCommerce Stripe Gateway, and must keep her history and payouts. Express always creates a new account. Confirm Stripe's current mechanism for connecting an existing account at design time. Charges are direct charges, with the business as merchant of record, as recommended above.
+
+**No platform fee during the beta.** The operator, 2026-11-02: Lauren is a friend and this is a beta. Revisit later.
+
+## Decisions taken 2026-11-02: the launch shape for [[GOAL-55]]
+
+Agreed with the [[EPIC-31]] session through [[GOAL-55]], which holds the full minimum, the ownership split and the handshake.
+
+- **Automatic capture at launch.** Manual capture (hold, capture on ship, release) is a fast follow. It is not a legal requirement in Ireland or the EU.
+- **Cards, Apple Pay and Google Pay only**, so every payment confirms during checkout.
+- **Dashboard refunds reach us by webhook**, with our credit note. The refund operation comes with the Shop's Refund button.
+- **The mode is stored on each order at creation**, and every later call and webhook for that order uses it. **One webhook endpoint per mode**, each with its own signing secret; an event whose `livemode` does not match its endpoint or its order is rejected.
+- **`account.application.deauthorized` is handled.** A Standard account holder can disconnect us from their own dashboard, and the business must then stop taking money.
+- **The live smoke test is a small real purchase plus a refund**, since authorise-and-void needs manual capture. It runs on our own test business (below), with our own card.
+
+### Testing on our own Stripe accounts (operator, 2026-11-02)
+
+*"This is not all about Lauren's stripe account, we need our own for testing."*
+
+- **Our platform account** is 1st Contact's own Stripe account with Connect enabled. Its test keys run in dev and local; production holds both test and live keys as per-environment Worker secrets. At start-up, check that the test and live keys are the right way round (`sk_test_`, `sk_live_`).
+- **A test business of ours** is a 1st Contact business with its own Standard Stripe account that we own, linked through the same Connect flow every business uses. This proves the link flow before any customer uses it, and is consistent with "the 1st Contact business holds a connected account like every other business": testing needs no predicate meaning "is this our own tenant".
+- **Its test side** carries all repeatable testing, including [[EPIC-15]]'s synthetic probes. **Its live side** carries live smoke tests with our own card, refunded; the money is ours.
+- **A customer's account** gets one test-mode run once linked, then goes live. Routine testing never touches it.
+- **Test orders are never shippable**, in any business: a test-mode order never appears in a "to ship" list. A bug that puts a real shop into test mode then leaves buyers unable to pay, not goods sent for a test card.
+
+### Test customers on a customer's shop (proposed, operator to decide)
+
+The operator proposed a small set of test customers, identified by email, whose payments go to Stripe test mode. The trade-off: easy repeatable tests against the real deployed code, against the risk of a bug sending real payments to the wrong place. **Our own test business covers most of this need with none of the risk**, so this is only needed for testing on a real customer's shop.
+
+- **The email alone must not select test mode.** The buy flow has no login, so the email is typed by an anonymous buyer. A real buyer routed to test mode "pays" with a test card and could be shipped real goods; a test buyer routed to live is only declined or refunded. Live is therefore the default, and test mode needs proof.
+- **If built:** only a signed marker ([[DOC-54]] R1) selects test mode; the email allowlist becomes the list of people who can be sent the marker by magic link. A missing or bad marker means live. Test orders are synthetic ([[DOC-54]] R2/R3) and hidden from the Shop tab, test purchases use a hidden test product so a real piece is never held, and test invoices use their own number series.
 
 ## What this epic must not get wrong
 
@@ -207,13 +279,33 @@ page the document forbids. This is the acceptance test for the whole epic.
    entirely. Needs one sentence from the client before anything is scoped.
 2. **Connect account type** — Express recommended; Standard defensible; Custom
    ruled out.
+   **Answered 2026-11-02: Standard**, so existing Stripe accounts can be linked. See "Decisions taken 2026-11-02".
 3. **Do we take a cut of Alice's sales**, or is Connect purely a feature she pays
    a subscription for? This decides the pricing model and whether application
    fees exist at all.
+   **Answered for the beta, 2026-11-02: no platform fee.** Revisit after the beta.
 4. **Is this one epic?** It now contains a regulated onboarding flow, a
    two-sided payment system and the Portal — the Portal in particular is
    load-bearing for [[DOC-42]] §5 and [[DOC-37]] erasure, neither of which is
    about money. Splitting the Portal out is worth considering.
+
+5. **Contact deletion and invoices.** *Settled 2026-11-03; the rules now live in [[DOC-37]]* (§4.2 closing a business, §6.1 what is kept and why, §6.3 the reduced identity record, §7.1 the automated lifecycle). In short: every record of money moving is kept for 7 years from when the money moved, joined to an identity record reduced to name and billing address, and everything else is deleted by one daily job, 30 days after the request unless deferred with a reason. What this epic and [[EPIC-31]] must build to match:
+   - **Orders** ([[EPIC-31]]): `orders.contact_id` is `ON DELETE SET NULL` for an order with a `paid`, `part credited` or `credited` invoice. An order whose invoices are all `draft` or `void` goes with the contact. Delivery address and buyer notes live in the identity store, never on the order.
+   - **Subscriptions:** deletion cancels them, and cancellation only turns off renewal (`cancel_at_period_end`). The service runs to the end of the term with no refund. The person's Stripe customer on the connected account is deleted once the last subscription ends.
+   - **The statutory cooling-off period overrides "no refund"** (found 2026-11-03; a lawyer must confirm the details). UK and EU **consumers** buying at a distance can cancel within **14 days of the contract starting**: from sign-up, not "14 days before the end of the term". This applies to annual and monthly billing alike. If they asked the service to start straight away, they are refunded the unused part, pro rata. UK only: the Digital Markets, Competition and Consumers Act 2024 adds a fresh 14-day window after each renewal of a subscription of 12 months or more, and after a free or discounted trial converts to paid. Its commencement date needs checking. Physical goods from the Shop have their own 14 days from delivery, plus return of the goods ([[EPIC-31]]). **Operator requirement: these refunds are automated, never done by hand.** The rule therefore becomes:
+     - **Cancelling inside a cooling-off window ends the subscription at once and refunds the unused part automatically**, by a pro-rata Stripe refund with its credit note ([[REQ-637]]).
+     - **Cancelling outside one only turns off renewal**, as above.
+     - **It applies to everyone (operator, 2026-11-03)**: every buyer, in every country, consumer or business. There is no consumer or country test. **The windows:**
+       - 14 days from the start of any subscription
+       - 14 days after each renewal of a subscription of 12 months or more
+       - 14 days after a free or discounted trial converts to paid
+       - We give these whether or not the UK DMCC Act is yet in force, so the rule never depends on its commencement date.
+     - The same automated rule applies to subscriptions businesses sell to their own customers, by default.
+   - **Money records hold no identity of their own**: invoices, lines, credit notes and the payment cache reference the person or the order only.
+   - **Registry declarations** for [[DOC-37]] §7, once the registry exists: paid live invoices, their lines, credit notes and payment-cache rows are `retain-with-reason`, with their clock running from when the money moved. Every other invoice row is `delete`, and `orders` is `retain-with-reason` when paid.
+   - **[[REQ-637]]'s delete guard** refuses deleting a paid live invoice for ever. The job that runs [[DOC-37]] §7.1 rule 5 must loosen it to "refused until 7 years after it was paid".
+   - **Synthetic records** are always collected by the test-data sweep, whatever their state.
+   - **Terms and privacy notice** must disclose that we keep money records, including a business's own sales, for disputes ([[DOC-37]] §6.1). That work is [[REQ-640]], and the text needs a lawyer's review.
 
 ## Siblings
 
@@ -237,7 +329,15 @@ multi-week lead time and no shortcut.
 
 ## Children
 
-None yet.
+- [[TODO-18]]: operator task, set up the Stripe accounts: the 1st Contact platform account (Connect, OAuth, keys) and 1st Contact's own business account. Blocks the payments foundation.
+- [[REQ-637]]: invoice records, gap-free numbering and credit notes. No Stripe calls; can start before [[TODO-18]].
+- [[REQ-641]]: connect a business's Stripe account. Settings → Payments, OAuth linking, the four connection states, Disconnect, and key and mode safety. Connection only, with no webhooks or payments. Buildable now in the sandbox; live mode needs [[TODO-20]].
+- [[REQ-640]]: erasure disclosures. Brings the portal's erasure page, the Privacy Notice and the Terms into line with [[DOC-37]]'s deletion lifecycle. Must land before the first live payment.
+
+## Related
+
+- [[EPIC-31]], the Shop tab: the first consumer of one-off charging, manual capture, refunds and internal invoices.
+- [[GOAL-55]], "Simple ecom site": names the minimum of this epic needed to get the first shop live.
 
 ## The test gutter — this epic's share ([[DOC-54]])
 
@@ -247,7 +347,10 @@ yet — which makes both of them free today.
 **1. Any table that hangs off a contact carries the mark and cascades.** [[DOC-54]] §3:
 add `synthetic NOT NULL DEFAULT 0` and `run_id`, and declare
 `FOREIGN KEY (contact_id) REFERENCES users (id) ON DELETE CASCADE` as
-`user_acceptances`, `asset_grants` and `contact_events` already do. Without the
+`user_acceptances`, `asset_grants` and `contact_events` already do. **The one exception is
+financial records:** an order with a paid invoice is kept and its contact link is set to null
+rather than cascaded, because [[DOC-37]] §6.1 keeps the transaction and reduces the person (§6.3).
+See open question 5. Without the
 cascade, [[EPIC-15]]'s collector and the delete-contact affordance both silently leave
 this epic's rows behind — a contact removed from the list whose payment history
 survives is the *"we deleted them but kept the history"* mistake `0001_baseline.sql`

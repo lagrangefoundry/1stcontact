@@ -6,16 +6,37 @@ title: 'Consultant prompt: trim the authored prompt back under budget, starting 
   rules the host now enforces'
 created_by: EPIC-19
 created_at: '2026-11-01T22:31:11.770071+00:00'
-updated_at: '2026-11-01T23:21:01.459647+00:00'
+updated_at: '2026-11-02T00:18:58.021520+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   parent_uid: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-cd187ff9
+  commits:
+  - working_sha: 9e83300604911e98a64488adccbf5472fec72545
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0fe0254c0277fb90c19ce3fbbd88f1b31aefd450
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: dff9b7facccdfe62b827d2c7f874d35dc38aacd5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 03a43dfdc9ce887870bbba4f30babcf2fad0a79b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8560d8cd4835496681d8a9d2149c67d2fb1fc431
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 58820eacf69d5ac44d80bfa085777315ce23a6a5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.733
+  story_points: 8
 ---
 
 ## Why
@@ -127,3 +148,18 @@ Measured on clean `xgd-working` (`064b68fe2a`) by replaying the REQ-466 UAT's co
   - **Pre-existing on clean xgd-working, not caused here:** REQ-416 (×3: `rename_business` is in neither talker list, plus two 5s timeouts) and AC1058 (`web_search` offered but not expected).
 
 - **P4 + P3 landed (0fe0254c02): 203,588 → 195,304.** The shared picture type is cut to a sentence or two per field, with the `after` rules said once. The fidelity overview, screenshot and capture_site are de-duplicated, and the consultant's manual no longer names compare. Removed: the gates absence, the `after` sequence, the duplicate Changing-a-picture absence, and "alice" in record_check_answer. REQ-284 retargeted: the manual says *what landed?* is read, and no longer names `compare`. The REQ-466 UAT is green again, with builder and critic inside their targets. Also pre-existing on clean working: AC931, REQ-290 (push script), REQ-361 (restructured box).
+
+- **P1 landed (dff9b7facc): 195,304 → 193,000** (less than the ~4.9k estimate: most of `set_stage` is guidance needed before the call, not only rules the host enforces). The P1 condition was checked: the set_stage refusals (STAGE_ORDER, DRAFT_NOT_SEEN, TICKS_ITSELF, NOT_LOOKED, NOT_CRITIQUED), PLACE_HIDDEN and SUGGESTIONS_FIRST each already name what is missing and how to fix it, so no message needed changing. New `test_UAT_FC_REQ-629_*`: each one-liner reaches the consultant, and the set_stage refusals are driven. BUG-326 retargeted (worked example removed, one-line rule asserted). BUG-323 and REQ-622 have no text in the consultant's prompt to cut. Also pre-existing on clean working: REQ-424 ×2 (focus result JSON spacing).
+
+- **P2 landed (03a43dfdc9): 193,000 → 190,642.** "Bring the right view" is shortened; switching is left to show_client's description. The delegation method's check forms and record paragraphs are condensed, and rule 12 is shortened. The plan manual's Asks and story-board paragraphs leave the how-to to set_ask, the story tools and the stage guide. Savings were smaller than estimated (~2.4k against 8.3k; 2.5k of the planned P2 already landed with P3) because behaviour UATs pin many sentences phrase by phrase (REQ-342 alone pins ten in the record paragraph, which stayed verbatim). Per the ticket, pinned behaviour text was kept, not deleted. The material-track set_ask bullet stayed (four suites pin it). Also pre-existing on clean working: REQ-342 ×3 (tail/prefix), REQ-295 ×2 (worker result), REQ-358, REQ-378, REQ-472 ×2.
+
+- **P5 landed (8560d8cd48): 190,642 → 189,208.** draw_image's wordmark and SVG craft and place_on_site's several-framings detail moved to the new system-KB reference **DOC-81** (`doc-744c9672`, "Drawing and placing pictures: the Site consultant's reference"). Each tool keeps a one-line rule and a pointer ("search the knowledge base for 'drawing and placing pictures'"). REQ-423 retargeted. The composition catalogue in set_design/set_decision is untouched, as agreed.
+
+## What landed (final, 2026-11-01)
+
+- **Consultant authored prompt: 219,329 → 189,208** (system 80,349 → 71,474; tools 139,239 → 117,993; 95 → 89 tools). `prompt_budget.roles.consultant` lowered 205,000 → **191,200** (measured + ~2,000), with the figures and date in its `about` note. Builder 125,858 (target 137,000) and critic 8,507 (target 8,600) are inside theirs; their targets are unchanged.
+- **By phase:** P6 −15.7k · P4+P3 −8.3k · P1 −2.3k · P2 −2.4k · P5 −1.4k. The ~178k the agreement expected assumed the full P1/P2 estimates. Those came in lower because much of the text is guidance needed before a call, and many sentences are pinned by behaviour UATs that were kept. TicketComments was also kept, pending the operator.
+- **Where the code is:** grant: `apps/control-app/src/ai.ts` (`sessionTicketSurface` + `CONSULTANT_WITHHELD_TICKET_OPS`), `tools/generate/src/cli/ai/host-core.ts` (`WITHHELD_CONTEXT_OPS`), `instances.json` (consultant fidelity by operation), `talker.json`. Text: `fidelity-surface.json`, `plan-surface.json`, `library-surface.json`, `priming.json` (rules, delegation method, showing, prompt_budget).
+- **Evidence:** new `tests/test_UAT_FC_REQ-629_shortened_rules.test.ts`: each one-line rule reaches the consultant; the set_stage refusals carry what is missing and the fix; SUGGESTIONS_FIRST carries the pre-publish procedure; DOC-81 is in the system KB and the tools point to it. Revised to the new grant or text, none deleted: REQ-157, REQ-206, REQ-228, REQ-283 AC3, REQ-343, REQ-453, AC1058, REQ-284, BUG-326, REQ-423. REQ-466 green.
+- **Pre-existing failures on clean xgd-working, untouched:** REQ-416 ×3, AC1058's `web_search` half, AC931, AC1095, REQ-290, REQ-361, REQ-424 ×2, REQ-342 ×3 (tail/prefix), REQ-295 ×2 (worker result), REQ-358, REQ-378, REQ-472 ×2.
+- **Open for the operator:** whether to also withhold TicketComments (one line; ~760 chars). Framework follow-up: lagrange-framework REQ-236.

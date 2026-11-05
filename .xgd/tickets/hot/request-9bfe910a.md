@@ -5,8 +5,8 @@ type: request
 title: 'The email ticket type: every outgoing message is a record on the contact'
 created_by: xgd
 created_at: '2026-09-05T23:44:42.099725+00:00'
-updated_at: '2026-11-04T22:21:06.218980+00:00'
-completed_at: '2026-11-04T22:20:47.963780+00:00'
+updated_at: '2026-11-05T19:15:35.912829+00:00'
+completed_at: '2026-11-05T19:15:35.912829+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,23 +17,29 @@ fields:
   chat_comment: comment-b6d07352
   commits:
   - working_sha: 5360036587e3ed413b6b48e2ce1f339eaccba4ce
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    main_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    working_sha_history: []
   - working_sha: 3c6d47d1a4959a135fc44d3992a07696dd0c8ba6
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    main_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    working_sha_history: []
   - working_sha: 39bd0f6a3c90d2c3df3ce0169bce056c25dc6968
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    main_sha: 8eb916bd5e7e1c729fa4c14ed10b785bd96fc23b
+    working_sha_history: []
   - working_sha: 2700bf90b5490f3b02db26196f3b863358eb5fb4
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 9acb24e5109c537fd294efd6c2135970058deb4b
+    main_sha: 9acb24e5109c537fd294efd6c2135970058deb4b
+    working_sha_history: []
   - working_sha: eec028deaeece091b678984390640f171a58b327
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 87d4ada738b2e93ad65e8d82c3c4714a301d86ce
+    main_sha: 87d4ada738b2e93ad65e8d82c3c4714a301d86ce
+    working_sha_history: []
   - working_sha: 1ff5b509bfc8ae150fb09697b149737d99e7560f
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 2de6a86da7e23d7e3642ab68e8fcf430f12a7eab
+    main_sha: 2de6a86da7e23d7e3642ab68e8fcf430f12a7eab
+    working_sha_history: []
   version: 0.2.117
   bundled_in: bundle-5052a63c
 ---

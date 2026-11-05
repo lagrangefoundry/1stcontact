@@ -5,9 +5,9 @@ type: bundle
 title: BUG-1 + REQ-12 + REQ-13 + REQ-14 + REQ-15 + 5 more
 created_by: xgd
 created_at: '2026-07-09T19:58:46.435504+00:00'
-updated_at: '2026-07-09T21:42:39.649423+00:00'
+updated_at: '2026-10-17T20:08:33.775594+00:00'
 completed_at: '2026-07-09T21:42:36.624002+00:00'
-last_field_updated: result
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -22,6 +22,7 @@ fields:
   - old_sha: 6f3a4742651cfdcb95415ffbcaa5e24f21446a12
     new_sha: a1dea251794eb9e2a8df397ff13a79ceb7f2d367
   merged_at_commit: 0831b673b681a1947f240a42e09d8a7ccb715b03
+  bundle_type: reconcile
 result: pass
 ---
 

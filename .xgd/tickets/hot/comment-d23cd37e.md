@@ -1,0 +1,1274 @@
+---
+uid: comment-d23cd37e
+id: COMMENT-4639
+type: comment
+title: Comment on chat CHAT-58
+created_by: xgd
+created_at: '2026-09-30T22:04:36.498520+00:00'
+updated_at: '2026-10-02T18:39:55.024615+00:00'
+completed_at: null
+last_field_updated: body
+status: null
+fields:
+  subject_uid: chat-aa503de9
+  kind: chat_transcript
+---
+
+<!-- xgd-session
+{
+  "id": "19a9cdce-7f91-4ca4-93f7-a9f6e444b276",
+  "role": "chat2",
+  "backend": "claude_code+km",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
+
+<!-- xgd-turn id="fc912d8a-da2b-4d13-84cc-36141e347ad1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T22:03:58.770501+00:00" -->
+#### You
+ok please read the transcript for EPIC-19 and the ticket and familiarize yourself with the group chat idea and Alice (consultant) and Bob (assistant) - actually coordinator would be a better word.
+
+What I want to do int this chat is go back to the discussion I started in EPIC-19 and focus on HOW Bob coordinates. The goals for Bob are to work with a novice user to:
+1) Guide the process to completion - ensure that there are no major gaps, all goals are accomplished
+2) Ensure that Alice's expertise are fully leveraged
+3) Keep the user engaged (although lets worry about intercession and talking while Alice is busy later)
+
+We got to the idea of adding Bob to the conversation because my experience  of working with Alice was that to get the benefit I had to be very proactive and a user will not necessarily be that.
+
+That said a failure case for Bob would be driving things too hard or driving things wrong - if we have a user and she knows shat she wants and in what order Bob should not fight her. His job is to check things off in whatever order and make sure that there are no gaps.
+
+We wrote a doc - I forget the number - to describe a process for website building. It was created in the abstract and it was terrible - our analysis (I think this is in the EPIC-19 transcript) is that it bore almost no relation to how I ended up building a site. I think the principles are (1) the user won't know if they like something until they see it (the my know what the don't like but knowing what they do like is harder) (2) refactoring needs to be cheap. We discovered in our exploration that our ability to add pages allows us to create multiple versions of a homepage so the user can compare and contrast.
+
+There are some principles of ordering that I think are worth trying to hold onto, for example if we are creating a five page site it makes sense to figure out the core elements of style, voice etc. on one page before building out the other five pages. But even though I think is a guideline I don't want Bob to be a project management fascist.
+
+So, let's talk about the kinds of things that need to be decided. Building a webpage, like writing code is just a series of decisions that need to be made.
+Messaging – voice, intended audience, story we want the audience to take away, breaking that story into pieces that we can share with them ultimately, messaging decisions get us to the structured text that we want on the site.
+Style - Colors, fonts, layouts - this is all pretty abstract to a novice user these are things that really need to be shown. To a certain extent that is true of messaging as well but it is easier I think to have the meta conversation about messaging than it is to have the Meta conversation about style.
+Images - I don't know if images is a separate conversation or part of the style conversation I broke it out because it seems big enough to be worth doing so but it's probably a facet of style
+Functionality this one is actually pretty easy and should be established upfront does the site need a contact form, a blog, subscription payments etc. We will have a fixed list of available features for the user to choose from. These should be decided at the start although of course they can be revisited at any point.
+
+So I think Bob's conversation starts with some basic ingestion of information, possibly using surveys on chat cards. If this got complicated I could imagine a decision diagram of chat cards that might be presented to the user with different cards being presented conditionally based on previous responses. We need to know if the user already has a site if they do we need to know what the site is and we need to know how they feel about it. We need to know what the user is trying to achieve typically this will be more converted customers but it might be more traffic it might be awareness generation it might be warm leads. We need to understand what the customer is trying to get out of the experience and whether that is something that we can measure or find a proxy for. My experience of talking to small business people is that they often can conflate website with what might be called "online marketing" or indeed just marketing. A small business person looking for a better website may really be looking for more leads. And the truth is that that often is not achieved by just changing the website. And anyways that is the whole concept behind first contact we want to be able to control all the necessary levers of the small business so that we can actually meet the customers need.
+
+OK so Bob knows what the customer wants I think typically he would then ask Alice to make a plan. Alice is the brains of the operation she would make a plan. I think we need a plan ticket if we do not have one already which would be an object that where we can store the plan. The key to the plan would be a list of things that need to be done with rough dependencies between them. In practice I think the best approach to website construction is probably to do a very rough and rapid first pass and then multiple rounds of revision until we are satisfied. What is Bob's job here? I think it is to track progress against the plan and make sure all the pieces have been done. It may also be to have a sort of a generic these are all the things that need to be decided for a website concept and to make sure that all those decisions have been made. That will be some judgment here but it's mostly processed judgment.
+
+Part of Bob's role is to explicitly get Alice to check in with what she has built. Does it look like a premium website? Are you sure you're happy with what we have built? I think this needs to be done in a way that isn't too challenging bob should not make Alice look incompetent but nevertheless that was where I got most value out of the expensive model that was Alice in building my websites.
+
+I think I'm starting to circle here I hope you understand the problem that we're trying to solve please don't try to jump to a solution too quickly I think there is some real discussion required to understand this problem. And some of it may have to happen in a real situation. I am going to have to build some websites no doubt with Bob and Alice helping me. However, if we don't think things through before we start if that could be a large space to cover before we get to something effective
+
+<!-- xgd-turn id="fc912d8a-da2b-4d13-84cc-36141e347ad1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T22:06:52.626109+00:00" -->
+#### Claude
+Reading Finding 13 of EPIC-19 now. It's the analysis of the playbook against the real engagement. After that I'll look at the relevant parts of the transcript.
+
+I've read EPIC-19 Findings 13–15, DOC-62 §3 and DOC-35 §7–§10. The process doc you're thinking of is **DOC-33**, the assist-customer playbook. Finding 13 compared it against the Lagrange Foundry build and found little overlap. Here's how I understand the problem, plus a few points worth arguing over before anything gets designed.
+
+## The earlier docs already found the key split
+
+DOC-35 §10.1 says DOC-33 was "a checklist wearing a script's clothes". It fused **what must be decided** with **the order we decide it in**. It separates them this way:
+- **The set of decisions is fixed.** Every good site has settled them.
+- **The order is not.** Your Lagrange Foundry order (palette third, content structure seventeenth) was a legitimate order, not bad discipline.
+
+DOC-35 §8.4 also describes what you want from Bob when the client knows what she's doing. The playbook "becomes gap-filling": it keeps the checklist honest and raises an open item "at the moment it becomes load-bearing". It doesn't set the sequence.
+
+So I'd say Bob owns the **set** and not the **order**. His real skill is **timing**: knowing when an open decision is about to start costing something. That skill is what separates him from a project-management fascist.
+
+## Bob covers what DOC-33's failures left out
+
+Two DOC-33 stages never happened in the Lagrange Foundry build:
+- **Positioning:** what story, for whom.
+- **Critique.**
+
+Finding 13's explanation was that they're the only two stages that produce nothing visible, and "what does not move the page does not happen." Alice works on what renders.
+
+Those are the same two things you're giving Bob:
+- **Intake and goal-setting** is the positioning input.
+- **"Does this read premium?"** is critique.
+
+Bob isn't a general supervisor. He's the mechanism for the decisions that leave no visible trace, which is exactly why they fall through.
+
+## Most gaps won't be "undecided" — they'll be "decided by accident"
+
+With a rough, fast first pass, Alice makes almost every decision on the first turn. There will be a palette, a font, a voice and a hero image. So the dangerous gap isn't a blank. It's a default the user never really judged.
+
+Your first principle makes this sharp: users know what they don't like, not what they do. Not objecting isn't the same as liking. So a decision has more states than open or closed:
+
+| state | meaning |
+|---|---|
+| defaulted | Alice picked it; the user hasn't really looked |
+| not objected | the user saw it and said nothing |
+| chosen | the user picked it from real alternatives |
+| deliberately delegated | "you decide, I don't care" (also a valid end state) |
+
+Bob's check is then less "has X been decided?" and more "was X ever actually chosen, or did it just survive?" That's a more useful question. It also points straight at variant pages as the fix: "the palette has never been compared against anything — want to see two?"
+
+## Your four areas are settled in different ways
+
+This may answer whether images are separate.
+
+- **Functionality** is inside the client's expertise, so you **ask**. It suits cards and belongs up front.
+- **Style** is inside our expertise, so you **show** it (DOC-35 §7.1: ask about their expertise, show for ours).
+- **Messaging** sits in between. The overall conversation (audience, story, what they should take away) can be talked through. The actual voice only gets settled when the user sees words on a page.
+- **Images** split in two:
+  - **Supply** is a fact question: do you have photos, of what, and are they any good?
+  - **Treatment** is style.
+
+  So I'd split images across the other areas rather than make it a fifth.
+
+A cheap version of Bob's "route it right" job: notice when a decision is being settled the wrong way. For example, Alice asking "what's your brand personality?" instead of rendering two options.
+
+## Ordering is about the cost of undoing, not phases
+
+"Settle style and voice on one page before building five" is really "settle what gets copied before you copy it." That links to your second principle. The cheaper something is to change later, the less it matters when it's decided:
+- Colours and fonts are theme tokens, so changing them later costs almost nothing, and ordering barely matters.
+- Voice and layout patterns are copied by hand into each page, so they're expensive, and ordering matters.
+
+So Bob's ordering rule could be a single warning that fires at the moment of fan-out, not a phase gate: "happy to build the other four — just noting voice isn't settled yet, so changing it later means five pages." Then he gets out of the way. If the user proceeds anyway, that's her call and he records it.
+
+## Intake also sets the measure for every later challenge
+
+Your worry about "website" meaning "marketing": the rule from DOC-35 §7.2 is to ask for facts, not diagnoses. Bob can collect the facts (current site, how they feel about it, leads per week, what would make this worth it in six months). Diagnosis is judgement, so "your problem isn't really your website" has to come from Alice.
+
+Intake also links your goals 1 and 2. A challenge only works if it's measured against a stated brief ("you said premium — does this read premium?"). DOC-62 already says Bob must challenge against the brief, never against his own opinion. If intake doesn't produce a clear brief, Bob has nothing to push with, and his challenges either don't fire or become his own taste on a cheap model.
+
+## Questions I think need your call
+
+1. **Plan vs checklist: one object or two?** I think they're different things:
+   - The **checklist** is generic and belongs to Bob: the decision set, identical for every site.
+   - The **plan** is project-specific and belongs to Alice: build tasks, order, dependencies.
+
+   The checklist is how Bob notices gaps in Alice's plan. Do you see it that way, or is the plan just the checklist with an order added?
+2. **What counts as settled?** Is "not objected" enough to tick a box, or does a load-bearing decision (overall look, core story) need to be actively chosen?
+3. **Does the checklist stop at the site?** First Contact aims to pull every lever. Should Bob's set include things like the business's Google listing, reviews and follow-up on leads, even if v1 just records them as "not us yet"?
+4. **Who runs intake?** Bob alone before Alice arrives, or all three together? Alice is expensive, but the first conversation is where a lot of her diagnosis comes from.
+
+## A suggestion for the real builds
+
+You were Bob during the Lagrange Foundry build: the pushes, the "are you sure", the "show me two". That transcript is probably the best evidence we have. Before designing Bob, it would be worth pulling out every intervention you made that changed the course, and labelling each by kind: gap, challenge, reordering, "show me instead", or keeping things moving.
+
+That gives a catalogue built from what actually worked rather than from theory, which is exactly where DOC-33 went wrong. I can do that extraction if you want it. It's analysis only, nothing filed.
+
+<!-- xgd-turn id="8565a9dd-8a36-4fc3-9651-05f6b8accf80-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T23:13:22.184948+00:00" -->
+#### You
+Go ahead - its a little muddied by bugs but certainly take a look
+
+<!-- xgd-turn id="8565a9dd-8a36-4fc3-9651-05f6b8accf80-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T23:14:09.111622+00:00" -->
+#### Claude
+Found the local D1 database. Pulling the Lagrange Foundry transcript out of it read-only.
+
+<!-- xgd-turn id="c09b8279-8071-4626-8367-2d9967a10fd5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T21:42:01.271825+00:00" -->
+#### You
+ok please read the transcript for EPIC-19 and the ticket and familiarize yourself with the group chat idea and Alice (consultant) and Bob (assistant) - actually coordinator would be a better word.
+
+What I want to do int this chat is go back to the discussion I started in EPIC-19 and focus on HOW Bob coordinates. The goals for Bob are to work with a novice user to:
+1) Guide the process to completion - ensure that there are no major gaps, all goals are accomplished
+2) Ensure that Alice's expertise are fully leveraged
+3) Keep the user engaged (although lets worry about intercession and talking while Alice is busy later)
+
+We got to the idea of adding Bob to the conversation because my experience  of working with Alice was that to get the benefit I had to be very proactive and a user will not necessarily be that.
+
+That said a failure case for Bob would be driving things too hard or driving things wrong - if we have a user and she knows shat she wants and in what order Bob should not fight her. His job is to check things off in whatever order and make sure that there are no gaps.
+
+We wrote a doc - I forget the number - to describe a process for website building. It was created in the abstract and it was terrible - our analysis (I think this is in the EPIC-19 transcript) is that it bore almost no relation to how I ended up building a site. I think the principles are (1) the user won't know if they like something until they see it (the my know what the don't like but knowing what they do like is harder) (2) refactoring needs to be cheap. We discovered in our exploration that our ability to add pages allows us to create multiple versions of a homepage so the user can compare and contrast.
+
+There are some principles of ordering that I think are worth trying to hold onto, for example if we are creating a five page site it makes sense to figure out the core elements of style, voice etc. on one page before building out the other five pages. But even though I think is a guideline I don't want Bob to be a project management fascist.
+
+So, let's talk about the kinds of things that need to be decided. Building a webpage, like writing code is just a series of decisions that need to be made.
+Messaging – voice, intended audience, story we want the audience to take away, breaking that story into pieces that we can share with them ultimately, messaging decisions get us to the structured text that we want on the site.
+Style - Colors, fonts, layouts - this is all pretty abstract to a novice user these are things that really need to be shown. To a certain extent that is true of messaging as well but it is easier I think to have the meta conversation about messaging than it is to have the Meta conversation about style.
+Images - I don't know if images is a separate conversation or part of the style conversation I broke it out because it seems big enough to be worth doing so but it's probably a facet of style
+Functionality this one is actually pretty easy and should be established upfront does the site need a contact form, a blog, subscription payments etc. We will have a fixed list of available features for the user to choose from. These should be decided at the start although of course they can be revisited at any point.
+
+So I think Bob's conversation starts with some basic ingestion of information, possibly using surveys on chat cards. If this got complicated I could imagine a decision diagram of chat cards that might be presented to the user with different cards being presented conditionally based on previous responses. We need to know if the user already has a site if they do we need to know what the site is and we need to know how they feel about it. We need to know what the user is trying to achieve typically this will be more converted customers but it might be more traffic it might be awareness generation it might be warm leads. We need to understand what the customer is trying to get out of the experience and whether that is something that we can measure or find a proxy for. My experience of talking to small business people is that they often can conflate website with what might be called "online marketing" or indeed just marketing. A small business person looking for a better website may really be looking for more leads. And the truth is that that often is not achieved by just changing the website. And anyways that is the whole concept behind first contact we want to be able to control all the necessary levers of the small business so that we can actually meet the customers need.
+
+OK so Bob knows what the customer wants I think typically he would then ask Alice to make a plan. Alice is the brains of the operation she would make a plan. I think we need a plan ticket if we do not have one already which would be an object that where we can store the plan. The key to the plan would be a list of things that need to be done with rough dependencies between them. In practice I think the best approach to website construction is probably to do a very rough and rapid first pass and then multiple rounds of revision until we are satisfied. What is Bob's job here? I think it is to track progress against the plan and make sure all the pieces have been done. It may also be to have a sort of a generic these are all the things that need to be decided for a website concept and to make sure that all those decisions have been made. That will be some judgment here but it's mostly processed judgment.
+
+Part of Bob's role is to explicitly get Alice to check in with what she has built. Does it look like a premium website? Are you sure you're happy with what we have built? I think this needs to be done in a way that isn't too challenging bob should not make Alice look incompetent but nevertheless that was where I got most value out of the expensive model that was Alice in building my websites.
+
+I think I'm starting to circle here I hope you understand the problem that we're trying to solve please don't try to jump to a solution too quickly I think there is some real discussion required to understand this problem. And some of it may have to happen in a real situation. I am going to have to build some websites no doubt with Bob and Alice helping me. However, if we don't think things through before we start if that could be a large space to cover before we get to something effective
+
+<!-- xgd-turn id="c09b8279-8071-4626-8367-2d9967a10fd5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T21:44:56.431865+00:00" -->
+#### Claude
+⚠️ Chat generation failed: index_fcntl_lock: timed out after 30000ms waiting for exclusive lock on /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/main/.xgd/_locks/__hot_index__.flock
+
+<!-- xgd-turn id="b194f1a2-729b-467d-889c-dd7b3dfb7939-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T18:43:22.049724+00:00" -->
+#### You
+Please continue
+
+<!-- xgd-turn id="b194f1a2-729b-467d-889c-dd7b3dfb7939-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T18:48:41.285768+00:00" -->
+#### Claude
+I've pulled the Lagrange Foundry build transcript out of the local D1: 109 of your turns. I'm reading the second half before cataloguing the interventions.
+
+I've finished the extraction. The source is the `chat_transcript` comment on `chat-50932534` ("Lagrange Foundry — initial website build") in the local D1: 109 of your turns, 9–27 Sep. I read it without changing anything and filed nothing.
+
+**What's noise:** about 30 of the 109 turns are bug-hunting, tool debugging or "please continue" after cut-offs. I left those out, except where they tell us something about Bob (see 9). The rest sort into the patterns below.
+
+## 1. Every major quality jump came from you asking Alice to step back
+
+These were all your prompts. Alice volunteered none of them:
+
+| Turn | Your prompt | What it unlocked |
+|---|---|---|
+| U17 | "I'd like your opinion of the look, layout, message and feel. What should we add?" | First critique; Turk dropped; the margin-sketch idea |
+| U32 | "Take a step back with me… honest appraisal" | "Beautiful object with a soft middle"; Plate II rebuilt |
+| U81 | "This does not look to me like a premium site… layout and fonts feel amateur to broken" | The biggest single turn of the build (see below) |
+| U86 | "What else would you improve?" | Section restructure |
+| U100 / U108 | "Does this look like a premium $100k site?" | Scroll reveal, share card, mobile, finish list |
+
+U81 is the key one. Thirty turns earlier (U31), Alice said "That's the initial site complete." Once you asked whether it looked premium, Alice agreed it was amateur and named the cause right away: **the fonts had been Georgia and Helvetica for 80 turns.** Nobody chose them. They were defaults that survived.
+
+So Alice could see the problems; she just didn't raise them until asked. That's direct evidence for your goal 2. It also confirms that decisions made by accident, not open ones, are where the real gaps are. A checklist line like "typeface: defaulted, never compared" would have flagged this around turn 11 instead of turn 81.
+
+## 2. Describing visual options in text failed until you asked for variant pages
+
+Alice offered lettered text choices (A/B/C) about fifteen times. For copy that worked fine. For visual decisions it didn't:
+- **U44:** "I don't know how to make this look good"
+- **U82:** "I don't really understand what A is and I can't picture B… rough up new pages in those two styles… so I can compare them"
+
+After U82 you had both styles side by side as pages and picked one within three turns (U85). That ended a layout dissatisfaction you'd first voiced at U24/U39, roughly 60 turns earlier. U44 was the moment someone should have offered variants, and it took 38 more turns. This is the clearest case for Bob's routing job: notice a visual decision being argued in words and turn it into "want to see both?"
+
+## 3. Important context arrived late, and it changed the bar
+
+Alice's intake was one question: who is the audience (U1)? Your answer was right but incomplete. The context that actually set the bar came much later and unprompted:
+- **U18:** the site is a deliberately undersold placeholder; content lives on the XGD and 1c sites; this site matters in 1–2 years for recruiting CEOs and investors. That also quietly settled the publications question: they go on the XGD site.
+- **U101:** it's a teaser trailer, and any contacts will come from people who heard you speak, not from the site's content.
+
+That's the "what is this site's job right now" question, separate from "who's the audience". It's also what every "premium?" check is measured against. Your intake instinct is right, and this shows a specific question that was missing.
+
+## 4. Messaging kept losing to visual work
+
+- **U18:** you planned to "go section by section and discuss the actual text."
+- Alice re-proposed it about six times (U21, U27, U57, U62, …).
+- It happened only piecemeal (U63–U66). The thesis was restructured as late as **U107**, and you raised "sections 1 and 2 say the same thing" at **U104**.
+
+This is Finding 13 again: whatever didn't change the page kept getting bumped. But the bumping was your own order each time, because a visual problem was always more pressing. So I don't think it means Bob should have forced it. A light ordering warning when copy is about to be copied across pages would have been enough, and here it never came up because it was one page.
+
+## 5. Alice already did gap-tracking, and showed how to overdo it
+
+Alice tracked open items herself:
+- biography (mentioned 18 times)
+- publications
+- links to the child sites
+- the hero sub-line (mentioned **37 times**)
+- mobile
+
+She tacked them onto the end of nearly every turn. The sub-line was re-pitched after "I've put that to you once and won't press again." You eventually changed it yourself without comment (U67).
+
+So we have a real example of your failure mode. The fix isn't fewer gaps, it's better timing:
+- items need a **parked** state
+- reminders need rate-limiting
+- a reminder should come back when the item starts to matter, not on every turn
+
+## 6. Alice reviewed a different page than the one you saw
+
+U102 is the most useful critique in the build, and it came from you, not Alice. She had judged a full-page screenshot. You experience it scrolling: the hero is fine, the thesis is confusing until the text arrives, the portfolio is "another roller coaster", and the last two sections are "a relief".
+
+Also, **the page had never been viewed on a phone** by U109. Alice flagged that at U103 as "the largest unexamined risk". So review has dimensions, and Bob could ask about them:
+- the visitor's scroll experience
+- mobile
+- the share card
+- the favicon
+
+## 7. Functionality was never discussed
+
+- Alice placed the enquiry form on her own at U11.
+- The call-to-action wording came up at U102.
+- Favicon and share card came up at U103.
+- Links to the child sites stayed parked throughout.
+
+None of it was a decision anyone made; it just accumulated. This supports your view that functionality is cheap to settle up front with cards, and that otherwise nobody owns it.
+
+## 8. Images led the style rather than being part of it
+
+The first two weeks were mostly about images (U5–U14). The turning point was U11: you rejected the molten-metal image ("I don't want a dark matrix site") and replaced it with the Da Vinci sketchbook and the Escher recursion idea. That image idea became the site's whole look: parchment, red chalk, plates, copper plaques. You only knew you didn't want molten metal after seeing it rendered, which is your principle (1) exactly.
+
+It also refines what I said earlier about where images belong. Image treatment is a style decision, but here it *was* the brand idea, and it came from you, not Alice.
+
+## 9. Smaller patterns
+
+- **Getting precise intent across cost many turns:**
+  - hero ordering: U39–42
+  - the pointing tool: U49–55
+  - the overline, rejected three times as Alice kept adding complexity: U89–93
+
+  A cheap Bob rule: after two rejections of the same element, stop and confirm intent, or strip it back to the simplest version.
+- **Alice designed around limits instead of flagging them** (U103, "can't be built"). For a customer this works differently, but for Bob the move is to record "can't yet" as a gap, not a settled decision.
+- **About 8 bare "please continue" turns.** A novice wouldn't know to type that. That's an engagement problem Bob would need to own.
+
+## What this suggests, without designing anything yet
+
+1. The single highest-value thing you did was "step back — is this premium?" It worked because it was measured against a stated bar (institutional, then $100k teaser). That ties together your goal 2 and the intake work.
+2. The decision states I suggested before (defaulted / not objected / chosen / delegated) fit this evidence. The fonts are the textbook "defaulted" case.
+3. Bob's "show, don't tell" routing would have saved the most turns of any single rule.
+4. Timing is the hard part, and Alice's reminders here are a ready-made example of it going wrong.
+
+One question this raises for you: in this build **you were Bob, and an expert Bob.** You knew to ask for "premium", knew to ask for variants, and knew the scroll experience mattered. A novice won't produce U81 or U102 unprompted. So should Bob ask "does it look premium?" on a schedule (after a first pass, at fan-out, before publish)? Or only when triggered, e.g. a decision still at its default, or the user expressing vague dissatisfaction like U44?
+
+The transcript leans towards triggers: your U44 "I don't know how to make this look good" was exactly the signal, and it was missed.
+
+<!-- xgd-turn id="a76ebdf3-2727-4e0d-a8ae-9b3395c16ab9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T19:09:38.640056+00:00" -->
+#### You
+That's a hugely helpful analysis - we should remember that it is one site and be careful about how we generalize but great data nonetheless.
+
+I think this illustrates why Bob's role is difficult too. You are right that Alice tried to direct me - I didn't miss those prompts I deliberately ignored them. Why?...because the visuals were more important to me than the content, at least for this site.
+
+There were a few key moments/realizations:
+ - identifying the brand image - Da Vinci sketches - innovation
+ - identifying the story - recursion tools building each other - leverage
+ - figuring out how to lay out the page - we spent a lot of time on layout
+
+Honestly I am not finished with the words - but they are easy to change - the hard parts were the above
+
+Tinkering with the text when the layout is ugly just felt wrong - I had text that was good enough - I wanted the site to look good and then fix language.
+
+There may be a transcript for xgd site development too - that was done directly using Claude code not Alice but it may provide some additional data points
+
+One thing we need to keep on the list - I had it as "special effects" but I think its more important its the animations or page liveness - it is something that we can offer to do in a custom way that I think Wix will struggle to compete with. Although we have to be careful not to overdo it.
+
+<!-- xgd-turn id="a76ebdf3-2727-4e0d-a8ae-9b3395c16ab9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T19:10:08.155647+00:00" -->
+#### Claude
+Agreed on the caveat: this is one site, built by one expert user who is also the system's creator. That correction matters more than anything I found. I read your ignoring Alice's copy prompts as Alice failing to steer. You're saying it was a deliberate order, and the right one for you.
+
+## Where this leaves Bob
+
+**Your order had a reason behind it.** The three hard things (brand image, story, layout) are the ones that are expensive to change and that you can only judge by seeing them. Words were "good enough" and cheap to change, so they could wait. That's the cost-of-undoing rule again. You applied it on instinct, and Alice's process instinct ("go section by section on the copy") applied the opposite rule. So Bob should hold the reasoning ("is the thing you're deferring cheap to change later?"), not a fixed order. Under that rule, deferring words is fine. Deferring layout while you fan out across pages wouldn't be.
+
+**A novice will ignore Bob for both good and bad reasons, and from outside they look the same.** You ignored the copy prompts on purpose. A novice ignores them because they don't know they matter. One possible answer, which I'd hold loosely: Bob asks once, records the answer as *deliberately parked* with the reason ("visuals first, words later"), and stays quiet until the reason no longer holds (layout settled, or it's time to publish). That's the opposite of the 37 sub-line reminders. It treats "not now" as a decision, not a gap.
+
+**Your three key moments weren't checklist items being ticked.** Each was a judgement that changed what the site was:
+- Da Vinci sketches standing for innovation
+- recursion standing for leverage
+- the layout itself
+
+Those are what "fully leveraging Alice" means. Bob's version of the checklist probably has a few "concept" entries above the detailed decisions: brand image, core story, layout system. Those deserve real work and alternatives. Everything below them can be settled quickly.
+
+## Animation / page liveness
+
+Agreed, it's a list item and probably a competitive point. In this build it arrived at U100 and U109 as a polish idea:
+- scroll lock
+- reveals
+- plates that draw themselves on hover
+- your portrait's eyes moving
+
+That's where it fits in the order too. It's worth keeping as a distinct item rather than part of style, for two reasons:
+1. It's the decision a Wix-level user would never think to ask for, so it has to be offered.
+2. It needs its own "too much?" check, the overdoing risk you mention. Alice set sensible limits here (the hero never animates; respect reduced-motion settings), and those could become Bob's critique questions for this item.
+
+## The XGD site transcript
+
+I can't tell from the session index where it was built. The Claude Code project folders I can see are all 1stcontact worktrees. If you tell me the repo or directory the XGD site lives in, I'll do the same extraction. A Claude Code build with no Alice/Bob split would be a useful contrast: it shows what you needed to supply yourself when nothing was tracking the process at all.
+
+<!-- xgd-turn id="82c7215b-6a2d-4f56-9a0b-47f2a2dbfaa2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T19:42:36.274225+00:00" -->
+#### You
+The chat is is the same place - look for the transcript in the installed system - I'm just telling you that the transcript was with a different agent
+
+<!-- xgd-turn id="82c7215b-6a2d-4f56-9a0b-47f2a2dbfaa2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T19:46:45.324976+00:00" -->
+#### Claude
+Still looking for the XGD site transcript. The platform's own XGD chat only has 4 turns, so I'm checking other stores.
+
+The in-platform XGD chat is only 4 turns about forms. Your hint sounds like the XGD dashboard chats (where this session lives), so I'm searching the ticket store's CHAT tickets.
+
+The 36-turn "design conversation" transcript turned out to be the DOC-33 playbook design chat, not the XGD site build. Next I'm checking the xgd repo's own ticket store.
+
+Not in the xgd or lagrange-biz ticket stores either. There's a `test-install` directory, which may be the "installed system" you mean, so I'm checking it.
+
+The in-platform XGD chat's header has `backend_ref: b0f421d6-…`, which looks like a Claude Code session id. Searching for that session file.
+
+I couldn't find an XGD site build transcript in any of the places I can reach.
+
+**What I checked:**
+- **The control-app D1 (where the Lagrange Foundry build lives):** the XGD site's chat (`chat-9d2dcca0`) has only 4 of your turns, 14–15 Sep, all about getting the whitepaper form and email to work. It's an Alice-role session. Its header points to a backend session (`b0f421d6-…`), but no file with that id exists in either Claude Code projects folder.
+- **1stcontact XGD dashboard chats:** CHAT-12 "XGD website copy" (30–31 Jul) holds only a session-record summary in its body (the DOC-9 positioning rewrite, then the page copy pass). The transcript comment it points to (`comment-aef798fe`) is in neither the hot nor the cold ticket store. "The design conversation" has a 36-turn transcript, but it's the DOC-33 playbook design session.
+- **xgd and lagrange-biz ticket stores, other local D1 or sqlite files, and `test-install`:** nothing site-building related.
+
+**What does exist, if it's useful:** "1st Contact — product landing page" (`chat-15df6ccb`, 57 of your turns, 7–10 Sep) in the same D1. It's an earlier Alice-era build, before the Lagrange Foundry one. It would be a second site, though not the different-agent contrast you're after.
+
+Where should I look for the XGD one? If it was a Claude Code session in another checkout, or on another machine, the directory or session id would let me find it. Or I can run the 1st Contact landing page through the same extraction now.
+
+<!-- xgd-turn id="9c98a600-3a4b-4a32-9fb0-0367605b86bc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T19:49:20.554166+00:00" -->
+#### You
+Ok perhaps its gone - nevermind. There is a transcript for 1st contact - deliberately much smaller than LF but worth checking.
+
+Can you start pulling all this together - what have we learned so far about how to prime Bob?
+
+And I want to keep asking the question - is the Alice and Bob show the correct solution? Its much more complicated than just getting Alice to do the right thing so we need to keep pressure testing it as we go through this exercise.
+
+<!-- xgd-turn id="9c98a600-3a4b-4a32-9fb0-0367605b86bc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T19:50:44.228301+00:00" -->
+#### Claude
+Reading the 1st Contact landing-page transcript first, then I'll pull everything together.
+
+I read the 1st Contact landing-page transcript as well: 57 of your turns, 7–10 Sep. It adds a few things the Lagrange Foundry build didn't show, so I've folded it in below.
+
+**Caveat up front:** that makes two sites, both built by you, an expert user who is also the system's creator, and both heavily interrupted by tool debugging. Treat everything below as hypotheses to test on real builds, not rules.
+
+## What the 1st Contact build adds
+
+- **You set the brief and the order yourself.**
+  - U11 was a complete brief: scope (hero only), functionality (beta sign-up, sign-in modal), audience and feel ("simplicity, friendliness, professionalism… needs to look cool").
+  - U27 set the order: "3 more design issues and then let's talk about the message."
+  - Bob's job with a user like that is only to notice gaps.
+- **Alice asked the "what is this page's job" question, and it calibrated everything.** At U28 she asked who's landing on the page and what it should do. You answered at U29: beta customers you know, already sold, "directionally right" is enough. Effort was calibrated from then on. In the Lagrange Foundry build that question was never asked, and the answer turned up at U18 and U101.
+- **Messaging lost track of what had been agreed.** You had to correct Alice four times in ten turns:
+  - U32: "you were replying to my previous turn"
+  - U35: "again you missed my last turn"
+  - U37: "we agreed to use 'AI consultants' in both places"
+  - U38: "no I didn't like this subheading… this was the one I liked"
+
+  Then U39: "I got lost in this messaging conversation." If you got lost, a novice certainly would. This is the clearest case for a decision ledger: agreed wording gets recorded, and nobody has to remember it.
+- **For messaging, offering wording options in text worked.** It fails for visual decisions but holds for copy. It also confirms the split I proposed earlier: talk through messaging, show visual choices.
+- **Precise nudging loops again.** About 12 turns went on the position of the superscript "st" in the wordmark (U15–U26). Twice Alice offered "good enough to move on?" (U18, U20). You declined, which was your right. The offer itself was the correct move.
+- **By the end, Alice's critique was better calibrated.** From U52 she raised one or two issues per turn with "say the word", and tied them to the page's job: "fine for an audience who already know what this is, the first thing to fix before colder traffic sees it." That's the right tone and the right measure.
+
+## What we've learned about priming Bob
+
+### What Bob holds
+
+1. **The brief:**
+   - the business
+   - the site's job right now (separate from the audience)
+   - the audience
+   - the quality bar, e.g. "premium", "$100k", "directionally right for beta"
+   - what success would look like, measurable or a proxy for it
+
+   Every challenge is measured against this. Without it Bob has nothing to push with.
+2. **A decision ledger with states:**
+   - **defaulted:** Alice picked it; the user hasn't really looked
+   - **not objected:** the user saw it and said nothing
+   - **chosen:** the user picked it from real alternatives
+   - **delegated:** "you decide"
+   - **parked:** not now, with the reason recorded, e.g. "visuals first, words later"
+
+   Evidence:
+   - The Lagrange Foundry fonts were *defaulted* for 80 turns.
+   - The 1st Contact copy was *chosen* and then lost.
+   - Your deferral of the words was *parked*, and should never have produced 37 reminders.
+3. **Two tiers of decisions:**
+   - **Concept decisions:** brand image, core story, layout system. These are where Alice's expertise matters, and they deserve alternatives that you can see.
+   - **Detail decisions** underneath, which can be settled quickly.
+4. **Functionality, settled up front:** cheap to ask about, and in the Lagrange Foundry build nobody owned it.
+5. **Liveness / animation as its own item:** offered, since a novice won't ask, and with its own "is this too much?" check.
+
+### What Bob does
+
+| Behaviour | Rule | Evidence |
+|---|---|---|
+| Intake | Ask for facts, not diagnoses, including "what is this site for right now" | LF U18 and U101 arrived late; 1c U29 calibrated immediately |
+| Ordering | Respect the user's order. One warning, only when something expensive to undo is about to be copied across pages | Your order in the LF build was deliberate and right |
+| Routing | Visual decisions get shown (variant pages); messaging gets talked through | LF U82 and 1c U14 "show me both"; 1c messaging |
+| Critique triggers | **Vague dissatisfaction** (LF U44 "I don't know how to make this look good", 1c U39 "I got lost"), **milestones** (first pass done, before fanning out to more pages, before publish), and **decisions still defaulted** | LF U81 came 37 turns after U44 |
+| Review dimensions | The visitor's scroll experience, mobile, share card, favicon. Not a full-page screenshot | LF U102; mobile never checked |
+| Stall detection | Same element rejected twice → stop and confirm intent, or strip back to the simplest version. A nudging loop → one "good enough for now?" | LF overline, 1c "st" spacing |
+| Reminder discipline | Mention it once, park it with the reason, bring it back when it starts to matter | 37 sub-line reminders |
+
+### What Bob must not do
+
+- nag
+- enforce an order
+- apply his own taste
+- challenge without the brief behind it
+- make Alice look incompetent
+
+## Pressure-testing Alice and Bob
+
+The uncomfortable finding: **almost everything in the two tables above is state plus triggers, not conversation.** The ledger, the brief, milestone detection, "rejected twice", "still defaulted" are bookkeeping and rules. None of them obviously needs a second voice in the chat.
+
+**The evidence that Alice could do most of this herself:**
+- She tracked open items in both builds.
+- She raised mobile and asked the page's-job question (in the 1st Contact build).
+- She offered "good enough?" on her own.
+
+Her failures were calibration (the nagging), state loss (the 1st Contact copy), and not volunteering critique. The first two are ledger problems. The third might just be prompting: when you asked "does this look premium?", the honest answer came straight back. Would the same question injected by the system at a milestone get the same answer? Probably.
+
+**The case for a separate Bob persona, which I think is weaker than it first looked:**
+1. **A voice on the user's behalf.** A novice won't say "this looks amateur". Bob can say it for them. But a card offering the user "Does this look premium to you? [Yes] [Not sure] [No]" gives them the words without a third party in the chat.
+2. **Cost.** A cheap model runs intake and functionality cards. That's real, but it's routing, not necessarily a persona.
+3. **Engagement while Alice is busy.** You've deferred this. It may be the strongest argument once we get to it.
+
+**The costs of three in a chat:**
+- the user doesn't know who to address
+- turn-taking and latency
+- Bob and Alice disagreeing in front of the user
+- a cheap model making judgement calls it shouldn't
+
+A novice needs simpler, not more complex.
+
+**So there's a spectrum:**
+- **(a) Invisible Bob:** a ledger plus triggers that inject prompts into Alice's context ("milestone: first pass complete — critique against the brief"; "typeface still defaulted").
+- **(b) Bob as interface:** the same ledger, shown to the user as a checklist panel plus question cards.
+- **(c) Bob as a persona in the chat.**
+
+**My recommendation:** all three need the same foundation, the brief, the ledger and the triggers. Build that first and treat the persona as a presentation decision for later. Then run your next real build on (a) and see what's still missing. Whatever gaps remain are the honest case for (b) or (c). If nothing important remains, we've saved ourselves a three-way chat.
+
+**Question for you:** does that sequencing undercut anything you saw in EPIC-19 that made the second voice feel necessary? For example, something about how *you* experienced Alice that a ledger and injected prompts wouldn't fix.
+
+<!-- xgd-turn id="7838f37e-2876-4a91-8199-a3ea69569aac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:16:25.869906+00:00" -->
+#### You
+You had to correct Alice four times in ten turns <-- I remember - there was a bug in the chat, Alice was not getting delivered any history.
+
+At this point we have the basic infrastructure built so lets not worry about the cost in this conversation. This is PURELY about what is the best UX.
+
+The problems I was trying to solve with Bob:
+ - I felt Alice was too passive on its own let me expand
+ - There were no checks that things were landing - no checks for even basics like unstyled text - it felt like it was up to me to decide where things were landing
+ - Alice has great opinions but needed prompting to deliver them
+ - Alice was insufficiently critical of the web page (this is like the one above but slightly different). It knew there was a layout problem but in needed to be asked.
+
+A trained user could get a LOT out of using Alice, but I want to accommodate novice users, so who is going top push Alice to look critically at the site? Ensure that decisions are properly made etc?
+
+<!-- xgd-turn id="7838f37e-2876-4a91-8199-a3ea69569aac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:17:26.080686+00:00" -->
+#### Claude
+Thanks for the correction. If the history wasn't being delivered, those four 1st Contact corrections were a pipeline bug, not something Alice did. I'll stop using them as evidence for a decision ledger.
+
+Taking it purely as UX, your four problems aren't one problem. They break into three different jobs, and I think each has a different right owner.
+
+## 1. Verification: "did it land?"
+
+Unstyled text, broken layout at some widths, near-miss alignments, missing assets. These are facts about the render, not opinions. A novice can't spot them, and shouldn't have to.
+
+I don't think Bob should own this. Checking whether text is unstyled needs eyes on the render, not process judgement. The right UX is that **the user never sees unchecked work.** After every change, render it at a set of widths, run the mechanical checks, and have Alice look before she reports. That's the "definition of done" for a turn, like tests running automatically on code. Today it's up to you because nobody owns it. It should belong to the system, invisibly and every time. Giving it to a coordinator would make it a conversation, when it should be a guarantee.
+
+## 2. Critique: "is it good?"
+
+You said Alice *knew* there was a layout problem and needed to be asked. That's the most important observation in this whole discussion, because it means she had the ability and lacked the stance.
+
+There are two reasons the stance goes missing:
+- **The role pulls the other way.** A consultant serving a client defers ("your call", "say the word"), and finishing what was asked feels like success.
+- **Models judge their own work leniently.** The same model is noticeably sharper reviewing work framed as someone else's than reviewing what it just made. That's why generator/critic separation is a standard pattern.
+
+So I don't think "prompt Alice to be more critical" fully works. One agent holding both "satisfy this request" and "doubt the result" tends to resolve towards the request, as people do. **The doubt needs a separate owner whose measure of success is different.** Alice succeeds when the request is done. The critic succeeds when the brief is met.
+
+## 3. Proactivity and process: "what's next, and are decisions properly made?"
+
+This is the brief, the decisions and their states, milestones, and "you've never compared the palette against anything." It's the job you originally described for Bob.
+
+## Who pushes Alice? The agency answer
+
+Real agencies serve novice clients with exactly this split, and I think it settles your question:
+- **The account manager** sits on the client's side of the table. They own the brief, the timeline and "has everything been decided?" They ask the creatives the questions the client doesn't know to ask, and they push back on the creative team on the client's behalf.
+- **The creative director** critiques the designer's work *internally*. The client never sees that review; they see work that has already been through it.
+
+That maps onto your three jobs:
+
+| Job | Owner | Visible to user? |
+|---|---|---|
+| Verification | the system, every turn | No. It's a guarantee, not a conversation |
+| Critique | a reviewer separate from the author | The *result* is visible, the review isn't |
+| Process, brief, decisions, "ask Alice the hard question" | Bob | Yes |
+
+## Does Bob need to be visible? This is what changes my earlier view
+
+Last turn I argued for invisible Bob, with prompts injected into Alice's context. On UX alone, I think the visible version wins, for three reasons:
+
+1. **The novice learns the questions by watching them asked.** When Bob asks "does this read as premium against what you told us?" and Alice answers honestly, the user has just seen what critical looking sounds like. Next time they ask it themselves. With injected prompts, Alice just seems smarter and the user learns nothing.
+2. **The user can steer the process.** A visible Bob can be told "not now, visuals first" and record it as parked. Invisible triggers can't be argued with. Your real build depended on you overriding the process, and the novice needs a handle for that too.
+3. **The user isn't alone with the expert.** A novice talking to Alice is talking to someone who knows far more than they do, and will defer. Bob on their side changes that. And because the critique comes from Bob, the user doesn't have to supply it themselves.
+
+## The case against, which still stands
+
+- Three voices is more to follow than two.
+- If Bob asks "are you happy with this?" and Alice says "yes" too often, Bob becomes noise, and the user learns to skim him.
+
+That's the main way this fails, and it's why Bob's prompts need triggers: vague dissatisfaction, milestones, decisions still defaulted, the same element rejected twice. He shouldn't fire on a timer.
+
+**My position now:** verification invisible and automatic; critique from a separate reviewer; Bob visible as the user's advocate and keeper of the process, asking Alice the questions and getting her opinions out. That's your original idea, with two jobs (verification and internal review) taken off Bob's plate so he isn't trying to be an expert.
+
+The real test is watching a novice. Even one session with someone who isn't you, comparing visible Bob against an Alice primed to be more proactive on her own, would tell us more than further theory.
+
+<!-- xgd-turn id="f2df28ee-3465-4f77-9033-8827b6f30f7a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:38:32.327562+00:00" -->
+#### You
+Right and I have actually a bunch of novices lined up if we can get the tool ready in time.
+
+But I need to run a test or two myself first.
+
+Question: does Bob have anywhere to record/manage the state of the project? What I had in mind was a new ticket type "plan". It could start with a generic list of things that need to be decided. If there is any thinking to do Alice should create and update the plan, Bob should be responsible for tracking.
+
+It is never appropriate for Bob to say things like "I think the layout needs work" but completely appropriate for Bob to ask "Are we all happy with the layout" and to collect and record answers from Alice and the user.
+
+The plan ticket should have a structured plan in its front matter, that can be displayed on a panel or a card by Bob and unstructured content in the body - such as a log of decisions made etc. The ticket should capture all the input from the user about the goals, purpose and anything else that helps build the site. 
+
+Lets design the plan ticket type if we do not already have it?
+
+<!-- xgd-turn id="f2df28ee-3465-4f77-9033-8827b6f30f7a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:40:11.724761+00:00" -->
+#### Claude
+First I'm checking whether the product's ticket schema already has a plan type, or anything close to one.
+
+The product already has a `brief` ticket type (one per site, described as the canonical decisions document), so I'm checking how it's used before proposing anything new.
+
+## What already exists
+
+Nothing called `plan`, but two things overlap with it:
+
+1. **A declared `brief` type that nobody uses.** `apps/control-app/src/tickets.ts` declares a `brief` type: "the per-site canonical decisions document", one per site, with `site_slug` and a required body.
+   - DOC-9 §4 describes it as the Design Brief: decisions that "each start as `TBD` and are filled in as the conversation crystallizes", with a propose-and-confirm rule before anything is written.
+   - DOC-38 §9 says it is "small and always relevant", so it should be included in priming, not fetched by search.
+   - Nothing writes it. The local D1 has zero `brief` tickets, and no tool creates one or puts one in priming.
+2. **A per-session decision log on the chat ticket (REQ-171/REQ-283).** Alice's `record_decision` tool appends to the chat ticket's body. `set_standing_note` writes a `frame` field in its frontmatter. That's already your structure-in-frontmatter, log-in-body split, but it is scoped to **one chat session**, not to the site.
+
+So I'd recommend **one type, not a third.** `brief` has never been written, so renaming it to `plan` (or keeping the name and widening it) costs nothing now. And the decision log should move from the chat ticket into the plan body. Otherwise decisions live in two places, and a site built over five sessions has five partial logs.
+
+## Proposed shape
+
+**One per site, living.** A later redesign moves the plan back to an earlier phase rather than creating a new ticket.
+
+### Frontmatter: what Bob can show as a panel or card
+
+```yaml
+site_slug: lagrangefoundry
+phase: intake | first_pass | revision | prelaunch | live
+
+brief:                        # the user's input, structured
+  business: "AI venture foundry, solo founder"
+  site_job: "placeholder / teaser; matters in 1–2 yrs for CEO + investor recruiting"
+  audiences: [{ who: "institutional", priority: 1 }]
+  goal: { kind: credibility, measure: null, proxy: "contacts after talks" }
+  quality_bar: "premium — reads as a $100k site"
+  existing_site: { url: "gigabytealchemy.ai", feeling: "retiring, liked the lightness" }
+  constraints: ["only XGD + 1c named", "undersell XGD for now"]
+
+functionality:                # picked from the fixed catalogue, up front
+  - { feature: contact_form, status: wanted }
+  - { feature: blog, status: not_wanted }
+  - { feature: payments, status: later }
+
+decisions:                    # seeded from the generic list, see below
+  - id: typography
+    area: style               # purpose|messaging|style|imagery|functionality|liveness|structure
+    tier: detail              # concept | detail
+    state: defaulted          # open|defaulted|proposed|not_objected|chosen|delegated|parked
+    value: "Georgia / Helvetica"
+    compared: false           # was it ever chosen from visible alternatives?
+    parked_reason: null
+    log: 7                    # → "Decision 7" in the body
+
+checks:                       # the questions Bob asks: "are we all happy with…"
+  - id: layout_happy
+    question: "Are we all happy with the layout?"
+    trigger: first_pass_complete
+    asked_at: 2026-09-22
+    answers:
+      - { by: alice, verdict: no, note: "type is amateur; grid breaks at hero" }
+      - { by: user,  verdict: not_sure }
+
+tasks:                        # Alice's plan
+  - { id: t3, title: "Variant home pages: Facsimile vs Gallery", status: done,
+      depends_on: [t1], decisions: [layout, typography] }
+```
+
+### Body: free text, retrievable by search
+
+- `## Brief`: the user's goals and purpose **in their own words**, including verbatim quotes such as "I am not really expecting any contacts". The structured `brief` fields are an index into this text, not a replacement for it.
+- `## Decision log`: append-only numbered entries giving what was decided, why, and what was rejected. This is the existing `record_decision` format, moved here.
+- `## Notes`: anything else that helps build the site.
+
+## Who writes what (your role split, built into the schema)
+
+| Section | Alice | Bob | User (via Bob's cards or chat) |
+|---|---|---|---|
+| `brief`, `functionality` | refines | **records** answers from intake | supplies |
+| `decisions` | may set `defaulted` / `proposed`, with a value | records state changes | the only route to `chosen`, `delegated`, `parked` |
+| `checks` | answers | **asks and records** | answers |
+| `tasks` | **owns**: creates, orders, adds dependencies | updates progress | — |
+| decision log | writes the "why" | appends what the user said | — |
+
+Two rules hold this together:
+- **`answers[].by` can only be `alice` or `user`.** Bob can't appear as an answerer, so "Bob never offers an opinion" is enforced by the data, not just by prompting.
+- **Only a user answer moves a decision to `chosen`.** That makes the fonts-defaulted-for-80-turns failure visible as a state, rather than something to notice.
+
+## Generic decision seed, as a draft list to argue with
+
+| Area | Concept tier | Detail tier |
+|---|---|---|
+| Purpose | site's job, audience, goal & measure, quality bar | — |
+| Functionality | — | feature set (cards) |
+| Messaging | core story | voice, key messages, page/section structure, CTA wording, copy per section |
+| Style | visual concept, layout system | palette, typography, spacing/rhythm |
+| Imagery | brand imagery / treatment | image supply, logo/wordmark, favicon, share card |
+| Liveness | animation approach ("none" is a valid answer) | per-element effects |
+
+**Standing checks** (seeded, fired by triggers):
+- Are we all happy with the layout?
+- Does it meet the quality bar?
+- Mobile reviewed?
+- Scroll experience reviewed?
+- Ready to publish? (links, contact routing works, metadata)
+
+**Triggers:**
+- phase changes: first pass complete, before fan-out to more pages, before publish
+- the user expresses vague dissatisfaction
+- a concept-tier decision is still `defaulted` when we reach the revision phase
+
+## Questions before this becomes a ticket
+
+1. **Rename `brief` to `plan`, and move the per-chat decision log into the plan body?** I'd do both: one home, one name. The `frame` standing note can stay on the chat ticket as per-session working memory.
+2. **Dependencies on tasks:** do you want an explicit `depends_on`, or just an ordered list? I'd keep `depends_on` optional, since your own order was rough anyway.
+3. **Propose-and-confirm:** DOC-9 §4.2 says the AI proposes brief edits and the user confirms. With Bob in the picture, is it enough that Bob records the user's answer, or do you want an explicit confirm step on brief fields?
+4. **One plan per site:** right, or per engagement?
+
+Once you've answered those, tell me if you want it filed as a REQ. I'd draft it as an upgrade of the existing `brief` type rather than a new feature.
+
+<!-- xgd-turn id="a2d329e4-7bbf-4d61-9bba-ff2945037efe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T21:00:17.461854+00:00" -->
+#### You
+Perfect, yes please create and REQ for this. 
+
+Then I want you to write a document that captures this conversations conclusions: The roles, how they are expected to interact, how they are expected to use a plan ticket, the generic descisions that need to be checked off, the way we expect to get there. It should be written as core content for Alice and Bob
+
+<!-- xgd-turn id="a2d329e4-7bbf-4d61-9bba-ff2945037efe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T21:04:04.136554+00:00" -->
+#### Claude
+I'll file the REQ first, then write the document. First a look at how system-KB docs are marked, so the new doc lands in the right place.
+
+REQ-356 is filed (`request-d27ae815`). Next I'll append our design turns to its transcript, then write the document.
+
+Transcript captured. Now the document.
+
+Now I'll point REQ-356's seeding section at DOC-64 by name.
+
+I've filed both. They're tickets only: no code, nothing promoted.
+
+## REQ-356: "Plan ticket: one living per-site plan for Alice and Bob (upgrade of brief type)"
+
+It's at `draft` (`request-d27ae815`), and I've added our design turns to its chat transcript.
+
+- **It reuses the existing `brief` type rather than adding a new one.** `brief` is declared but has never been written, so renaming it to `plan` costs nothing.
+- **It moves the decision log** (the `record_decision` entries) from each chat ticket's body into the plan's body, so a site built over several sessions has one log. The chat ticket keeps the transcript and the standing note.
+- **The shape is the one we agreed:**
+  - Frontmatter: `phase`, a structured `brief` (with the site's job kept separate from the audience), `functionality`, `decisions` with states, `checks`, and Alice's `tasks`.
+  - Body: the client's own words, the decision log, and notes.
+- **Bob can never be recorded as answering a check.** Only a client answer can move a decision to chosen, delegated or parked, and parked requires a reason.
+- **It settles two of DOC-62's open questions:**
+  - The plan is keyed on the site. DOC-62's analysis leaned towards keying it on the business, but its real concern was surviving a lost conversation, which a site-keyed plan does.
+  - The panel and the decision log are one object.
+- **It tightens DOC-62's write rule:** Bob may record the client settling a decision, but never settle one himself.
+- **Bob's runtime is out of scope:** the room, turn-taking and triggers firing.
+- **New plans are seeded from DOC-64 §6 and §7.** The seed list is data, so it can change without a code change.
+
+I took my own recommendations on the four open questions, since your "perfect" read as agreement: rename and move the log, `depends_on` optional, Bob recording the client's answer counts as confirmation, one plan per site. If any of those weren't what you meant, the REQ body is the place to change them.
+
+## DOC-64: "Alice and Bob: roles, the plan, the decisions, and how a build runs"
+
+It's filed as a system-KB doc (`doc-ac09a3b6`) and addressed directly to the two agents:
+
+1. **Why there are two of you:** a novice doesn't push the way a trained client does.
+2. **Roles:** what Alice does and must not do; what Bob does, with a "may say / must never say" table; the "Bob asks, Alice answers, the client decides" loop.
+3. **Principles:**
+   - show visual decisions, talk through messaging, ask for facts
+   - order by the cost of undoing
+   - the client's order wins, with parking as the mechanism
+   - not objecting is not choosing (the decision states)
+   - rough first, then revise
+   - liveness is something we offer
+4. **Checks:**
+   - verification is Alice's job every turn, and invisible to the client
+   - critique is drawn out by Bob's questions, reviewed as the visitor experiences the page and on a phone
+   - when a check must not fire
+   - how to handle stalls
+5. **The plan ticket:** who writes what, and daily habits for each role.
+6. **The generic decisions,** by area and tier, with how each gets settled.
+7. **Standing checks and their triggers.**
+8. **How we get there:** intake, plan, first pass, first review, revision rounds, pre-launch, live.
+9. **Patterns to avoid,** each taken from the real builds.
+
+**One thing to know before your own test runs:** DOC-62 measured that coaching prose in priming reached only 2 of 102 turns. So DOC-64 alone probably won't change behaviour much. It becomes effective once the plan ticket (REQ-356) carries the state, and the checks fire from triggers rather than relying on either agent to remember.
+
+<!-- xgd-turn id="ca7cba03-d679-45cc-b003-70e4096d6e71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T23:29:07.531473+00:00" -->
+#### You
+One question: When should the plan ticket be created? I think it is tied to the business 1-1 so it should probably be created at the same time the business is provisioned - would you agree? We may later have other plan tickets associated with the business - such as a marketing ticket - so this should clearly be the site plan.
+
+<!-- xgd-turn id="ca7cba03-d679-45cc-b003-70e4096d6e71-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T23:31:29.150284+00:00" -->
+#### Claude
+Before answering I'm checking how businesses and sites relate in the current model, and where provisioning happens.
+
+REQ-356 is updated. Last step: adding this exchange to its transcript.
+
+I've updated REQ-356 (still a draft) with your provisioning answer and the three refinements, and added this exchange to its transcript:
+
+- **Type and kind:** `plan` with `kind: site`, unique per kind and site. A marketing plan can be added later as another kind without a new type.
+- **Key:** `site_key` (the store-minted key) replaces `site_slug`.
+- **When it's created:**
+  - in `provisionBusiness`, straight after `createStarterSite`, starting at `phase: intake` with the DOC-64 seed list
+  - on first open if missing, so the existing businesses (including Lagrange Foundry) get one too. Creating it is idempotent, so two simultaneous first opens can't make two plans.
+- **Test plan:** added the provisioning case, the missing-on-first-open case, and refusal of a duplicate kind-and-site plan.
+- **Watch item, out of scope:** `brief.business` describes the business, not the site, so it may need to move up a level once a second kind of plan exists.
+
+DOC-64 didn't need changing: it already says every site has one plan, which is still true.
+
+<!-- xgd-turn id="cd02a880-95b6-4d0d-b598-54fdad2d8e29-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T16:23:32.712489+00:00" -->
+#### You
+ok we have an initial session - still very early days but take a look at Charlie's Plumbing  the transcript and the site build out. Lots of learnings. Give me your thoughts and we will discuss.
+
+<!-- xgd-turn id="cd02a880-95b6-4d0d-b598-54fdad2d8e29-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T16:26:15.155628+00:00" -->
+#### Claude
+Looking for the Charlie's Plumbing build in the local D1 first.
+
+The build is in the DB, and the plan ticket from REQ-356 already exists (`plan-51d38253`). Next I'll pull every chat for this business.
+
+I've read the room transcript, Bob's own transcript and the plan. Next a quick measure of post lengths and gaps, since volume and silences were your main complaints.
+
+I've read the room transcript, Bob's transcript, the plan ticket, and the tool calls each agent made. I haven't looked at the rendered pages: Chromium is blocked in this sandbox. So my comments on the site come from the conversation and the decision log, not from seeing it.
+
+## What worked, and it's a lot
+
+- **Alice's judgement about plumbing was excellent, and she offered it unasked.**
+  - She spotted the Roto-Rooter trademark issue up front.
+  - She made the 8am–10pm cutoff the main trust claim ("the one customer guaranteed to leave you a bad review is the one who rang at 2am believing it").
+  - She said a published callout fee is "the single most disarming fact a plumber can state."
+  - She saw that father and son on the same vans is the one thing no chain can say.
+
+  This is the "Alice has great opinions" quality, delivered without prompting.
+- **She switched to showing on her own initiative.** "I'm going to stop asking you this question in words… build it both ways." She built `/heavy` and `/family`, recommended one with reasons, and called the existing page "the weakest of the three." That's DOC-64 §3.1 and §4.2 working, and the passivity problem largely went away.
+- **The plan ticket was used honestly.** The visual concept was recorded as "defaulted, not settled — Charlie has not yet been shown alternatives." The decision log has a reason and rejected alternatives for each entry. The decision states are truthful: 5 proposed, 16 open, none falsely marked chosen.
+- **Bob's persistence got answers.** You said you wouldn't have answered without it. That's the one clear piece of evidence for Bob in this session.
+
+## What went wrong
+
+**1. Volume.** Before your break-character note, Charlie wrote **206 words in three turns**. Alice and Bob wrote about **3,150 words**, roughly 15 to 1, and asked about 22 questions. Your opening got two Alice posts and one Bob post before you could reply.
+
+**2. Bob did no part of his job, and did the one thing he's barred from doing.** His tool calls for the whole session were 7 room reads, 7 room posts and 2 change-list reads. **He made zero plan writes.** Alice made all of them: brief updates, decision states, tasks, the decision log.
+
+The result:
+- **All eight checks were never asked**: `asked_at` is empty on every one.
+- **The quality bar was never captured.** Alice noticed this herself: "the one I keep not asking."
+- **Functionality is empty, and the goal is still open.**
+- **Alice ran intake, not Bob.**
+
+What Bob did instead:
+- **summarised Alice:** "Here's where we stand", "Alice has built…"
+- **gave opinions:** "which I agree with", "her reasoning is sound"
+- **made one up:** "Bailey and Knockout feel professional and solid", about a site neither of them had seen. Alice had to correct him in front of the client.
+
+My read: with no state to write and a room prompt that says "post one contribution", restating is all that's left. **Either the plan tools weren't on Bob's tool list, or nothing told him to use them. That's worth checking first, because it decides whether this is a bug or a design problem.**
+
+**3. "Nearly done."** Bob framed progress as closing open items, and the plan as built counts decisions, not quality. Five items left feels like five items from done. Nothing signalled "this is a rough first pass", and with no quality bar recorded, no check could say "not there yet." The phase was still `intake` throughout, even after three pages had been built.
+
+**4. The silences.** Gaps of 25, 20 and about 10 minutes went by with no notice, then two pages of text when they came back. Alice delegated 11 times to builder workers, which is where the time went. DOC-62 called narrating the wait the *one unambiguous* job for a second voice, and Bob never did it: he only speaks when a room round triggers him, and the room is silent while Alice works.
+
+**5. The pages looked like a mockup because the facts were never collected.** Your diagnosis is right, and it points to a gap in DOC-64. The §6 decision list is entirely design and messaging decisions. **It has no facts and proof inventory**: callout fee, response time, jobs done, neighbourhoods, reviews and their count, guarantees, licences, photos of real work. Real business sites are thick with these. We built a container and never collected what goes in it.
+
+Two refinements follow:
+- **Ask for facts when they become load-bearing.** Not all at intake (the licence number belonged pre-publish), and one at a time, mixed in with building. Intake should ask only what shapes the first pass.
+- **Reference sites give us the checklist.** When a client sends references, take an inventory of *what kinds of fact* they show (prices, review counts, badges, guarantees). That becomes the list of things to ask about. Alice reached this at the very end: "they have numbers where we have structure."
+
+**6. "Who you get" and Emma.** Alice turned the client's own wording into the centrepiece of the page. Two lessons:
+- The client's quoted words are raw material, not page structure. Check what the trade normally leads with first; Alice did eventually, and the answer was proof first, people as support.
+- Treat how people are described as a sensitivity check, especially roles that can read as stereotypes.
+
+**7. The logo should have been caught by verification.** A white-box logo on a cream page is exactly what DOC-64 §4.1's look-before-you-report step is for. Preparing a client asset, e.g. removing its background, should be part of placing it, not something the client has to spot.
+
+## What I'd change, for discussion
+
+1. **Who speaks depends on the move, and never two voices on one point.**
+   - Presenting work and opinions: Alice.
+   - Asking the client for information (one question at a time, from the plan), chasing dropped items, narrating waits, firing checks: Bob.
+   - By default, one voice per client turn. The other passes unless it has a check or a dropped item.
+
+   Alice reached this herself at the end: "You ask, I'll stay quiet. One voice asking is the whole fix." The last exchange (Alice gives Bob an ordered list, Bob asks one question) is the best moment of the session and probably the right model.
+2. **Bob's output is mostly state.** Give him the plan tools and make his posts a narrow set:
+   - one question
+   - a check
+   - a wait notice ("Alice is building two versions, about 15 minutes")
+   - a short orientation when the phase changes
+
+   No summaries of Alice, and no agreement or endorsement, since that's an opinion too.
+3. **Bob triggers on Alice going quiet, not only on room rounds.** That covers the wait-narration job. A product progress indicator would help as well.
+4. **Frame progress by phase.** When Bob orients, he starts from the phase ("this is a rough first version; next we…"), and the plan's phase actually advances.
+5. **Add to DOC-64:**
+   - a "Substance and proof" area of facts to collect over time
+   - the reference-site inventory method
+   - intake limited to what shapes the first pass
+   - client-asset preparation as part of verification
+   - a sensitivity check on how people are described
+
+## On whether Alice and Bob is the right setup
+
+This session cuts both ways.
+
+**Against Bob as built:** primed with DOC-64 and the plan, Alice did most of Bob's job herself (variants, unprompted critique, honest decision states), and Bob mostly added words.
+
+**For Bob:** the things Alice *didn't* do are exactly the bookkeeping and persistence jobs. She never asked the quality bar, never asked about functionality, never fired a check, never narrated a wait. And it was Bob's persistence that got you to answer.
+
+So I don't think this session argues for removing Bob. It argues that the Bob we ran wasn't the Bob we designed: he talked instead of tracking. I'd re-run with Bob doing state, waits and one-question-at-a-time asking before drawing a conclusion. Shall I check his tool list and session priming first, to see whether this was a wiring gap?
+
+<!-- xgd-turn id="d17f3049-42ad-40e5-97ec-eaad37709010-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T17:12:36.698188+00:00" -->
+#### You
+DOC-62 called narrating the wait the *one unambiguous* job for a second voice, and Bob never did it: he only speaks when a room round triggers him, and the room is silent while Alice works. <-- thats fair we have the interposition feature in development right now, when Alice is busy, Bob is muted - but my problem right now is too much text not to little
+
+One easy fix - Bob and Alice's contributions are insufficiently distinguished. In the showcase we used chat bubbles to tell them apart - I actually like what we are doing here better but we could try:
+ - make the name larger - it is in a smaller font that the text
+ - an avatar icon - just an initial on a colored background
+ - subtle but different background shading behind the text
+
+One thing I am wondering about is turning the plan into a panel which is always visible - Bobs job is primarily to keep that up to date. Its a dashboard and progress indicator - with User facing CTAs: e.g. What is the CSLB number just goes on the panel. Charlie gets around to it whenever - and BTW Charlie has big gaps here when Alice is busy. Part of what troubles me is that I want Charlie to read and respond to Alice first and in these exchanges Bob is coming in with process and disrupting the core design conversation. It feels like Bob should say less.
+
+Also BTW that session cost $33 which is probably 3x what we can afford with our current pricing model for this point. I'm not too worried about it yet but just calling it out.
+
+<!-- xgd-turn id="d17f3049-42ad-40e5-97ec-eaad37709010-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T17:13:36.111842+00:00" -->
+#### Claude
+You're right. My "Bob never narrated the wait" point was the wrong emphasis given interposition is coming. The problem is too much text, and Bob is the easiest place to cut it.
+
+## A panel Bob keeps up to date
+
+I think this is the right move, and it solves more than the volume. DOC-62 §5 already says "the plan is a panel, not a message" and "a stream widget demands a response where a panel can be glanced at and ignored." What you're adding is that **the panel is where the client acts**, not just where they look.
+
+It also handles three things the session showed:
+
+1. **Bob keeps pushing without saying anything.** The one thing Bob demonstrably got right was persistence: you answered because he kept asking. A dropped question doesn't need repeating if it's sitting on the panel as "we need from you: service area, CSLB number" with a count badge. It stays visible and costs no text.
+2. **Alice's busy time becomes useful.** While she's building, Charlie fills in the panel items at his own pace. Those 25-minute gaps become the time when the facts get collected, rather than dead time.
+3. **Facts get collected over time.** The panel is the natural home for the "Substance and proof" list I said DOC-64 is missing: callout fee, response time, towns, guarantee, reviews. Each item can say why it matters ("a published callout fee is the most disarming fact a plumber can state"), and it gets answered whenever Charlie gets to it. No questionnaire up front.
+
+Roughly what the panel shows:
+- **Phase:** "Rough first version". This also fixes the "nearly done" impression, because it's always framed by phase, not by how few items are left.
+- **Needs your answer:** fact requests, answered right there.
+- **Needs your choice:** e.g. `/heavy` vs `/family`, with links.
+- **Decided / still open:** compact progress.
+- **Alice is working on…:** once interposition lands.
+
+This needs a new section in the plan, because facts aren't decisions. Something like `asks: [{ id, question, why, needed_by_phase, answer, answered_at }]`, maintained by Bob, answered by the client. Delivering those answers to Alice is a design point in itself: she needs to know when one comes in so she can use it.
+
+## Bob says less
+
+Agreed, and the panel is what makes that possible. Most of what Bob said this session moves to the panel:
+- "here's where we stand" summaries become the panel
+- re-asked questions become ask items
+- "Alice still needs X" becomes an ask item
+
+That leaves Bob's voice for very few cases:
+- **Milestone checks.** "Are we all happy with the layout?", and only after the client has responded to Alice's work. These stay spoken on purpose, because asking out loud is what shows the client that this is a question they're allowed to ask.
+- **When he's addressed.** "Bob, what's left?"
+- **Narrating the wait,** once interposition exists.
+
+Two rules would protect the design conversation:
+- **Bob never posts in the same round as Alice unless he's addressed.** The client reads and responds to Alice first.
+- **Bob doesn't speak to report anything the panel already shows.**
+
+## Telling them apart
+
+All three ideas are cheap and they work together: name at least the size of the body text, an initial avatar, and a faint background tint. I'd add one more. If Bob's posts become rare and short, a slightly more compact style for them (smaller text, or a subtler tint) signals that they're secondary to Alice's.
+
+## Cost
+
+$33 is worth tracking. The volume fix should also cut cost, since every long post is re-read by every participant on later rounds. From the tool calls, other likely contributors are:
+- Alice rewriting her standing note 16 times
+- 11 builder delegations
+- Bob re-reading the room from the start on most rounds ("read them from cursor 0")
+
+That's an inference from what each agent did, not a measurement; I don't have a token breakdown. Something to dig into when it becomes a priority.
+
+## Next steps, if you agree
+
+1. **Update DOC-64:**
+   - Bob's voice limited to the cases above
+   - the panel as Bob's main output
+   - the "Substance and proof" facts list
+   - intake limited to what shapes the first pass
+   - the reference-site inventory method
+   - client-asset preparation as part of verification
+   - a sensitivity check on how people are described
+
+   It's a doc change, so no ticket needed.
+2. **The plan `asks` section and the panel** are new code. Since a plan ticket already exists, REQ-356 has evidently been built, so this would be a new ticket rather than an edit to it. Tell me if you want me to file one.
+
+<!-- xgd-turn id="f6ae925b-e470-483d-bb28-2559b1ea17a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T17:20:41.264030+00:00" -->
+#### You
+**Bob never posts in the same round as Alice unless he's addressed.** The client reads and responds to Alice first. <-- yes, except remember that I introduced Bob in order to try to push Alice - seeing this in action, I am not sure how well that would work - it could again become overwhelming.
+
+I love the idea of a panel that collects content while Alice works though. I find myself wondering if we need Bob again though. Alice can construct the panel - in face the panel should really be a rendering of the plan ticket (some of the plan ticket).
+
+Another thing that Alice should do is invite uploads of content - rather than Ask Charlie for address and phone etc have him upload a headed letter as a PDF? Do they have a brochure? Price list etc.?
+
+<!-- xgd-turn id="f6ae925b-e470-483d-bb28-2559b1ea17a6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T17:21:26.462248+00:00" -->
+#### Claude
+## Do we still need Bob?
+
+Count what's actually left for him:
+
+| Bob's job | Where it goes now |
+|---|---|
+| Bookkeeping | **Already Alice's.** She made every plan write in the Charlie session; Bob made none. |
+| Persistence on dropped questions | **The panel.** An unanswered item just stays there. |
+| Progress and "where we are" | **The panel,** as a rendering of the plan ticket. |
+| Narrating the wait | Your interposition work. It could just as well be a status line ("Alice is building two versions, about 15 min") as a voice. |
+| **Pushing Alice to be critical** | The only job still open. |
+
+And the case for that last one is weaker than it was. In the Lagrange Foundry build, Alice needed asking. In the Charlie session, primed with DOC-64 and the plan, she critiqued herself without prompting: "What I'd change myself, unprompted", "your current home page is the weakest of the three", and she withdrew one of her own arguments once the logo was fixed. The behaviour Bob was meant to force mostly happened anyway.
+
+You're also right that a spoken push risks bringing the overload back. So there are two ways to cover critique without a second voice:
+
+1. **Checks as panel prompts the client can tap.** At a milestone the panel shows "You said you want to look like the most trusted plumber in town. Does this page do that?" with *Yes / Not yet / Not sure*. "Not sure" or "Not yet" sends the question to Alice, who answers in the conversation. This still teaches the novice that the question is allowed, which was the point of Bob asking out loud, but through the interface rather than a third participant.
+2. **A hidden reviewer** if self-critique turns out not to be enough. A separate agent reviews each milestone render against the brief and passes its findings to Alice, who presents them in her own voice. That's the generator/critic split, with nothing extra in the chat.
+
+My recommendation: **run the next session without Bob**, using Alice, the plan panel, and milestone checks as panel prompts. Keep the room and Bob's runtime; shelve him, don't delete him. If the gaps come back (quality bar never asked, decisions stuck on defaults, no critique at milestones), we'll know what a second agent has to fix and can bring back the narrowest version. It's also the cheapest configuration to try, which matters at $33 a session.
+
+## Ask for documents, not data entry
+
+Agreed, and the product already supports most of it. The `material` type (DOC-38) handles uploads with an AI-written text shadow, and `capture_site` can read web pages. So the move is that Alice asks for **artefacts** and extracts the facts herself:
+
+- **Letterhead, business card, invoice template (blank):** address, phone, licence number, branding
+- **Brochure, flyer, van livery photo:** services, claims, existing voice, colours
+- **Price list or rate card:** the callout fee, the single most valuable fact on Charlie's page
+- **Google Business / Yelp / Nextdoor link:** reviews, review count, hours, service area. This is exactly the "real business" density the Charlie pages lacked.
+- **Phone photos of real jobs and the van:** for a tradesperson, "snap a few photos on your phone" is easier than any form
+
+Three rules would make this work:
+
+1. **Extract, then confirm.** Show what was found ("From your brochure: callout $95, Santa Cruz, Capitola, Scotts Valley. Still right?"), because documents go out of date. Confirmed facts fill the plan's `asks`.
+2. **Every panel ask accepts either a typed answer or an upload.** "What do you charge to come out?" can be answered with "95" or with a photo of the price list.
+3. **Don't invite documents full of customer data.** A blank invoice template is fine; real invoices carry other people's names and addresses. The privacy principles in the architecture policy are "collect only necessary data".
+
+## What this does to the docs
+
+DOC-64 is now mostly wrong about Bob, so I'd hold the rewrite until after the Bob-less session, rather than revise it twice. The parts that don't depend on Bob I could add now:
+- the plan panel
+- `asks` with upload-or-answer
+- the facts-and-proof list and the reference-site inventory
+- ask-for-documents
+- intake limited to what shapes the first pass
+- client-asset preparation as part of verification
+- the sensitivity check on how people are described
+
+Want me to do that partial update now? And for the panel and `asks` code, file a new ticket?
+
+<!-- xgd-turn id="33e3216f-1b08-440f-b15d-59e630215b28-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T17:46:06.486484+00:00" -->
+#### You
+I hate to say it, but I think we need a new desgin doc - lets call it our next hypothesis.
+
+Bob is behind a feature flag so he is easy to turn off. I suggest we try the next test with Bob off.
+
+Lets add a panel that divides the chat half of the screen into a top and bottom - it should have the same dragable dividors we use everywhere to give it more or less space or collapse it. We need to design a panel that goes in the top, keep the chat in the bottom. The panel itself should be a render of data placed into the plan ticket (we can modify the plan ticket to make this work if necessary). So the model is Alice puts questions into the ticket, the panel notices the change and auto refreshes. Charlie answers questions and the answers are auto-saved to the ticket. Alice is informed of change to the ticket.
+
+It should be built so that the chat panel can be Alice or Bob - Bob can see the plan ticket so adding or removing him remains straightforward
+
+1. On cojnfirmation - lets swing back to it - its probably important but it could generate a lot of noise in the chat and we want the chat to be high information content low noise. Validation could move to the panel for example, and Alice should definitely encourage a final pass asking for Charlie to check all the details.
+2. **Every panel ask accepts either a typed answer or an upload. **<-- or checkboxes, radio buttons, or a typed data field (date, phone, number)
+3. **Don't invite documents full of customer data.** This is important - we need to properly handle the situation where a user uploads customer credit card information because it will happen - but this is another detail for the future like data confirmation. I am very focused on the core interaction right now and - we should list these important details and come back to them. Can you make sure they are in the doc and crreate ToDo tickets for them and we will loop back.
+
+So I think the design document should capture the next stage UX the panel (as a rendering of the plan ticket) lets remain agnostic on Bob and can you capture all the learnings about Alice and Bob behavior please. FYI it will be EPIC-19's job to create the tickets to iomplement this.
+
+<!-- xgd-turn id="33e3216f-1b08-440f-b15d-59e630215b28-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T17:49:22.821815+00:00" -->
+#### Claude
+I'll write the new doc and file the ToDo tickets. First two quick checks: what the existing draggable divider component is called, and how ToDo tickets are filed in this project.
+
+The divider looks like it comes from the shared framework rather than a single local file. I'll refer to it generically and leave EPIC-19 to wire it up. Writing the doc now.
+
+Now the three ToDo tickets, so the doc can reference their real IDs.
+
+DOC-65 is filed. Last step: pointing the three ToDos back at it by ID.
+
+I've filed the new design doc as DOC-65 and the three deferred items as ToDos (TODO-9 to 11), all linked to EPIC-19. Nothing else was filed; EPIC-19 will create the build tickets from the doc.
+
+## DOC-65: "Next hypothesis: Alice and a plan panel (Bob optional)"
+
+1. **The hypothesis.** One designer voice in the chat, plus an always-visible panel drawn from the plan ticket, works better for a novice than two voices. The next test runs with Bob off. The doc also says what would prove the hypothesis wrong: the old gaps coming back, or the client ignoring the panel.
+2. **What we've learned so far,** in four parts:
+   - the client: shows-not-tells, won't push, won't fill in forms, has their own order, silences feel like failure
+   - Alice: what works, and what fails (volume, seven questions at once, details asked too early, building before collecting the substance, using the client's own words as page structure, the unprepared logo, never asking the quality bar)
+   - Bob: persistence works; he made zero plan writes, restated Alice, gave opinions and once made one up, and created a "nearly done" impression
+   - cost
+3. **Screen layout.** The chat half splits into the panel on top and the chat below, with the existing draggable divider (resize or collapse). It also covers telling speakers apart: bigger name, initial avatar, tint.
+4. **The panel draws everything from the plan ticket.**
+   - Alice writes to the plan, and the panel refreshes itself.
+   - The client's answers save to the plan as they type.
+   - Alice is told what changed, as a short fact.
+   - The client owns their answers; Alice never overwrites one.
+   - It works the same with Alice alone or with Bob switched on.
+5. **What the panel shows:** where we are, framed by phase rather than items left; needs your answer; needs your choice; checks as tap-to-answer prompts (Yes / Not yet / Not sure); decided and open; what Alice is working on.
+6. **The new `asks` section of the plan ticket.** Each question carries an input type (text, number, money, phone, email, URL, date, single choice, multiple choice, upload), can optionally accept an upload instead, has a "needed by" phase and a blocking flag. The doc includes writing rules for Alice.
+7. **How Alice behaves in the chat:**
+   - think first, at most one question per post, no restating
+   - announce before going quiet ("back in about 15 minutes, meanwhile there are questions in the panel")
+   - intake limited to what shapes the first version
+   - ask for documents and extract the facts herself
+   - treat reference sites as a list of the kinds of facts to collect
+   - never invent facts
+   - the design behaviours carried over from DOC-64
+   - a final "check every detail" pass, done in the panel
+8. **Bob, if he's switched back on:** the panel is his main output, he stays silent in Alice's round, and he gives no opinions.
+9. **Important but deferred,** linked to the ToDos below.
+10. **Open questions:**
+    - When does a client's answer reach Alice?
+    - Will clients actually answer checks in the panel?
+    - How many questions should show at once?
+    - Should picking a variant happen in the panel, the chat, or both?
+11. **How we'll judge the test.** A table of Charlie-session baselines: words ratio about 15:1, up to 7 questions per post, 3 silences with no notice, quality bar never captured, 0 of 9 concept decisions chosen by the client, about $33. Plus new measures for the panel.
+
+## ToDos
+
+| ID | Topic | Priority |
+|---|---|---|
+| TODO-9 | Confirming facts without filling the chat | medium |
+| TODO-10 | Sensitive customer data in uploads (card numbers, personal data) | high |
+| TODO-11 | Measure and reduce cost per session | low |
+
+The doc records two choices I made that you may want to change:
+- **When an answer reaches Alice:** I recommended her next turn, waking her early only for a question she's blocked on. That's open question 1.
+- **DOC-64:** I left it as is. DOC-65 says it is the current position wherever the two conflict, and reconciling DOC-64 is deferred until after the test.
+
+<!-- xgd-turn id="2ba549ca-5821-47de-902d-d7229e18d8be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T18:07:49.203414+00:00" -->
+#### You
+Let discuss the open questions and see if we can resolve them.
+
+1. Charlie can edit the webpage and Alice is informed (in the reminder text, I believe) that is how she should be notified of any changes to the plan ticket should 
+2. This is important - it may ultimately be Bob's role? - the conversation needs to be stage-managed:
+ - All questions that Alice has should go into the plan and the pannel - we can talk about how this looks, we can add grouping or whatever but later for now as soon as Alicve things of something it needs put it in the panel.
+ - Alice (or Bob) needs to explain what is happening - "we are just going to rough something up now - don't worry this is far from final" / " I need to take a few minutes now to implement what we discussed - can you answer some of the questions in the panel while I do that?"
+ - large open questions - style, color pallet, even font - Charlie cannot answer those unaided - the panel is to ask questions that we expect him to know the answer to
+ 3. All of them right now - we can try to simplify/organize etc later
+ 4. No picking a variant is at best a large open question per above its a conversation. We do need a better interface on that experience BTW but not a problem for now. ALSO the pannel is better suited to questions that endure - Charlies phone number is always Charlies phone number - Which variant is ephemeral it depends on the varients right now we might go through 4 rounds with different variants.
+
+<!-- xgd-turn id="2ba549ca-5821-47de-902d-d7229e18d8be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:09:53.460497+00:00" -->
+#### Claude
+Before agreeing on point 1, I'll check how Alice actually hears about Charlie's page edits today, so the plan can use the same mechanism.
+
+Applying the revisions with a short script.
+
+All four questions are resolved, and I've updated DOC-65 to match.
+
+**1. How Alice hears about panel answers.** The mechanism exists. There's a per-turn change notice (`session-delta.ts`, REQ-160) that reports changes across the project's tickets, and the plan is one of them. It's the same notice that tells Alice about Charlie's page edits.
+
+One gap: today the notice only lists ticket titles, within a 400-character budget. For the plan, that would just say "the plan changed". DOC-65 §4 now says the notice must name which questions Charlie answered and what he said, and must leave out Alice's own changes. A panel answer doesn't start a new turn for Alice; she picks it up on her next turn, like a page edit.
+
+**2. Stage management.** This is now its own section (DOC-65 §7.2), with your two example lines. Three rules:
+- Every question Alice has goes on the panel the moment she thinks of it.
+- She says what stage we're at and when she's going away to work, and points Charlie to the panel while she does.
+- Questions go to the right place.
+
+That last one is set by a new rule in §5: **a question goes on the panel only if Charlie can answer it unaided and the answer stays true.** Phone number, hours, towns covered and callout fee go on the panel. Style, palette, typeface, layout and the core story stay in the conversation, usually settled by showing him options. §8 records stage management as the most likely job for Bob if he comes back: a short, frequent voice that doesn't compete with the design conversation.
+
+**3. How many questions at once.** All of them. Grouping and organising them is deferred.
+
+**4. Picking a variant.** It's a conversation, not a panel choice, because the choice only lasts as long as the current set of variants. "Needs your choice" is gone from the panel. A better way to compare variants is in the deferred list.
+
+**One consequence, which I've flagged in DOC-65 §10 as the one question still open.** Your answer to point 4 also takes the milestone checks off the panel, since "does this meet the quality bar?" is a judgement about the current page, not a fact that stays true. But checks on the panel were how we'd planned to push Alice into critique without a second voice. So for this test, Alice runs short milestone reviews in the chat herself (new §7.3):
+- after the first pass
+- before building more pages
+- before publish
+
+Each review is measured against the brief and ends with one question. If she doesn't run them, or they're soft, that's the clearest evidence for bringing Bob back, in the narrow job of prompting them. The test measures now include both of these behaviours.
+
+<!-- xgd-turn id="14a11185-4a5e-48ce-9ff9-e4cff646b817-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T18:25:05.276942+00:00" -->
+#### You
+If Alice is blocked on the answer to a question she should ask it inline. She should encourage filling in answering questions (or uploading docs with the answers) while she is working but not to the point where she's being annoying. In particular there is no need to push for final details until we are at a point in the design where they matter. 
+
+Ah that brings me to an important insight: something that makes conversations with AIs congintively difficult is that they can ask 7 questions and track all the answers - humans find that challenging. So it is important that Alice keeps the conversation focused on one thing at a time. We should have opinions about the preferred order for creating a page, but if Charlie is particularly concerned about logo size/placement that's fine that becomes the topic Alice should not try to have three conversations at the same time - focus on logo placement and size, get it right and then do the next thing. Short rapid responses - single topic - much more powerful
+
+<!-- xgd-turn id="14a11185-4a5e-48ce-9ff9-e4cff646b817-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:26:06.677093+00:00" -->
+#### Claude
+Both points go straight into DOC-65. I'm adding them now.
+
+I've added both points to DOC-65 and updated the ticket. Nothing else changed.
+
+**Questions while Alice works (§6, the rules for writing asks):**
+- **If she's blocked on a question, she asks it in the chat,** as the one question in that post. Everything else goes on the panel.
+- **Encourage, don't nag.** When she goes off to work she can invite Charlie to answer a few panel questions or upload documents that contain the answers. One light mention, not every post.
+- **No chasing final details before they matter.** Licence number and exact address can sit unanswered on the panel until the design needs them. They get chased in the final details pass.
+
+**One topic at a time (new §7.1, now the first behaviour rule in the chat section):**
+- **I've also added your insight to the client learnings (§2.1).** An AI can ask seven questions and track all seven answers; a person can't. That mismatch is a big part of why conversations with AIs feel hard.
+- **One conversation at a time.** Get one topic right, then move on. Never three topics in one post.
+- **The client's topic wins.** We keep a preferred order for building a page, but it's what Alice proposes when Charlie has no topic of his own. It's not a sequence she steers him back to. If he cares about the logo's size and placement, that's the topic until he's happy.
+- **Short, quick replies.** They keep him engaged and make progress visible.
+- **Anything that comes up mid-topic goes elsewhere.** A fact goes on the panel. A design issue she notices becomes an open decision in the plan and waits its turn.
+
+I added two test measures to match: the baseline now records "topics per post: often 3+" from the Charlie session, and the new measures include whether Alice followed the client's topic when he switched.
+
+<!-- xgd-turn id="41bbe3da-44aa-4dd8-8d78-3f82c18fd19a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T18:38:59.965973+00:00" -->
+#### You
+Two more:
+
+There are two axis that we need to think about our customer's interaction on (1) lets call it technical - how much do they know about web technologies (2) marketing - how much do they know about how to sell their wares.
+
+Its extremely important that we meet the customer where they are and use language that is appropriate. Charlie might not understand what a "form' is. Emma might want to discuss the potential for cross-site scripting. Alice needs to adjust. The same is true for marketing Brian might know exactly who his customers are and how to talk to to them. Gary might only know about how to frame pictures.
+
+For our trial runs I want to assume we are working with people who really don't know and need the most help.
+
+Part of this comes back to Alice needs to ask questions that Charlie can answer. Asking "What font do you want for the masthead" is obviously wrong. But even questions about messaging might not get the expected answers. What we know Charlie can answer are questions about his actual experiences, what does he do? What does he do most often? He knows about plumbing, day to day interactions with customers and vendors AND he knows his business. So if Alice is struggling to get purchase on what she needs she can go to those things, extrapolate and then veryfy - "So you spend most of your time on blocked lines - should we make that more prominent on the site?"
+
+<!-- xgd-turn id="41bbe3da-44aa-4dd8-8d78-3f82c18fd19a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:39:54.239622+00:00" -->
+#### Claude
+I've added both points to DOC-65 and updated the ticket.
+
+**What clients are like (§2.1).** Two new points:
+- Clients vary on two separate axes:
+  - **technical:** Charlie doesn't know what a "form" is; Emma wants to talk about cross-site scripting
+  - **marketing:** Brian knows his customers cold; Gary only knows framing
+- A client can always answer questions about his own experience. Charlie knows plumbing, his customers and suppliers, and his business. He can't pick a masthead font, and even a direct messaging question may not get a usable answer.
+
+**How Alice behaves (new §7.1b, "Meet the client where they are"):**
+- **Read both axes early and match her language.** For Charlie it's "a box where people can send you a message", not "a contact form". With Emma she can go into validation and injection protection if Emma raises it. The marketing axis works the same way.
+- **In the trial runs, assume the client knows little on both axes.** Plain words, no jargon, unless the client shows otherwise.
+- **Only ask questions the client can answer.** Never ask him to make a design call unaided, and be careful even with direct messaging questions.
+- **When she can't get traction, start from his experience, work out what it implies, then check with him.** Ask what jobs come in most and what customers ask on the phone. Then propose what that means for the site, using your example: "So you spend most of your time on blocked drains. Should we make that more prominent on the site?"
+- **This builds on DOC-35** (personas and registers): ask about the client's expertise, show for ours.
+- **Record where the client sits on each axis.** I suggested an optional `client: { technical, marketing, note }` field in the plan's `brief`, so later turns, and Bob if he's switched on, pitch at the same level. That's a small change to the plan's structure. If you'd rather not change it, the same note can go in the plan's body instead.
+
+**New test measure:** jargon the client had to ask about, and questions he couldn't answer. Each one is a question Alice should have asked differently.
+
+<!-- xgd-chat-end -->

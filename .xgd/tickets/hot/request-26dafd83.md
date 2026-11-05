@@ -5,10 +5,10 @@ type: request
 title: 'Projected reference: the products own facts, generated rather than authored'
 created_by: xgd
 created_at: '2026-08-31T21:38:31.838491+00:00'
-updated_at: '2026-09-09T21:32:49.857144+00:00'
-completed_at: null
+updated_at: '2026-09-11T10:28:26.634844+00:00'
+completed_at: '2026-09-11T10:28:26.634844+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 8

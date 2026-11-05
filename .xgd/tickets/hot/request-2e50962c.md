@@ -5,8 +5,8 @@ type: request
 title: A person's email addresses are a table, not a column
 created_by: xgd
 created_at: '2026-09-05T21:25:16.063394+00:00'
-updated_at: '2026-11-04T22:21:10.031144+00:00'
-completed_at: '2026-11-04T22:20:59.644504+00:00'
+updated_at: '2026-11-05T19:15:21.915867+00:00'
+completed_at: '2026-11-05T19:15:21.915867+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,8 +17,9 @@ fields:
   chat_comment: comment-4ea78701
   commits:
   - working_sha: 0b89a18e8f5f1c2211f1e8825eda8c5c6a968eff
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 89a9064ec21c57802aa3b7f0f80023eff98c9f7e
+    main_sha: 89a9064ec21c57802aa3b7f0f80023eff98c9f7e
+    working_sha_history: []
   version: 0.2.86
   bundled_in: bundle-5052a63c
 ---

@@ -1,0 +1,704 @@
+---
+uid: comment-6c14b90b
+id: COMMENT-2612
+type: comment
+title: Comment on bug BUG-78
+created_by: xgd
+created_at: '2026-09-10T21:43:34.354314+00:00'
+updated_at: '2026-09-11T21:52:42.537129+00:00'
+completed_at: null
+last_field_updated: body
+status: null
+fields:
+  subject_uid: bug-f6c3fedf
+  kind: chat_transcript
+---
+
+<!-- xgd-turn id="a1e0ed38-410f-4e2b-b7af-13567f01ff10-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:43:19.110475+00:00" -->
+#### You
+The email capture module on 1st contact homepage "Apply to join the early beta" is raising an error when I hit it it says "Could not reach the server. Please try again."
+
+<!-- xgd-turn id="a1e0ed38-410f-4e2b-b7af-13567f01ff10-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T21:48:00.675529+00:00" -->
+#### Claude
+I've traced it. Here's what's happening.
+
+Diagnosed. BUG-78 is written up — no code yet, because the fix is a scope decision.
+
+**What's wrong.** The form is the `contact-form` module (`beta-form`) on the `1stcontact` home page, configured with:
+
+```
+"action": "https://app.1stcontact.io/beta-apply"
+```
+
+That address can't work, for two independent reasons:
+
+1. **`/beta-apply` doesn't exist.** `control-app`'s router serves `/`, `/index` and `/api/*`. The string `beta-apply` appears nowhere in the repo. It was never built.
+2. **`app.1stcontact.io` is entirely behind Cloudflare Access.** `client.js` sends a cross-origin JSON `fetch`, which needs a CORS preflight first. I checked it just now: the `OPTIONS` preflight comes back **403 from Access with no `Access-Control-Allow-Origin`** (and a plain `GET` 302s to the Access login origin). So `fetch()` *rejects* rather than returning a status — which is precisely the `catch` branch that prints "Could not reach the server. Please try again."
+
+The no-JS fallback is no better: a native POST would land on the Access login redirect.
+
+**The real gap.** This isn't specific to our homepage. There is no form-submission endpoint anywhere in the product — `public-site` answers any non-GET with 405 by construction, and `control-app` is gated. That's exactly what DOC-47 records: *"there is no 1st Contact inbox behind the form yet."* The homepage was configured as though one existed.
+
+**Same page, same cause:** `account-chrome` is configured with `signIn: "https://app.1stcontact.io/auth/request-link"` — also a route that doesn't exist, also behind Access. The Sign in dialog will fail identically.
+
+**How do you want this fixed?**
+
+- **A — content only, no code.** Stop promising a destination that isn't there: an email address on the page, or point the action at a mailbox you already have. Honest today, captures nobody.
+- **B — build the endpoint.** A public POST handler in `public-site` (not behind Access, and *same origin as the page*, so no preflight at all), landing the submission as a `lead` contact in that site's tenant. That's the generic enquiry-landing capability DOC-47 lists as missing; it needs spam handling (the honeypot already renders, the Turnstile mount is present but unwired) and rate limiting. This is a feature, not a bug fix — arguably its own REQ.
+- **C — narrow B**, apex site only.
+
+My recommendation: **B**, because the beta form is the one thing our own shop window exists to do and A leaves it collecting nothing — but it's genuinely bigger than a bug, so tell me whether you want it under BUG-78 or split. And say whether the sign-in URL comes with it.
+
+<!-- xgd-turn id="9662df59-a4e2-44f4-954c-7937ca7a870b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:50:00.455991+00:00" -->
+#### You
+I think B but I don't understand C?
+
+<!-- xgd-turn id="9662df59-a4e2-44f4-954c-7937ca7a870b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T21:54:03.347630+00:00" -->
+#### Claude
+Fair question — let me answer that first, then get moving on B.
+
+**C** was the same endpoint but deliberately crippled to one site: it would only accept submissions for the apex (our own `1stcontact` site, named by `APEX_SITE_KEY`), and any form on a customer's published site would still get nothing. The appeal is that it's less code — no deciding *which* tenant a submission belongs to, because there's only ever one. The cost is that it's the literalism trap: an endpoint shaped around our own homepage that has to be rebuilt properly the first time a customer wants a working contact form. Since `public-site` already resolves a site key from the URL for every request it serves, B barely costs more than C. So C isn't worth having, and you picked the right one.
+
+Let me read the design record before I write anything.
+
+Two things worth knowing before I write code:
+
+<!-- xgd-turn id="da9b5eac-472d-4b88-bec3-de3db1d4dce2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:09:27.008813+00:00" -->
+#### You
+Lets take a step back and talk about requirements rather than implementation for a moment.
+
+both the email capture form AND the sign in form are behavior modules, right? Both need to work, we built part of then because we did not have email wired up, we do now, so we need endpoints for both.
+
+We also need appropriate security solutions so that they do not become spam relays or DOC attack surfaces.
+
+<!-- xgd-turn id="da9b5eac-472d-4b88-bec3-de3db1d4dce2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:11:03.186347+00:00" -->
+#### Claude
+Stepping back is right — and one premise needs correcting before we build on it. Let me check two things first.
+
+Both are behavior modules, yes — `contact-form` and `account-chrome`, and both post their JSON to a URL held in module config. But they are not in the same state, and the difference changes what we have to build.
+
+## Where each one actually stands
+
+**Sign-in is built.** `/sign-in` exists (REQ-202) and is not a stub: CORS preflight, a per-subject rate limit of 5/hour, mail through the wired mailer and templates, and the message recorded against the contact. It was finished *after* email landed. Two things are wrong with it, neither a missing endpoint:
+
+- the homepage config says `https://app.1stcontact.io/auth/request-link`, a route that has never existed — REQ-200 set it to `/sign-in`, and something later replaced that with an invented URL;
+- in production Cloudflare Access blocks `/sign-in` at the edge anyway. I checked: `GET` → 302 to the Access login, `OPTIONS` preflight → 403. Same for `/api/email/webhook`.
+
+**Email capture has no endpoint at all.** That one is a real build.
+
+So the Access point deserves emphasis: there are already two routes in the codebase written to sit ahead of the gate (the delivery webhook, the four sign-in routes) and *neither is reachable in production*. Whatever we build for capture lands behind the same wall. The bypass policy is owed today, before any of this.
+
+## The security requirement that shapes the design
+
+The two endpoints differ on one axis that decides everything else: **does it send mail to an address the caller supplies?**
+
+Sign-in does send mail — but `subjectFor` only resolves addresses **already in the database**, and an unknown address gets nothing, indistinguishably. That is what stops it being a relay: the worst an attacker achieves is mailing someone we already know, five times an hour. `sessions.ts` names Turnstile's absence there as a deliberate decision resting on exactly that.
+
+Capture cannot use that defence — accepting unknown addresses *is the feature*. So I'd propose one invariant across both, rather than two rulebooks:
+
+> **A public endpoint may only cause mail to be sent to an address the database already holds.**
+
+Sign-in already satisfies it. Capture satisfies it by *not* mailing the submitter at all — no confirmation, no double opt-in — and by sending any notification to the business's own address, which we hold. The moment we add a confirmation email to the submitter, we have built an open relay to arbitrary victims, and it stops being fixable by rate limiting.
+
+The rest follows from that:
+
+- **Turnstile stops being optional for capture.** Sign-in's argument for skipping it doesn't transfer, because capture has no known-address rule to lean on. This is REQ-7's unwired mount — the markup is already rendered.
+- **Rate limiting must key on something the caller cannot vary.** Sign-in counts per subject, which works because the subject pre-exists. Everything a capture submission carries is caller-chosen, so the cap has to be per site and per IP. Note the tension: a per-site cap is itself a denial-of-service against the customer — fill the bucket, real enquiries get refused — which is another reason the sharp instrument needs to be Turnstile and the cap a backstop.
+- **Body and field caps enforced before parsing**, so a large body is refused rather than read.
+- **One frozen acknowledgement**, so capture can't be used to test whether an address is already a contact — the property sign-in already has.
+- **Submitted text never reaches mail headers**, and is escaped in any body. A form field is attacker-controlled content arriving in something we send.
+- **Mail quota is a shared resource.** If every capture notifies the owner, a flood burns provider quota and the first thing that breaks is sign-in.
+- **Consent provenance.** The tenant is IE, we're storing an address off a public form, and `contact_events` is append-only and already carries a `detail` blob — recording what the person was shown and when costs nothing now and is unreconstructable later.
+
+## What I need from you
+
+1. **Does an enquiry notify the business owner, or only appear in the contacts list?** DOC-47 warns that a form which posts nowhere visible is the worst outcome — a row in a list nobody logs into is a soft version of that.
+2. **Turnstile now, or honeypot plus rate limit and accept the spam?** Wiring it needs Cloudflare keys and reopens REQ-7.
+3. **Scope.** BUG-78 is currently the diagnosis. Cleanest split I see: BUG-78 keeps the two content fixes and the Access policy; the capture endpoint becomes its own REQ, since it's a capability with its own acceptance criteria. Say the word and I'll write both up — I won't file anything until you do.
+
+<!-- xgd-turn id="8b165770-6441-4fc1-aa8e-e02e510066ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:23:19.613414+00:00" -->
+#### You
+Unfortunately, if you read our documentation and look at the XGD draft site you will see that email capture needs to send links to the White papers, to the email address that was captured.
+
+1. I think notifications as a feature in its own right for now just update the contact database
+2. Can you tell me exactly what turnstile and honey pot do? Are these cloud flare features or new dependencies? I was expecting that Cloudflare could provide us with the necessary rate limiting etc.
+
+Once we have clarity on these design decisions we should determine whether that is the need for additional tickets
+
+<!-- xgd-turn id="8b165770-6441-4fc1-aa8e-e02e510066ad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:26:09.745817+00:00" -->
+#### Claude
+Let me go read the whitepaper flow before I answer — my proposed invariant may not survive it.
+
+You're right, and it kills the invariant I proposed. Let me correct it, then answer the Turnstile/honeypot question precisely.
+
+## The whitepaper requirement, confirmed
+
+`storage/sites/xgd/draft/pages/whitepapers.json` — submit label *"Send me both papers"*, success *"On their way — check your inbox."* Both XGD forms post to `/api/lead`. And CHAT-56 records the state: *"Papers are email-gated now"*, plus *"Whitepaper delivery has no artifact and no backend. No PDFs exist in either repo; the papers are ticket bodies. `/api/lead` does not exist. Deferred by the operator as 'easy mechanics'."*
+
+So mail to an address we've never seen is a product requirement, not an edge case. "Only mail addresses we already hold" is dead.
+
+**The replacement.** An open relay is one where the attacker controls the recipient *and* the content. Here we author the content absolutely — our template, our links, our domain. What's left isn't arbitrary spam, it's four narrower things: mail-bombing a victim, deliverability damage, quota burn, and list poisoning. Deliverability is the one that actually frightens me — unsolicited mail earns spam complaints, complaints degrade the sending domain, and the first casualty is sign-in links not arriving. Abuse of the marketing form breaks the login.
+
+The rule that survives:
+
+> A public endpoint sends **at most one** message per address, with content **we** author, and never to an address that has bounced or complained.
+
+One-per-address is the structural control, and it's nearly free: `addContact` is already idempotent on `(tenant_id, email)`, and `contact_events` is already an append-only log, so *"have we sent this address the papers"* is a query the schema can answer today. An attacker can cause a victim to receive exactly one email, once — the same exposure as any newsletter on the internet, and irreducible for an email-gated asset. Suppression on bounce/complaint comes free too: REQ-198's webhook already brings delivery outcomes back.
+
+## What Turnstile and the honeypot actually are
+
+**Honeypot — not a product, not a dependency, and already half-built.** It's a technique: a form field hidden from humans and tempting to naive bots; if it comes back filled, discard the submission. `contact-form/component.ts` already renders ours (`hp_company_url`, CSS-hidden, `tabindex="-1"`, `autocomplete="off"`, marked `data-fc-invariant` so a designer can't restyle it visible), and `client.js` deliberately includes it in the payload — its comment says *"the honeypot field rides along so the server can reject filled-honeypot submissions."* The client half shipped. The server half has never existed because the server has never existed. Zero cost, catches only unsophisticated bots.
+
+**Turnstile — Cloudflare's own product, and also already half-built.** It's their CAPTCHA replacement, free and unlimited on every plan including free. Not an npm dependency: a `<script>` tag from `challenges.cloudflare.com`, and one server-side `fetch` to their siteverify endpoint with a secret key. Two config values per deployment. The module already renders the mount — `<div class="contact-form__turnstile" data-turnstile-target>`. The code comments say it's "wired in REQ-7", but REQ-7 is a D1 schema ticket that was **abandoned**, so those references are stale and nothing owns this work.
+
+**Rate limiting — yes, Cloudflare provides it, in three different places.** WAF rate limiting rules at the zone level (dashboard config, matches path/method/IP — good for crude flood protection on `/api/lead`); the Workers **rate limiting binding**, declared in `wrangler.toml` and called as `env.LIMITER.limit({ key })`, which is native, dependency-free, and lets us choose the key; and Bot Fight Mode for bot scoring. The exact allowances on the free plan I'd want to confirm against your dashboard rather than assert — say the word and I'll check the zone via the API.
+
+**What Cloudflare can't do** is the part that matters most: it sees traffic, not meaning. It cannot know that this address already received the papers, or that this one hard-bounced last week. So the split is clean rather than either/or — Cloudflare handles volume, IPs and bots; we handle the identity-level rules, which are cheap because the data model already holds them.
+
+Worth noting you already wrote this down: DOC-5's *Public Form Strategy* specifies exactly Turnstile + rate limiting + honeypot + AI spam detection + reputation checks, and *"do not solve spam by forcing visitors to create accounts."* I'm not proposing a new dependency, I'm proposing we finally wire the documented one.
+
+## Two things that change the scope
+
+**The two sites disagree about where forms post.** XGD uses `/api/lead` — relative, same-origin, which on a published site means public-site, and public-site is read-only by construction and 405s every non-GET. The 1st Contact homepage uses an absolute `https://app.1stcontact.io/…`, which means cross-origin, CORS, and an Access bypass. Those are two different architectures for one job and we should pick one deliberately. This is the one design decision I still need from you, and I'd want to lay out the tradeoff properly rather than bury it here.
+
+**The beta form and the whitepaper form are not the same problem.** "Apply to join the early beta" promises no artifact — a place on a list is the whole deliverable, so capture alone satisfies it completely. "Send me both papers" promises two PDFs *that do not exist in either repo*. So BUG-78 is fixable end-to-end now; whitepaper delivery is blocked on content that hasn't been written, regardless of what we build.
+
+## Proposed tickets
+
+Given #1 — contact database only, no notifications — here's the split I'd suggest:
+
+- **BUG-78** (this one): the two broken configs — `beta-apply` → the real endpoint, and `auth/request-link` → `/sign-in`, which REQ-200 had set correctly before something replaced it.
+- **New REQ — lead capture endpoint.** `/api/lead`: honeypot enforcement, one-send-per-address, bounce suppression, rate limiting, the frozen acknowledgement. The capability BUG-78 depends on.
+- **New REQ — Turnstile wiring.** Both forms, both halves. REQ-7 is abandoned, so this is unowned.
+- **New REQ — mailing-list opt-in checkbox.** CHAT-56 already flags that `contact-form` supports `text|email|tel|textarea` only and that a checkbox is a module config addition needing its own ticket. This is also the consent record for GDPR, and the tenant is IE.
+- **New BUG or ops task — the Access bypass policy.** `/sign-in` and `/api/email/webhook` are both edge-blocked in production today. Nothing we build is reachable until that's set.
+- **Not mine to file — the whitepaper PDFs.** Content, and it blocks the XGD site's promise.
+
+Confirm the split and answer the same-origin-vs-cross-origin question, and I'll write them up.
+
+<!-- xgd-turn id="645868fb-8651-43f5-b389-be224501c63e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:39:54.363269+00:00" -->
+#### You
+There is a fairly significant over head to me for each ticket - the scope of tickets can be large - please reduce the number of REQs you need
+
+<!-- xgd-turn id="645868fb-8651-43f5-b389-be224501c63e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:40:50.450759+00:00" -->
+#### Claude
+One REQ. Here's the compression.
+
+## One new ticket: *Public forms accept a submission, safely*
+
+Everything I listed collapses into a single capability with one acceptance story — a visitor submits a public form, they land in the contact database, and the endpoint cannot be turned into a spam or DoS instrument. Splitting it was me organising by implementation area, which is your overhead, not a real boundary. In particular:
+
+- **Turnstile isn't separable.** Shipping the endpoint without it means knowingly deploying an under-defended public surface and filing a ticket against ourselves. DOC-5 already specifies honeypot + Turnstile + rate limiting as *one* strategy, not three features.
+- **The opt-in checkbox isn't separable.** It's a small `contact-form` config addition, and it's the consent record — which is part of capturing an address in an IE tenant, not a follow-up to it.
+
+So: endpoint, honeypot enforcement, Turnstile, rate limiting, one-send-per-address, bounce suppression, frozen acknowledgement, opt-in checkbox. One ticket, one branch, one reconciliation.
+
+## Two things that don't become tickets
+
+**The Access bypass policy** is Cloudflare configuration, not code — a deployment step recorded inside the REQ. It's owed regardless: `/sign-in` and `/api/email/webhook` are edge-blocked in production today.
+
+**The whitepaper PDFs** are content you'd write, and they don't block the REQ. The delivery mechanism can be built and tested against the asset as an abstraction; the beta form needs no artifact at all. I'll note the dependency in the ticket and leave it with you.
+
+**BUG-78 stays as it is** — it already exists, it's the record of what you actually hit, and its fix is two config values once the endpoint is live. No new overhead there.
+
+## The origin decision — my recommendation
+
+Same-origin, on public-site, forwarding to control-app over a **service binding**. Concretely: the form posts to `/api/lead` (relative), public-site takes it, and hands the write to control-app through a binding rather than a public request.
+
+That buys four things at once. No CORS and no preflight. No Access bypass needed for lead capture, because a service-binding call never traverses the edge — which matters a lot given the bypass is currently missing and is precisely what's breaking sign-in. The site key comes from the URL grammar public-site already parses, so a spammer can't retarget another tenant by editing the action. And relative URLs work identically in local dev and production, whereas the absolute `https://app.1stcontact.io/…` on the homepage is broken locally for exactly the reason you hit it.
+
+The cost is honest: public-site is emphatically read-only today and this makes it accept exactly one POST on exactly one path, with everything else still 405. I'd state that as a deliberate, narrow amendment in the ticket rather than let it be discovered. It also means XGD's existing `/api/lead` was the right convention all along and the homepage's absolute URL is the anomaly.
+
+One caveat so it isn't a surprise later: this does **not** fix sign-in in production. That stays cross-origin on control-app and still needs the bypass policy. Proxying sign-in the same way would fix it, but that's a different change and I'm not folding it in.
+
+Say go and I'll write the REQ, update BUG-78 to depend on it, and start on the branch. If you'd rather the endpoint live on control-app after all, tell me now — it changes the shape of the whole ticket.
+
+<!-- xgd-turn id="2a5de84e-c61a-4fc1-9e8d-10c2bb73158c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:57:22.710752+00:00" -->
+#### You
+Please create the ticket - I will use the tickets own agent to build it.
+
+<!-- xgd-turn id="2a5de84e-c61a-4fc1-9e8d-10c2bb73158c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T23:00:34.064336+00:00" -->
+#### Claude
+Done — one ticket.
+
+## REQ-223 — *Public forms accept a submission: lead capture, asset delivery, and the controls that keep it safe*
+
+`request-7d9f8b2e`, status `draft`, priority high. Eleven sections, fifteen numbered acceptance criteria, written for an agent that wasn't in this conversation — so every claim carries its evidence and every deliberate choice carries the reason it was chosen, to survive a builder who'd otherwise "fix" it.
+
+What's in it:
+
+- **§1 what's true today** — three shipped forms pointed at routes that have never existed, with the verification dates. Includes CHAT-56's prior record of the same gap, and the finding that REQ-7 (cited in code comments as wiring Turnstile) is an abandoned D1-schema ticket, so that work is unowned.
+- **§3 the architecture** — `/api/lead` on `public-site`, same-origin, tenant from the URL, write handed to `control-app` over a service binding. §3.2 requires the internal seam be an RPC entrypoint rather than a path, on the grounds that a path is something a request can name and `access.ts` argues at length against surfaces that are one misconfiguration from public.
+- **§5 asset delivery** — the whitepaper requirement, the reframing of relay risk (we control the content; recipient choice is what's dangerous), and *at most one send per address per asset, ever*. Flagged explicitly as **not** a rate limit and not to be softened into one, with the real cost stated: someone who loses the email can't re-request it, and the remedy is an authenticated operator re-send.
+- **§6 the controls** — honeypot, Turnstile, rate limiting, body limits, each with what it's actually for and how it fails. Turnstile fails closed when unconfigured. Includes the note that CORS constrains browsers and nothing else, so the UATs should assume a non-browser caller.
+- **§7 the opt-in checkbox** as the consent record rather than a feature — storing the answer *and* the wording shown, since wording reconstructed later evidences nothing.
+- **§9 out of scope**, with your notification decision recorded as a dated operator decision, plus the two limbs of DOC-5's strategy we're not doing, so their absence reads as a choice.
+- **§10 deployment steps** — Turnstile keys, the service binding, and the Access bypass policies.
+
+BUG-78 is updated: `blocked_by: [REQ-223]`, existing diagnosis preserved, with an appended section giving the two config values that close it and the note that the sign-in half additionally needs the Access policy, which lead capture deliberately doesn't.
+
+One thing worth carrying forward: **the missing Access bypass is not created by any of this**. `/sign-in` and `/api/email/webhook` are unreachable in production right now, which means REQ-202's sign-in and REQ-198's delivery webhook are both dead there today. REQ-223 routes around it for lead capture, but nothing routes around it for sign-in.
+
+Unrelated housekeeping: the Gmail, Google Calendar and Google Drive connectors need authorising in your claude.ai connector settings before I can use them — nothing here needed them, but the session flagged them as unauthenticated.
+
+<!-- xgd-turn id="25dd74ab-4a13-4436-aa30-c16c3e455533-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T02:03:33.913209+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="25dd74ab-4a13-4436-aa30-c16c3e455533-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:07:48.030900+00:00" -->
+#### Claude
+Let me read the protocol and the code I'll be touching before I ask anything.
+
+REQ-223 was built and merged while I was away — two commits, now at `ready_to_reconcile`. Let me confirm what it delivered before touching anything.
+
+The implementation is complete and matches the ticket closely. Let me verify it actually passes before I decide anything.
+
+All 27 pass. Let me pin down exactly what's left for BUG-78.
+
+Before I touch anything — REQ-223 is already built, and I need to check I'm not about to duplicate it.
+
+## What I found
+
+While I was idle, the ticket's own agent implemented REQ-223 and it's merged into `xgd-working`:
+
+- `c1c41b1983 feat(lead): public forms accept a submission [FREE-CODED]` — 31 files, ~2,800 lines, plus a version bump commit.
+- Status is **`ready_to_reconcile`**, which is operator-only — so you promoted it.
+- I ran its four UAT suites: **27 tests, all passing.**
+
+Spot-checking the implementation against what I wrote: `/api/lead` on public-site, site key from the URL grammar, a `LeadIntake` `WorkerEntrypoint` rather than a path (`worker.ts` splits along the runtime boundary so the ~60 node suites importing `index.ts` don't break on the workerd built-in), honeypot before Turnstile so bots don't spend siteverify budget, `asset`/`assetName`/`assetUrl` as both-or-neither read from the published definition rather than the submission, and `checkbox` added to `FIELD_TYPES`. It follows the ticket closely and in places improved on it.
+
+So **if "this ticket" meant REQ-223, there's nothing to implement** and re-doing it would produce a conflicting second implementation. That's the one outcome worth a question rather than a guess.
+
+## If you meant BUG-78 — which is what I assume
+
+Then the honest answer is that **almost none of it is code**. REQ-223 built the endpoint; BUG-78 is now configuration and data:
+
+1. **Page config** — `beta-form.action` → `/api/lead`, and `signin.signIn` → `https://app.1stcontact.io/sign-in`. This lives in D1 as site content, not in the repo (`db/dev-seed.sql` has no sites, and `storage/sites/1stcontact/` is an older copy of the site without the beta form). I can edit the local draft and republish.
+2. **`APEX_SITE_KEY`** in `apps/public-site/wrangler.toml` → `site_62d3d0097bbc7b6e86bdcdb3728389a3`, in both `[vars]` and `[env.production.vars]`. It's `""` today, and `leadTarget` returns null for the apex without it, so the homepage's form would refuse even with the right action. A repo file, but a config value.
+3. **Turnstile keys** — `TURNSTILE_SITEKEY` (var) and `TURNSTILE_SECRET` (secret). Both empty. The endpoint answers `503` with no secret, by design, and the widget isn't stamped into the page with no sitekey. **This one I can't do**: it needs a Turnstile widget created in your Cloudflare account. Cloudflare publishes always-pass test keys for development, and I can wire those into local dev if you want — but they must not reach production, since they'd switch the control off.
+4. **The Access bypass policy** — still outstanding, still only affects sign-in, not lead capture.
+
+The free-coding protocol exempts configuration and document changes, so items 1, 2 and 4 wouldn't involve a branch or UATs. Item 3 is yours.
+
+## The question
+
+**Did you mean BUG-78, or did you want me to review or redo REQ-223?**
+
+If BUG-78: say so and I'll do items 1 and 2 immediately, then hand back with 3 and 4 named as blocked on you — and I'll tell you plainly that the form still won't work end-to-end until the Turnstile keys exist, rather than declaring it fixed.
+
+If you want me to **review** REQ-223's implementation rather than rebuild it — a fresh pair of eyes on 2,800 lines of security-sensitive code that its own author tested — say that instead. Given it's an unauthenticated public write endpoint that sends mail, I'd actually recommend it, and `/code-review` is the better instrument than me re-reading it inline.
+
+<!-- xgd-turn id="e8296109-ec09-49e2-990a-c155ba1d56ea-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T02:10:32.980271+00:00" -->
+#### You
+REQ-233 is already done - you said there was additional work on your ticket (BUG-78) that was dependent on 233 please can you do that work now?
+
+<!-- xgd-turn id="e8296109-ec09-49e2-990a-c155ba1d56ea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:17:36.425838+00:00" -->
+#### Claude
+On it. Let me check how the site key and publishing work before I touch the data.
+
+Nothing has ever been published locally — `site_revisions` is empty in every local D1. That changes what "fixed" means, and I'll report it. First, the work you asked for.
+
+Now the work. First, checking nothing is holding the local database open:
+
+Now applying the two config changes, mirroring exactly what the store's own write path does (page row plus the version bump):
+
+Item 2 — the apex key. Let me first verify the Turnstile test keys rather than trust my memory of them:
+
+Both verified. Creating local dev config for public-site:
+
+One more check — the L2 default and how non-apex sites are meant to address the endpoint:
+
+Now updating the ticket to reflect what actually landed:
+
+Let me make sure the new `.dev.vars` doesn't perturb the existing suite — `unstable_dev` reads it by default:
+
+The apex key makes a local `wrangler dev` 500 rather than 404. Let me understand the local topology before deciding how to resolve it.
+
+That settles it — the two dev workers don't share D1 state, so public-site's local database is empty and unmigrated. The apex key can't help there and only breaks a test. Removing it:
+
+Done. Here's what actually happened.
+
+## Applied
+
+**The two module configs on the homepage draft** — the fix BUG-78 was waiting on REQ-223 for:
+
+| Module | Field | Was | Now |
+|---|---|---|---|
+| `beta-form` | `action` | `https://app.1stcontact.io/beta-apply` | `/api/lead` |
+| `signin` | `signIn` | `https://app.1stcontact.io/auth/request-link` | `https://app.1stcontact.io/sign-in` |
+
+Applied the way the store applies it (`d1r2-store.ts`): page row rewritten, `sites.version` bumped 58 → 59. The script refuses rather than guesses if either field doesn't hold the exact expected value. Backup at `.xgd/tmp/d1-backup-bug78.sqlite`.
+
+**No repo code changed, so there's no commit and no `[FREE-CODED]` branch.** The protocol exempts configuration, and once REQ-223 landed the endpoint, everything left here was data or operator-held keys. I didn't perform the ceremony on an empty diff.
+
+## What I got wrong mid-task
+
+I wrote an `apps/public-site/.dev.vars` with the apex key and Cloudflare's published Turnstile test keys, then removed it. Two reasons, and the second matters more than the first:
+
+- It broke `tests/public-site.test.ts` — `unstable_dev` reads `.dev.vars`, so the apex resolved and `live()` hit a local D1 with no `site_revisions` table: 404 became 500. That file is gitignored, so CI would never have caught it; it would have been a failure sitting on your machine alone.
+- It wouldn't have enabled anything regardless. `pnpm dev` runs the two Workers with **separate local state** — neither passes `--persist-to` — so public-site's local D1 is a different, empty, unmigrated database from the one holding your sites.
+
+Test suite is green and the tree is clean.
+
+## Two findings worth your attention
+
+**1. The form now returns a different error, not a working form.** `site_revisions` is empty in every local D1 and production has no sites — nothing has ever been published anywhere. The only thing rendering this page is control-app's draft preview, and control-app has no `/api/lead` route by REQ-223 §3.2's deliberate design. So a preview submission answers 404 instead of "could not reach the server."
+
+Whether preview submissions *should* work is a real design question I didn't settle: they'd write actual contacts into the actual tenant, so making the preview post for real puts test data in the CRM. The alternatives are a gated preview-only route, or a preview that declines to submit and says so.
+
+**2. A cross-tenant lead leak for non-apex sites.** `leadTarget` takes the site key from the URL: `/site/<key>/api/lead` resolves to that site, a bare `/api/lead` resolves to the **apex**. The XGD site's two forms are both configured `action: "/api/lead"` and XGD is not the apex — so once published, its leads land in the apex tenant's contact list. REQ-223's UATs don't catch it because they build `/site/<key>/api/lead` themselves rather than following the rendered action. Correct value is `/site/<key>/api/lead`, or document-relative `api/lead`, which works for both. I left it alone — different site's content, not this bug.
+
+## Still blocked on you
+
+- **A real Turnstile widget.** No secret means refuse, by design.
+- **Production `APEX_SITE_KEY`** — can't be set yet. Site ids are minted per environment and production's `sites` table is empty, so there's no key to write.
+- **The Access bypass policy.** Re-verified: `GET /sign-in` still 302s to the Access login. The `signIn` value is now correct and the dialog will still fail in production until that policy exists.
+
+**Bottom line: not fixed end to end.** The configuration is right and the endpoint is proven by REQ-223's own 27 UATs, but nothing renders this page outside the preview and the preview can't reach the endpoint. Closing it needs a decision on finding 1, or a publish plus the production config above. All of this is recorded in the ticket.
+
+<!-- xgd-turn id="2ce93b5e-3c53-4b77-8573-393ffd5fd0bd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:08:29.610107+00:00" -->
+#### You
+Please give me more context on 1 and 2.
+
+I think I understand 1 - you are saying that when I am looking at the site in preview mode it is different. I would like you to explain how its different - its not supposed to be that is supposed to be the site running in a frame - is this a cross- site posting question
+
+<!-- xgd-turn id="67e9da9f-b960-4ca6-b34a-edb97dd89adf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:21:12.776677+00:00" -->
+#### You
+Please give me more context on 1 and 2.
+
+I think I understand 1 - you are saying that when I am looking at the site in preview mode it is different. I would like you to explain how its different - its not supposed to be that is supposed to be the site running in a frame - is this a cross- site posting question
+
+<!-- xgd-turn id="67e9da9f-b960-4ca6-b34a-edb97dd89adf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T19:24:18.553776+00:00" -->
+#### Claude
+Let me go read the preview path rather than describe it from memory.
+
+I've traced both. Here's what's actually going on.
+
+## 1 — Preview isn't a different page. It's the same page at a different address.
+
+You're right that it's the site running in a frame, and it genuinely is — same renderer, same module code, byte-for-byte the same `<form>`. Nothing about the form is rewritten for preview.
+
+**And it isn't a cross-site posting question. It's the exact opposite: the form posts *same-origin*, and in preview "same origin" is the builder rather than the site server.**
+
+The action is `/api/lead` — root-relative. A root-relative URL resolves against whatever host served the document, and the two channels are served by two different Workers on two different hosts:
+
+| | Document URL | `/api/lead` resolves to | Who answers |
+|---|---|---|---|
+| **Preview** (iframe) | `app.1stcontact.io/preview/1stcontact/draft/` | `app.1stcontact.io/api/lead` | control-app — **no such route** |
+| **Published** | `1stcontact.io/` | `1stcontact.io/api/lead` | public-site — `leadTarget()` → apex site |
+
+I grepped control-app for any lead route: there is none, by REQ-223 §3.2's deliberate design — the intake is a `LeadIntake` service-binding entrypoint, not a path, specifically so it can't be reached by naming it in a URL. So an unmatched POST falls through `router.ts` to `env.ASSETS.fetch(request)` and comes back 404, and `client.js` prints `Something went wrong (404). Please try again.` A different message from the one you originally hit, same dead end.
+
+**Two more differences worth knowing, both in the same direction:**
+
+- **Edit mode strips the form entirely.** `component.ts:110` — in the `edit` channel the form gets no `action` and no `method`, and the channel ships no client script at all (REQ-116: a click inside edit mode must edit, never submit). So only View mode has a live form; Edit mode's can't post anywhere by construction.
+- **Turnstile only exists on the published channel.** The sitekey is deployment config, not site content, so `public-site/index.ts:312` stamps it onto the HTML at serve time. control-app's preview never does — the mount div is there and empty. Even if preview could reach the endpoint, it would have no token to send.
+
+**The design tension this exposes.** Whoever wrote the original `https://app.1stcontact.io/beta-apply` was, I suspect, solving exactly this: an absolute URL posts to the same place from both channels. The reason REQ-223 chose relative is that absolute reintroduces cross-origin — CORS preflight plus the Access gate, which is what was breaking it in the first place. So the choice is real, not an oversight, and its cost is precisely that a preview submission has nowhere to go.
+
+Three ways out, and I'd want your call rather than to pick one:
+
+1. **Preview declines to submit and says so** — the form shows "submissions work on the published site" rather than an error. Honest, cheap, and consistent with edit mode already refusing.
+2. **control-app proxies `/api/lead` to the same `LeadIntake` binding.** Preview then works end-to-end — but it writes *real contacts into the real tenant*, so every time you test the form you put a row in the CRM.
+3. **Absolute action pointing at the published apex.** Preview posts cross-origin to public-site. Needs CORS on the endpoint, and breaks in local dev where there is no published apex.
+
+## 2 — The XGD forms will post into the wrong tenant
+
+Verified directly against the live D1 rather than the repo copy:
+
+```
+1stcontact  home.json        "action": "/api/lead"     ← apex, correct
+xgd         home.json        "action":"/api/lead"      ← not apex
+xgd         whitepapers.json "action":"/api/lead"      ← not apex
+```
+
+(There are two `xgd` sites in the local database, `site_9a3dcd09…` and `site_bca807fc…`; both have it.)
+
+`leadTarget()` in `public-site/index.ts:181` reuses `parseRoute`, so the site key comes from the URL grammar and nothing else:
+
+```ts
+if (parsed.kind === 'apex'  && parsed.path === LEAD_PATH) return apexSiteKey || null
+if (parsed.kind === 'asset' && parsed.path === LEAD_PATH) return parsed.siteKey
+```
+
+XGD publishes to `1stcontact.io/site/site_9a3dcd09…/`. A bare `/api/lead` is not under `/site/`, so it parses as **apex** — and the whitepaper leads land in the 1stcontact tenant's contact list, not XGD's. Not a security hole (nobody can retarget a tenant they don't own — the URL is ours), but the wrong destination, silently.
+
+REQ-223's UATs don't catch it because they construct `/site/<key>/api/lead` themselves rather than following the action the renderer actually emits. That's the gap worth closing: **an assertion that a rendered form's action resolves to its own site.**
+
+The correct value is `/site/<key>/api/lead`. I should correct something I said last turn: I offered document-relative `api/lead` as working for both, and that's only true while page slugs are flat. On a page at `/site/<key>/blog/post/` it would resolve to `…/blog/post/api/lead`, which parses as an asset path and misses the endpoint. Today's slugs are flat so it happens to work, but it's fragile and I'd use the explicit form.
+
+I've left XGD alone — different site's content, and it's not what BUG-78 is about. Say the word and I'll fix it, or file it.
+
+<!-- xgd-turn id="d078958f-2678-4d75-a161-0239cdf3957e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:21:10.952157+00:00" -->
+#### You
+The site is not intended to be functional in Edit mode.
+
+The issue is really the UX. I think we want 2 - and yes I want to see the test rows in the CRM absolutely.
+
+(There are two `xgd` sites in the local database, `site_9a3dcd09…` and `site_bca807fc…`; both have it.) <-- I only want one. If we delete the other one does this problem go away?
+
+<!-- xgd-turn id="d078958f-2678-4d75-a161-0239cdf3957e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:23:29.114762+00:00" -->
+#### Claude
+Two separate questions. Let me check both.
+
+Answers to both, and the second one changes the shape of the work.
+
+## The two `xgd` sites — no, deleting one doesn't fix it
+
+They aren't duplicates. They're in **different businesses**:
+
+| site id | tenant | created | version |
+|---|---|---|---|
+| `site_9a3dcd09…` | `biz_51a6…` = **1st Contact** | 2026-09-06 | 1, never edited |
+| `site_bca807fc…` | `biz_96fc…` = **XGD** | 2026-09-10 | 4, counter 3, actively edited |
+
+The unique index is `(tenant_id, slug)`, so two businesses both naming a site `xgd` is legal by design, not a collision. The stray is the one in the **1st Contact** tenant — an `xgd` site created inside the platform's own business, untouched since creation. That's the one you'd delete, and it's worth deleting for tidiness.
+
+But it isn't the fix. The misrouting is a property of the action string, not of duplication: whichever site survives still carries `action: "/api/lead"`, still isn't the apex, and still posts into 1st Contact's contact list. The fix is the action value (`/site/<key>/api/lead`), independently of how many `xgd` sites exist.
+
+## Option 2 — cheaper in one way, more expensive in another
+
+**Cheaper than I said:** `LeadIntake` is *control-app's own entrypoint*. `public-site/wrangler.toml:80` binds `LEAD_INTAKE` → `service = "1stcontact-control-app"`, and `control-app/src/worker.ts:58` defines it, delegating to `captureLead()` in `control-app/src/lead.ts:383`. control-app already owns the write — it needs no binding to itself, just an in-process call. And `handleLead()` (`public-site/src/lead.ts:337`) is already parameterised on `(request, {siteKey, env})`, so control-app can call the *same* function with a shim env. One validation path, one honeypot, one intake — no second implementation.
+
+**More expensive than I said** — four things fail closed, and one is substantive:
+
+1. **`LEAD_RATE_LIMIT` absent on control-app** → `handleLead` returns 503 (`lead.ts:379`).
+2. **`TURNSTILE_SECRET` absent on control-app** → 503, and preview never stamps a sitekey so there'd be no token to verify anyway.
+3. **The real one: `formDefinitionOf` reads the *published* revision** (`control-app/src/lead.ts:179` — `liveRevisionOf(await store.revisions(slug))`). It's how `captureLead` learns which field carries the email address. So previewing a form you just added to the draft resolves against a revision that doesn't contain it — the submission fails, or guesses. Making preview work properly means teaching the intake to resolve the definition from **the channel being previewed**, not the live revision. That's the actual work; the routing is a dozen lines.
+4. **Never-published sites.** `businessOfSite` reads the `sites` table directly, so that part is fine — an unpublished site resolves. Only the definition lookup is publication-bound.
+
+My calls, unless you say otherwise:
+
+- **Turnstile and the rate limiter: skipped on the preview channel, justified by Access** — the operator is an Access-verified identity, which is strictly stronger than a bot challenge. I'll write that reasoning into the code rather than let it read as a convenience shortcut.
+- **Definition resolved from the previewed channel's draft**, so a form you just added works.
+- **Edit channel refuses**, per your point — belt-and-braces, since the edit render emits no action anyway.
+
+One genuine product question before I build: **should a preview-origin lead be marked as such in the CRM?** You want to see the rows, which argues for them being ordinary contacts. But a row that reads as a public enquiry when it came from your own preview is a lie the CRM carries permanently — and these will accumulate every time anyone tests a form. I'd add a source marker so they're visible but honest, and filterable later. Want that, or plain rows indistinguishable from real ones?
+
+Tell me and I'll scope BUG-78, cut the branch, and build it.
+
+<!-- xgd-turn id="85e8fc4b-3a94-4a4a-aa12-effd8b749569-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:32:01.382766+00:00" -->
+#### You
+ok I want to get the contents of my account cleaned up there should be 3 businesses each with one site xgd, lagrange foundry and 1st contact. if there is an additional xgd business it should go - but lets make sure its the right one that goes...
+
+Oh wait - I think you are confusing a site with a PAGE - xgd has two pages home and whitepapers.
+
+Lets go with your recommendations
+
+<!-- xgd-turn id="85e8fc4b-3a94-4a4a-aa12-effd8b749569-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:42:18.971646+00:00" -->
+#### Claude
+Let me check that — I want to be precise about what's duplicated.
+
+Full picture. Let me correct one thing and scope the ticket.
+
+Branch cut. Now the implementation — first, how the store exposes a draft.
+
+Now the implementation. Starting with the intake:
+
+The shared endpoint needs one honest seam rather than a faked secret:
+
+Now the route itself:
+
+Both clean. Now the UATs — let me reuse the REQ-223 harness:
+
+Now the UAT file:
+
+All 9 pass. Now the regression check:
+
+BUG-78 is built and `free_coded`. Here's both halves.
+
+## On site vs page — both are true
+
+xgd-the-site does have exactly two pages, home and whitepapers, as you say. Separately, there are two *site records* — distinct `sites.id`, different businesses — and each has that same pair of pages. That's why the page list looked doubled:
+
+```
+1st Contact  site_9a3dcd09…  home.json, whitepapers.json
+XGD          site_bca807fc…  home.json, whitepapers.json
+```
+
+**The one that goes is `site_9a3dcd09…`, in the 1st Contact business** — version 1, `updated_at` identical to `created_at`, never touched since. It was created at `23:26:01` on 2026-09-06, four seconds after the `1stcontact` site and 1.5s after `gigabytealchemy`: a seeding script made all three inside the platform's own tenant. The one to keep is `site_bca807fc…` under the XGD business — version 4, counter 3, edited 2026-09-10.
+
+## Account inventory vs. what you want
+
+**First, which database.** This is the local miniflare store (`apps/control-app/.wrangler/state/v3/d1/`). Per BUG-78's own notes, production's `sites` table is empty — nothing has ever been published there. So this is the only place with content to clean, but tell me if you meant production.
+
+You want 3 businesses, one site each. There are **8 businesses and 7 sites**:
+
+| Business | Sites | Verdict |
+|---|---|---|
+| **1st Contact** | `1stcontact` (v59), `gigabytealchemy` (v1), `xgd` (v1) | keep business, **drop 2 seed sites** |
+| **Lagrange Foundry** | `unnamed` (v23) | keep — but the site slug is literally `unnamed` |
+| **XGD** | `xgd` (v4) | keep |
+| Alice's Plumbing / Lettings / Old Salon | none | demo fixtures, created in the same second |
+| Felix Test | `unnamed` (v1) | test |
+| uat@westhead.me | `alpha` (v9) | UAT fixture, written 2h ago |
+
+Two things worth knowing before I delete anything:
+
+- **Deleting a business cascades well beyond its sites.** Tickets are keyed to businesses: Lagrange Foundry 52, 1st Contact 39, XGD 18, Felix Test 2. Also accounts, users, memberships, entitlements, counters, contact_events. Dropping Felix Test takes 2 tickets with it; the Alices have 3 accounts and 3 users between them.
+- **`alpha` under uat@westhead.me is a live UAT fixture** — touched two hours ago. Deleting that business will break whatever seeds it on the next run. I'd leave it, or check what creates it first.
+
+So my proposed cleanup, for your yes/no: delete the 3 Alice businesses and Felix Test; delete the `gigabytealchemy` and `xgd` sites from inside 1st Contact; keep uat@westhead.me. That leaves your three businesses with one site each, plus the UAT fixture. And Lagrange Foundry's site probably wants renaming from `unnamed`. **I haven't touched anything** — say go and I'll take a backup first.
+
+## What I built
+
+Commits `1bcc94e51f` + `9a10d34f65`, version 0.2.167, 9 UATs passing, REQ-223's own 21 still green.
+
+`control-app` now answers `POST /preview/<slug>/draft/api/lead`, through **`public-site`'s own `handleLead`** rather than a copy — and calls `captureLead` in process, since that's the same function `LeadIntake` delegates to. The site key comes from the slug through the store, never the body.
+
+Three consequences, all as recommended:
+
+- **The definition now reads the previewed channel.** `formDefinitionOf` hardcoded the live revision. Its own doc comment justified that as "read the definition from the snapshot the submitter was served" — which is correct, and for a preview points at the draft. I kept the reasoning and made the channel select the snapshot; `published` behaves exactly as before. The sharpest UAT publishes one consent sentence, edits the draft to another, and asserts the preview records what the operator was actually shown.
+- **The lead records its channel** in `provenanceOfSubmission`, always — including `published`, so a reader can tell a live lead from one written before the field existed.
+- **Turnstile and the rate limiter skip behind an explicit `identified` flag** that the server sets at one call site and no request can carry. A UAT posts `identified: true` in the body to the public endpoint and still gets challenged.
+
+Edit mode refuses with a 404, per your point.
+
+One thing to flag: `handleLead` lives in `apps/public-site` and `control-app` now imports it across the app boundary. Both typecheck and both suites pass, but if this repo would rather that shared surface sat in `packages/`, that's a move worth making before reconciliation rather than after.
+
+<!-- xgd-turn id="647f12aa-8a18-4668-be3e-1faf5b05e514-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:46:26.624384+00:00" -->
+#### You
+Wait still confused 
+
+| **1st Contact** | `1stcontact` (v59), `gigabytealchemy` (v1), `xgd` (v1) |
+| --- | --- |
+
+`gigabytealchemy` (v1), `xgd` (v1) <-- this is a site capture and a screen shot that are in the library these are not additional sites what is the problem here? Those are not for deletion but should not be causing any confusion???
+
+<!-- xgd-turn id="647f12aa-8a18-4668-be3e-1faf5b05e514-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:47:57.328575+00:00" -->
+#### Claude
+Let me check what actually created those rows rather than assume.
+
+You're right, and my deletion call was wrong. Here's what those two rows actually are.
+
+**Both came from `storage/sites/` being imported into D1.** That directory holds exactly three sites — `1stcontact`, `gigabytealchemy`, `xgd` — which is why all three rows appeared in the platform tenant within four seconds of each other on 2026-09-06. That wasn't a seeding script inventing sites; it was `import-site.ts` loading what's on disk. I read the timing as evidence of strays when it was evidence of an import.
+
+- **`gigabytealchemy` is a reproduction**, exactly as you say. It has a capture bundle at `storage/references/gigabytealchemy.ai/` alongside `faelan.com` and `joyfulculinarycreations.com`, and it's the fidelity reference the perceptual-diff and gate work measures against — it's named throughout `capture/values-diff.ts`, `gate-core.ts`, and `colors.ts`. Its form action is `https://api.gigabytefoundry.ai/contact`, the *original* site's endpoint, preserved by the capture. That alone should have told me it wasn't an authored site.
+
+- **`xgd` in that tenant is the original local authoring copy** — `storage/sites/xgd/` with its Satoshi and JetBrains Mono fonts, its `xgd-grid-hero.svg` and friends, and an `import/` folder of generated source images. Created 2026-09-06, four days *before* the XGD business existed (2026-09-10). It's the earlier version of the same site, made on disk and imported.
+
+**So there is no additional xgd business.** There's one XGD business with one site. The second `xgd` is a *site* in the platform tenant, and it's your import. Nothing to delete there.
+
+## The one thing actually worth noting
+
+Why this confused me in the first place, and it isn't only my confusion: **the `sites` table has no column that distinguishes these.** The columns are `id, tenant_id, slug, site_json, version, counter, base_revision, created_at, updated_at`. A captured third-party reproduction, an imported working copy, and a customer's live site are the same kind of row, in the same table, under the same business. Nothing in the store says which is which — the only signals are external and circumstantial (a matching bundle under `storage/references/`, a directory under `storage/sites/`).
+
+Two consequences:
+
+1. Any per-business view counts all three as "sites of 1st Contact". So "3 businesses each with one site" isn't a state the store can currently express — the platform tenant will always also hold whatever's in `storage/sites/`, because that's where the reproductions live.
+2. More concretely: a reproduction carries the captured site's *real* form action. `gigabytealchemy`'s points at `api.gigabytefoundry.ai`. That's harmless while nothing is published, but it means a reproduction is one publish away from pointing live traffic at a third party's endpoint — which is a different shape of the same class of problem as BUG-78's finding 2.
+
+Whether reproductions and imports should be marked as such is a product question rather than cleanup. Worth a ticket if you want it; I haven't filed one.
+
+## Where that leaves the cleanup
+
+Revised, and much smaller: nothing to delete in the 1st Contact tenant. What's left is only the fixture businesses with no sites of their own — **Alice's Plumbing, Alice's Lettings, Alice's Old Salon, Felix Test** — and Felix Test carries 2 tickets that would go with it. `uat@westhead.me` I'd still leave alone; it's a live UAT fixture.
+
+Still haven't touched anything. BUG-78 stands as delivered — commits `1bcc94e51f` + `9a10d34f65`, 0.2.167, `free_coded`.
+
+<!-- xgd-turn id="a6432d5e-bbf4-4930-b47c-bb7aac1844da-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:50:05.140117+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-78` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-78`
+- branch HEAD: `9a10d34f659fdf3fbb69cd9fd63dadf715964337`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a6432d5e-bbf4-4930-b47c-bb7aac1844da-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:52:41.148961+00:00" -->
+#### Claude
+Let me check what's actually outstanding.
+
+The code is already an ancestor of `xgd-working`. Remaining: verify green on the current tip, bring the body up to date, then tear down. Tests first, foreground:
+
+30 passed. Now the body needs to match what actually landed — three UATs assert behaviour the body doesn't yet state:
+
+BUG-78 free-coding is complete.
+
+**Final state**
+
+| | |
+|---|---|
+| Status | `free_coded` |
+| Version | 0.2.167 |
+| Commits | `1bcc94e51f` (code + UATs), `9a10d34f65` (version bump) |
+| Merged | both are ancestors of `xgd-working` |
+| Branch | `free-BUG-78` torn down, worktree removed, lock released |
+
+**Tests, run in the foreground on the current `xgd-working` tip:** 30 passed across 4 files — the 9 new BUG-78 UATs plus REQ-223's lead-endpoint and public-form suites and `public-site.test.ts`, to confirm the `identified` seam didn't widen the public endpoint.
+
+**What I did in this pass beyond what was already landed:**
+
+The code was already merged and claimed, so the outstanding steps were the body sync and the teardown. Auditing the UATs against the ticket body turned up three assertions the body didn't yet state, which would have left them untraceable at reconciliation:
+
+- that the channel marker is recorded for `published` too, not only for previews — the body described the marker but not that it's unconditional;
+- that `identified` is set in code at one call site and no request can carry it — the body justified the skip but never stated the falsifier the UAT actually checks;
+- that `public-site` still challenges an anonymous caller unchanged.
+
+I appended a "What was built" section covering those, plus the parts of the implementation the original decision section predicted but didn't pin: the exact `formDefinitionOf` signature change, the `LeadSubmission.channel` default, and the fact that `handleLead`'s doc comment reasoning was generalised rather than overturned.
+
+One thing recorded there rather than silently left: **`control-app` now imports from `apps/public-site`**, which is a new app-to-app dependency in this repo. It's deliberate — the alternative is a second copy of the body limits, field caps, submit shapes, honeypot and refusal envelope — but if that shared surface belongs in `packages/`, it's a one-import refactor and is cheaper before reconciliation than after.
+
+The account cleanup is still untouched and still waiting on your go-ahead; after the correction, it's down to the three Alice fixtures and Felix Test (which carries 2 tickets), with `uat@westhead.me` left alone.
+
+<!-- xgd-chat-end -->

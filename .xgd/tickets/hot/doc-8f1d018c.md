@@ -5,13 +5,16 @@ type: doc
 title: 'Site addressing: what URL reaches a site, and what a name is allowed to mean'
 created_by: CHAT-40
 created_at: '2026-09-06T18:54:28.856907+00:00'
-updated_at: '2026-09-06T18:54:28.856907+00:00'
+updated_at: '2026-09-14T03:49:01.989853+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: open
 fields:
   doc_kind: architecture
 ---
+
+
+
 
 # Site addressing: what URL reaches a site, and what a name is allowed to mean
 
@@ -138,10 +141,26 @@ deleting it.** Not the exposure argument, which §8 declines.
 
 ### Sequencing
 
-Because it is the only public address today, it cannot simply go. *"The
-`/site/<key>/` grammar is deleted"* is an **acceptance criterion of the custom-host
-work**, not a separate cleanup, and that work must follow §6 rather than precede
-it.
+Because it is the only public address today, it cannot simply go. This section
+used to say the deletion was *"an acceptance criterion of the custom-host work,
+not a separate cleanup"*, and that the work must follow §6. **The §6 condition is
+now met** — [[REQ-236]] has landed — and the sequencing has been **corrected**:
+the deletion is a separate piece of work, gated on something outside this
+repository.
+
+**The gate is operator work, not code.** Host→site resolution needs the wildcard
+`A`/`AAAA` record and the `*.1stc.site` wildcard certificate ([[TODO-6]] §5,
+marked `[op]` and not done), and the isolation property needs the PSL submission
+([[TODO-6]] §1, weeks of lead time that cannot be shortened). Until those exist,
+a host-based resolver is code that cannot work, and deleting the path grammar
+would remove the only address that resolves and replace it with one that does
+not.
+
+So the mapping table, the label and the publish gate land first and alone
+([[REQ-238]]); resolution and this deletion are the ticket after, blocked on
+[[TODO-6]] §§1 and 5. **In the interval a claimed hostname does not yet resolve
+and `/site/<key>/` still serves.** That is the intended state and not a defect;
+the falsifier below applies from the moment resolution ships, not before.
 
 **Falsifier:** a second way to reach published bytes that is not a host mapping.
 
@@ -174,9 +193,14 @@ Sketch, not a schema:
 site_domains(id PK opaque, site_id → sites.id, host UNIQUE, kind, status, …)
 ```
 
+`status` is not decoration. It carries revocation (§7) and, later, the fee-gated
+change path, and **every read of this table filters to the active status** — a
+row that is still present is not the same as an address that still works.
+
 **Falsifier:** a host as a primary key; a site referenced from this table by
-anything but its key; or a uniqueness scope in this system whose reason nobody
-can state ([[DOC-43]] §4's original falsifier, unchanged).
+anything but its key; a read path that resolves a host without filtering on
+`status`; or a uniqueness scope in this system whose reason nobody can state
+([[DOC-43]] §4's original falsifier, unchanged).
 
 ## 6. The site slug has no job left
 
@@ -250,21 +274,84 @@ still a wipe-and-reapply that costs nothing. After a real customer exists the
 same change is a create-copy-drop-rename on every child table. **The argument for
 doing it now is stronger than the argument for the change itself.**
 
-## 7. Every site has an address from the moment it exists
+## 7. A site's address is chosen, and publication is what requires one
 
-A platform label is **assigned at provision**, not chosen before the customer has
-anything. Slugified business name, a short discriminator on collision, freely
-changeable afterwards — the ordinary signup-name flow.
+**A platform label is chosen by the customer, never assigned at provision.** A
+business holds at most one `1stc.site` label at a time. Choosing it may take
+them a while, and nothing hurries it: until a site is published it has no public
+address and needs none.
 
-The reasoning is [[REQ-190]]'s `unnamed` reasoning: the default must exist and
-must visibly ask to be changed, rather than blocking the customer on a choice
-they are not ready to make. It is also what makes §4 safe — if a site could exist
-with no host mapping, deleting the path grammar would leave it unreachable.
+**Publication is the gate.** To go live a business needs a `1stc.site` label, a
+custom domain, or both — at least one address, or there is nothing for `publish`
+to make reachable. That check is what makes §4 safe: once the path grammar is
+deleted a published site with no host mapping is unreachable, so the requirement
+belongs at the moment of publication rather than at the moment of provision.
+
+**A label is final.** It is chosen once and does not change. The alternative was
+examined and rejected: if a label can be swapped freely and the old one recycled,
+one business can walk through dozens of good names in an afternoon, and
+`1stc.site` is a first-come namespace that only ever gets smaller. Because
+nothing is relinquished, nothing is re-issued, and the question of what becomes
+of a label somebody gave up does not arise.
+
+A change path is expected eventually, gated by a **one-off fee** — small, priced
+for friction rather than for revenue. §5's table already carries `status`, so it
+arrives as a new row and a status flip rather than as a schema change. It is not
+in scope and nothing should be built in anticipation of it.
+
+**Finality is what makes revocation necessary, and revocation exists from day
+one.** These are the same decision seen from both ends. An owner cannot change
+their own label, so a label that has to go — impersonation, abuse, a brand
+complaint — can only go by our hand; and whatever the reserved list says,
+something will get through it ([[TODO-6]] §2). The only alternative to revocation
+is leaving it up.
+
+- It is an **operator action, never self-service.** A customer-facing path to
+  giving up a label would be the freely-swappable label this section rejects,
+  wearing a different word.
+- It is a **status flip, never an update to `host`** — §5's row carries `status`
+  for exactly this, and the falsifier below is unchanged by it.
+- **Every read filters to the active status.** That filter is where a revoked
+  label actually stops resolving; the column without it is decoration.
+- **A revoked label is never re-issued**, for the same reason a claimed one is
+  never recycled: a stranger would inherit whatever traffic and reputation the
+  previous holder built.
+
+**Finality decides how the choice is asked, not just what is stored.** A
+permanent name, entered as free text, by the low-tech customer this product is
+for, is a permanent typo waiting to happen. Whatever asks for it must show the
+whole host as it will be — `alice.1stc.site`, not a label field — and must say
+that it cannot be changed, at the moment of choosing rather than afterwards.
 
 Labels that could impersonate the platform or a service are reserved (`www`,
-`app`, `api`, `mail`, `admin`, and the rest of that family).
+`app`, `api`, `mail`, `admin`, and the rest of that family). Whether anything
+beyond that family is refused is deliberately not settled here — see §11 item 6.
 
-**Falsifier:** a provisioned site with no address.
+**Falsifier:** a published site with no host mapping; or any path that updates
+`site_domains.host` in place. A *provisioned* site with no address is ordinary,
+and under the superseded rule below it was the falsifier.
+
+### What this replaces, and why
+
+This section used to say the opposite: a label **assigned at provision**,
+slugified from the business name, with a short discriminator on collision. Two
+arguments held it up, and both fail against the lifecycle.
+
+The first was [[REQ-190]]'s `unnamed` reasoning — a default must exist and must
+visibly ask to be changed, rather than blocking a customer on a choice they are
+not ready to make. But the name it would slugify is `Unnamed business`
+([[BUG-90]]), so the assigned default is `unnamedbusiness`: not a name that asks
+to be changed, but a name that says nothing, handed to someone who never asked
+for it, in the one namespace on this product that is global, public and
+first-come. That argument is still right about the *business* name, which is
+internal, freely changeable and costs nothing to get approximately right. It is
+wrong about a public address, which is the one name here that other people come
+to rely on.
+
+The second was §4's safety — a site that could exist with no host mapping would
+be unreachable once the path grammar went. Provision does not have to carry
+that; publication carries it, and publication is the moment the customer is by
+definition ready to choose, because they are asking to go live.
 
 ## 8. Platform detection is not a property we defend
 
@@ -325,14 +412,31 @@ one.
 ## 11. Open decisions
 
 1. **Does `sites.name` carry any uniqueness?** Recommendation: none. A list the
-   operator reads is not a namespace.
+   operator reads is not a namespace. **This item is about `sites.name` and has
+   been read as covering `tenants.name`, which it does not.** The business name
+   was settled separately and the other way — unique within its owning account,
+   compared case-folded and whitespace-collapsed, shipped in [[REQ-237]] — because
+   two indistinguishable rows in one switcher is a different failure from a long
+   list. Neither answer constrains the other.
 2. **Which apex** (§9), and whether the product sells domains.
 3. **Whether form B is a frozen snapshot or a live draft render** (§2).
    Recommendation: frozen, for the three reasons given there.
-4. **Whether the platform label is per site or per business.** §3 says a host
-   names a site, which implies per site; a business with several sites then holds
-   several labels. Cheap either way, but it should be said once rather than
-   discovered.
+4. ~~**Whether the platform label is per site or per business.**~~ **Settled:
+   per business, one at a time** (§7). §3 still says a host names a site, and the
+   two do not conflict today because a business holds exactly one site
+   ([[BUG-90]]). This reopens the day a business holds two, which is the day the
+   site selector lands and not before.
+5. ~~**Does a relinquished label return to the pool, or is it retired?**~~
+   **Dissolved by §7's finality.** Nothing is relinquished, so nothing can be
+   recycled, and the van keeps working because the label never moves. The
+   question returns the day the fee-gated change path does, and the answer it
+   will want then is *retired* — the superseded label stays held by the business
+   that gave it up, or a stranger inherits their traffic.
+6. **What is refused beyond the reserved technical family.** Impersonation of a
+   bank, a government or this platform harms a third party immediately and has
+   no benefit of the doubt to give. The obscenity tail is a different problem —
+   a substring blocklist eventually refuses a real business its real name — and
+   is deliberately deferred rather than answered badly.
 
 ## 12. What this supersedes
 
@@ -352,12 +456,19 @@ one.
 
 ## Order of work
 
-1. **§6, the slug** — first, because the host work would otherwise be built on a
-   token scheduled to disappear, and because the window in §6 is open now.
-2. **§5 and §7, the mapping table and the platform label** — the first real
-   address.
-3. **§4, deleting the path grammar** — an acceptance criterion of (2), not a
-   separate ticket.
-4. **§2 form B, the share link.**
-5. **Custom hostnames**, which are (2) plus certificate provisioning, and which
+1. ~~**§6, the slug**~~ — **done** ([[REQ-236]]). It went first because the host
+   work would otherwise have been built on a token scheduled to disappear.
+2. **§5 and §7, the mapping table and the platform label** — the record, the
+   availability check, the claim, revocation and the publish gate. [[REQ-238]].
+   *The address is chosen here; it does not yet resolve.*
+3. **[[TODO-6]] §§1 and 5, the operator items** — PSL submission, wildcard
+   `A`/`AAAA`, `*.1stc.site` certificate, CAA. **Not code, and on the critical
+   path**: (4) cannot ship without them, and §1's lead time is weeks, so it wants
+   starting before (2) rather than after.
+4. **§4, deleting the path grammar** — host→site resolution, then the deletion.
+   Originally listed as *"an acceptance criterion of (2), not a separate ticket"*;
+   **corrected** — see §4's Sequencing. It is separate work, gated on (3) and not
+   on (2).
+5. **§2 form B, the share link.**
+6. **Custom hostnames**, which are (2) plus certificate provisioning, and which
    §10 says are not only a public-bytes feature.
