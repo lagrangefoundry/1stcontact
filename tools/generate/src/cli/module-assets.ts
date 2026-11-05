@@ -84,13 +84,30 @@ export function composeModuleAssets(repoRoot: string): {
     if (fs.existsSync(clientFile)) {
       const js = fs.readFileSync(clientFile, 'utf8').trim()
       if (js) {
-        jsParts.push(`/* behavior: ${meta.id} */\n${js}`)
+        jsParts.push(`/* behavior: ${meta.id} */\n${scopeClientJs(js)}`)
         clientJsIds.push(meta.id)
       }
     }
   }
 
   return { css: cssParts.join('\n\n'), clientJs: jsParts.join('\n\n'), cssIds, clientJsIds }
+}
+
+/**
+ * One behavior's `client.js`, made safe to share a bundle with the others (BUG-75).
+ *
+ * Every behavior is authored as a self-contained module, so two of them can
+ * declare the same top-level `const` (several declare `ERROR_SELECTOR`). Joined
+ * plainly into one module script, that duplicate is a SyntaxError and the whole
+ * bundle fails to parse, which means no client behavior runs on any page. Each
+ * behavior therefore gets its own block scope. A block cannot contain an
+ * `export`, and nothing imports from the bundle (its exports exist for tests that
+ * import `client.js` directly), so a statement-leading `export` is dropped.
+ * Renaming the colliding constant would only postpone the next collision.
+ */
+function scopeClientJs(js: string): string {
+  const body = js.replace(/^export\s+(?=(?:async\s+)?function\b|const\b|let\b|class\b)/gm, '')
+  return `{\n${body}\n}`
 }
 
 function literal(value: string): string {
