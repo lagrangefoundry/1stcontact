@@ -5,9 +5,9 @@ type: bundle
 title: BUG-55 + REQ-190 + REQ-191 + REQ-193 + REQ-192 + 5 more
 created_by: xgd
 created_at: '2026-11-01T23:18:42.510726+00:00'
-updated_at: '2026-11-05T18:35:42.461184+00:00'
+updated_at: '2026-11-05T19:18:19.910762+00:00'
 completed_at: '2026-11-04T22:20:46.245040+00:00'
-last_field_updated: status
+last_field_updated: session_assessor
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
@@ -93,6 +93,8 @@ fields:
   session_builder: 167165e6-3186-453b-b643-b9961fe9be7d
   session_builder_started_at: '2026-11-04T21:57:07.852497+00:00'
   merged_at_commit: 77b55581e4e033085d4c8c6a09133591db247fd8
+  session_assessor: 1c8a9b70-d2ca-4883-918a-0e3a081fd461
+  session_assessor_started_at: '2026-11-05T19:18:19.401275+00:00'
 ---
 
 # Bundle
