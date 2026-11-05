@@ -2,7 +2,7 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-05T19:15:59.395957+00:00",
-  "ticket_count": 10602,
+  "ticket_count": 10596,
   "rebuild_epoch": 1793906140.769176,
   "tickets": {
     "acceptance_criterion-002fc710": {
@@ -21152,229 +21152,6 @@
           "bug-5908809a",
           "bug-2936cebf",
           "request-16253634"
-        ]
-      }
-    },
-    "bundle-5052a63c": {
-      "id": "BUNDLE-37",
-      "type": "bundle",
-      "status": "free_and_reconciled",
-      "updated_at": "2026-11-05T18:35:42.461184+00:00",
-      "created_at": "2026-11-01T23:18:42.510726+00:00",
-      "completed_at": "2026-11-04T22:20:46.245040+00:00",
-      "title": "BUG-55 + REQ-190 + REQ-191 + REQ-193 + REQ-192 + 5 more",
-      "fields": {
-        "auto_merge_back": true,
-        "commits": [
-          {
-            "working_sha": null,
-            "reconcile_sha": null,
-            "main_sha": "77b55581e4e033085d4c8c6a09133591db247fd8"
-          }
-        ],
-        "bundle_type": "reconcile",
-        "priority": "medium",
-        "reconcile_error": "reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.mode_overrides.route_blocked_by': batch 0 of story-c4f329d3 edited production code in reconcile mode without a granted `code_frozen` override naming it:\nvitest.node.config.mts",
-        "_prose_backlinks": [
-          "chat-06d47a5c",
-          "request-26dafd83",
-          "doc-721a48c9",
-          "request-2e50962c",
-          "chat-8529c537",
-          "request-bce2b6f9",
-          "request-2e50962c",
-          "request-2e50962c",
-          "request-2e50962c",
-          "request-8c5c0bb6",
-          "request-3df2d0e7",
-          "doc-95b51bb6",
-          "doc-8493c0f1",
-          "doc-92653384",
-          "request-8c5c0bb6",
-          "request-3a032190",
-          "request-93cc89ff",
-          "doc-5f79420d",
-          "request-93cc89ff",
-          "request-2e50962c",
-          "request-bce2b6f9",
-          "chat-06d47a5c",
-          "chat-06d47a5c",
-          "request-3a87d4a1",
-          "request-2e50962c",
-          "request-bce2b6f9",
-          "request-4a4ca4a1",
-          "request-ddd47be3",
-          "request-b0abafbf",
-          "request-3a032190",
-          "doc-92653384",
-          "chat-06d47a5c",
-          "request-3a032190",
-          "request-873e74dd",
-          "doc-95b1b7f1",
-          "doc-95b1b7f1",
-          "request-2e50962c",
-          "request-bce2b6f9",
-          "request-4a4ca4a1",
-          "request-ddd47be3",
-          "request-b0abafbf",
-          "request-4a4ca4a1",
-          "doc-92653384",
-          "request-2e50962c",
-          "request-bce2b6f9",
-          "request-2e50962c",
-          "request-bce2b6f9",
-          "request-4a4ca4a1",
-          "request-ddd47be3",
-          "request-4a4ca4a1",
-          "request-2e50962c",
-          "request-bce2b6f9",
-          "request-3a87d4a1",
-          "chat-8529c537",
-          "request-bce2b6f9",
-          "doc-95b51bb6",
-          "request-3a87d4a1",
-          "doc-95b51bb6",
-          "chat-b2147b5c",
-          "doc-8493c0f1",
-          "request-7af3f4e4",
-          "chat-8529c537",
-          "request-bce2b6f9",
-          "doc-2b91ec43",
-          "request-c7f76fbf",
-          "request-3a87d4a1",
-          "doc-92653384",
-          "doc-95b51bb6",
-          "request-c7f76fbf",
-          "request-3bc4b835",
-          "request-3a87d4a1",
-          "request-3a87d4a1",
-          "request-2e50962c",
-          "chat-8529c537",
-          "request-86e78464",
-          "request-c7f76fbf",
-          "request-2e50962c",
-          "request-3a87d4a1",
-          "doc-92653384",
-          "request-c7f76fbf",
-          "request-2e50962c",
-          "doc-95b51bb6",
-          "chat-b2147b5c",
-          "request-3a87d4a1",
-          "request-2e50962c",
-          "bug-b6268a25",
-          "request-3a87d4a1",
-          "chat-06d47a5c",
-          "doc-95b51bb6",
-          "request-7af3f4e4",
-          "request-8c5c0bb6",
-          "request-3a87d4a1",
-          "doc-95b51bb6",
-          "request-407a6fd8",
-          "request-b0abafbf",
-          "request-407a6fd8",
-          "request-2e50962c",
-          "chat-06d47a5c",
-          "bug-38efa295",
-          "chat-06d47a5c",
-          "request-3a87d4a1",
-          "request-93cc89ff",
-          "chat-06d47a5c",
-          "chat-06d47a5c",
-          "request-3a87d4a1",
-          "request-93cc89ff",
-          "request-7af3f4e4",
-          "request-3a87d4a1",
-          "request-3df2d0e7",
-          "request-7af3f4e4",
-          "request-b0abafbf",
-          "request-407a6fd8",
-          "doc-95b51bb6",
-          "request-2e50962c",
-          "request-3a87d4a1",
-          "request-2e50962c",
-          "request-2e50962c",
-          "request-2e50962c",
-          "chat-998e7ab3",
-          "request-920e1a2c",
-          "doc-5f79420d",
-          "request-9bfe910a",
-          "request-920e1a2c",
-          "request-9bfe910a",
-          "doc-5f79420d",
-          "request-9bfe910a",
-          "chat-998e7ab3",
-          "request-9bfe910a",
-          "request-704fe21e",
-          "request-9bfe910a",
-          "request-9bfe910a",
-          "request-704fe21e",
-          "request-9bfe910a",
-          "request-9bfe910a",
-          "request-704fe21e",
-          "request-704fe21e",
-          "request-9bfe910a",
-          "request-554ac441",
-          "request-554ac441",
-          "request-3a87d4a1",
-          "request-2e50962c",
-          "request-bce2b6f9",
-          "request-4a4ca4a1",
-          "doc-26483f95",
-          "doc-26483f95",
-          "doc-95b51bb6",
-          "request-3a87d4a1",
-          "doc-26483f95",
-          "chat-998e7ab3",
-          "chat-998e7ab3",
-          "request-bbff35c7",
-          "request-13a5e206",
-          "request-c7f76fbf",
-          "request-b0abafbf",
-          "doc-92653384",
-          "request-3a87d4a1",
-          "chat-998e7ab3",
-          "chat-06d47a5c",
-          "request-bbff35c7",
-          "request-13a5e206",
-          "doc-8f1d018c",
-          "doc-92653384",
-          "request-ee6ed740",
-          "doc-26483f95",
-          "request-920e1a2c",
-          "request-9bfe910a",
-          "chat-998e7ab3",
-          "request-920e1a2c",
-          "request-704fe21e",
-          "request-2e50962c",
-          "request-920e1a2c",
-          "request-920e1a2c",
-          "request-704fe21e",
-          "doc-5f79420d",
-          "request-ee6ed740",
-          "request-920e1a2c",
-          "request-704fe21e",
-          "request-704fe21e",
-          "request-9bfe910a",
-          "request-920e1a2c",
-          "request-ddd47be3",
-          "request-ee6ed740",
-          "request-3a87d4a1",
-          "request-2e50962c",
-          "doc-5f79420d",
-          "doc-95b51bb6",
-          "request-95dffc48",
-          "request-95dffc48",
-          "doc-95b51bb6",
-          "request-95dffc48",
-          "chat-b2147b5c",
-          "doc-95b51bb6",
-          "chat-06d47a5c",
-          "request-3a87d4a1",
-          "doc-95b51bb6",
-          "doc-5f79420d",
-          "request-3a87d4a1",
-          "request-3a87d4a1",
-          "request-95dffc48"
         ]
       }
     },
@@ -98515,19 +98292,6 @@
         "report_kind": "resolve_conflicts"
       }
     },
-    "report-58c1c6a8": {
-      "id": "REPORT-1070",
-      "type": "report",
-      "status": "fail",
-      "updated_at": "2026-08-02T17:26:32.219217+00:00",
-      "created_at": "2026-08-02T17:26:32.219217+00:00",
-      "completed_at": null,
-      "title": "Report: structural_health for report-98fc5946",
-      "fields": {
-        "subject_uid": "report-98fc5946",
-        "report_kind": "structural_health"
-      }
-    },
     "report-58cfb44f": {
       "id": "REPORT-3768",
       "type": "report",
@@ -100056,19 +99820,6 @@
       "fields": {
         "subject_uid": "reconcile-BUNDLE-36",
         "report_kind": "cherry_pick_conflict"
-      }
-    },
-    "report-5e0c2a97": {
-      "id": "REPORT-1079",
-      "type": "report",
-      "status": "pass",
-      "updated_at": "2026-08-02T17:56:41.103517+00:00",
-      "created_at": "2026-08-02T17:56:41.103517+00:00",
-      "completed_at": null,
-      "title": "Regression quality: pass (668 tests, 0 failed)",
-      "fields": {
-        "subject_uid": "dccfa99b",
-        "report_kind": "quality"
       }
     },
     "report-5e0d2bba": {
@@ -104642,19 +104393,6 @@
         "report_kind": "cherry_pick_conflict"
       }
     },
-    "report-70f9f6c7": {
-      "id": "REPORT-1081",
-      "type": "report",
-      "status": "pass",
-      "updated_at": "2026-08-02T17:57:46.631061+00:00",
-      "created_at": "2026-08-02T17:57:46.631061+00:00",
-      "completed_at": null,
-      "title": "Regression quality: pass (668 tests, 0 failed)",
-      "fields": {
-        "subject_uid": "dccfa99b",
-        "report_kind": "quality"
-      }
-    },
     "report-71070278": {
       "id": "REPORT-4221",
       "type": "report",
@@ -107937,22 +107675,6 @@
       "fields": {
         "subject_uid": "reconcile-BUNDLE-34",
         "report_kind": "cherry_pick_conflict"
-      }
-    },
-    "report-7dbf80fd": {
-      "id": "REPORT-1078",
-      "type": "report",
-      "status": "pass",
-      "updated_at": "2026-08-02T17:55:59.320430+00:00",
-      "created_at": "2026-08-02T17:55:59.320430+00:00",
-      "completed_at": null,
-      "title": "Report: batch_quality_check for dccfa99b",
-      "fields": {
-        "subject_uid": "dccfa99b",
-        "report_kind": "batch_quality_check",
-        "parent_report_uid": "report-0d908354",
-        "batch_index": 0,
-        "quality_fix_cycle": 0
       }
     },
     "report-7dca41e1": {
@@ -111628,19 +111350,6 @@
         "report_kind": "resolve_conflicts"
       }
     },
-    "report-8bc8d791": {
-      "id": "REPORT-1072",
-      "type": "report",
-      "status": "fail",
-      "updated_at": "2026-08-02T17:43:30.644255+00:00",
-      "created_at": "2026-08-02T17:43:30.644255+00:00",
-      "completed_at": null,
-      "title": "Report: overlap_survey for report-98fc5946",
-      "fields": {
-        "subject_uid": "report-98fc5946",
-        "report_kind": "overlap_survey"
-      }
-    },
     "report-8bcb0897": {
       "id": "REPORT-2754",
       "type": "report",
@@ -114443,21 +114152,6 @@
         "report_kind": "resolve_conflicts"
       }
     },
-    "report-97fc0e15": {
-      "id": "REPORT-1077",
-      "type": "report",
-      "status": null,
-      "updated_at": "2026-08-02T17:55:24.186171+00:00",
-      "created_at": "2026-08-02T17:55:24.186171+00:00",
-      "completed_at": null,
-      "title": "Claude batch_fix_assessment report",
-      "fields": {
-        "subject_uid": "dccfa99b",
-        "report_kind": "batch_fix_assessment",
-        "parent_report_uid": "report-0d908354",
-        "batch_index": "0"
-      }
-    },
     "report-981c926c": {
       "id": "REPORT-6015",
       "type": "report",
@@ -114746,19 +114440,6 @@
         "level": "uat",
         "needs_more_work": false,
         "progress_made": true
-      }
-    },
-    "report-98fc5946": {
-      "id": "REPORT-1069",
-      "type": "report",
-      "status": null,
-      "updated_at": "2026-08-02T17:26:24.751849+00:00",
-      "created_at": "2026-08-02T17:26:24.751849+00:00",
-      "completed_at": null,
-      "title": "Regression start: dccfa99b",
-      "fields": {
-        "subject_uid": "dccfa99b",
-        "report_kind": "regression_start"
       }
     },
     "report-98fc9539": {
@@ -153309,6 +152990,244 @@
         "subject_uid": "bundle-5052a63c",
         "report_kind": "permissions_audit"
       }
+    },
+    "report-1ded5dfc": {
+      "id": "REPORT-10952",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-05T19:19:27.271196+00:00",
+      "created_at": "2026-11-05T19:16:10.175682+00:00",
+      "completed_at": null,
+      "title": "Regression success: 51 caught (reconciliation)",
+      "fields": {
+        "subject_uid": "bundle-5052a63c",
+        "intent_uid": "bundle-5052a63c",
+        "report_kind": "regression_success",
+        "cycle": "reconciliation"
+      }
+    },
+    "bundle-5052a63c": {
+      "id": "BUNDLE-37",
+      "type": "bundle",
+      "status": "free_and_reconciled",
+      "updated_at": "2026-11-05T19:19:40.725026+00:00",
+      "created_at": "2026-11-01T23:18:42.510726+00:00",
+      "completed_at": "2026-11-04T22:20:46.245040+00:00",
+      "title": "BUG-55 + REQ-190 + REQ-191 + REQ-193 + REQ-192 + 5 more",
+      "fields": {
+        "auto_merge_back": true,
+        "commits": [
+          {
+            "working_sha": null,
+            "reconcile_sha": null,
+            "main_sha": "77b55581e4e033085d4c8c6a09133591db247fd8"
+          }
+        ],
+        "bundle_type": "reconcile",
+        "priority": "medium",
+        "reconcile_error": "reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.mode_overrides.route_blocked_by': batch 0 of story-c4f329d3 edited production code in reconcile mode without a granted `code_frozen` override naming it:\nvitest.node.config.mts",
+        "_prose_backlinks": [
+          "chat-06d47a5c",
+          "request-26dafd83",
+          "doc-721a48c9",
+          "request-2e50962c",
+          "chat-8529c537",
+          "request-bce2b6f9",
+          "request-2e50962c",
+          "request-2e50962c",
+          "request-2e50962c",
+          "request-8c5c0bb6",
+          "request-3df2d0e7",
+          "doc-95b51bb6",
+          "doc-8493c0f1",
+          "doc-92653384",
+          "request-8c5c0bb6",
+          "request-3a032190",
+          "request-93cc89ff",
+          "doc-5f79420d",
+          "request-93cc89ff",
+          "request-2e50962c",
+          "request-bce2b6f9",
+          "chat-06d47a5c",
+          "chat-06d47a5c",
+          "request-3a87d4a1",
+          "request-2e50962c",
+          "request-bce2b6f9",
+          "request-4a4ca4a1",
+          "request-ddd47be3",
+          "request-b0abafbf",
+          "request-3a032190",
+          "doc-92653384",
+          "chat-06d47a5c",
+          "request-3a032190",
+          "request-873e74dd",
+          "doc-95b1b7f1",
+          "doc-95b1b7f1",
+          "request-2e50962c",
+          "request-bce2b6f9",
+          "request-4a4ca4a1",
+          "request-ddd47be3",
+          "request-b0abafbf",
+          "request-4a4ca4a1",
+          "doc-92653384",
+          "request-2e50962c",
+          "request-bce2b6f9",
+          "request-2e50962c",
+          "request-bce2b6f9",
+          "request-4a4ca4a1",
+          "request-ddd47be3",
+          "request-4a4ca4a1",
+          "request-2e50962c",
+          "request-bce2b6f9",
+          "request-3a87d4a1",
+          "chat-8529c537",
+          "request-bce2b6f9",
+          "doc-95b51bb6",
+          "request-3a87d4a1",
+          "doc-95b51bb6",
+          "chat-b2147b5c",
+          "doc-8493c0f1",
+          "request-7af3f4e4",
+          "chat-8529c537",
+          "request-bce2b6f9",
+          "doc-2b91ec43",
+          "request-c7f76fbf",
+          "request-3a87d4a1",
+          "doc-92653384",
+          "doc-95b51bb6",
+          "request-c7f76fbf",
+          "request-3bc4b835",
+          "request-3a87d4a1",
+          "request-3a87d4a1",
+          "request-2e50962c",
+          "chat-8529c537",
+          "request-86e78464",
+          "request-c7f76fbf",
+          "request-2e50962c",
+          "request-3a87d4a1",
+          "doc-92653384",
+          "request-c7f76fbf",
+          "request-2e50962c",
+          "doc-95b51bb6",
+          "chat-b2147b5c",
+          "request-3a87d4a1",
+          "request-2e50962c",
+          "bug-b6268a25",
+          "request-3a87d4a1",
+          "chat-06d47a5c",
+          "doc-95b51bb6",
+          "request-7af3f4e4",
+          "request-8c5c0bb6",
+          "request-3a87d4a1",
+          "doc-95b51bb6",
+          "request-407a6fd8",
+          "request-b0abafbf",
+          "request-407a6fd8",
+          "request-2e50962c",
+          "chat-06d47a5c",
+          "bug-38efa295",
+          "chat-06d47a5c",
+          "request-3a87d4a1",
+          "request-93cc89ff",
+          "chat-06d47a5c",
+          "chat-06d47a5c",
+          "request-3a87d4a1",
+          "request-93cc89ff",
+          "request-7af3f4e4",
+          "request-3a87d4a1",
+          "request-3df2d0e7",
+          "request-7af3f4e4",
+          "request-b0abafbf",
+          "request-407a6fd8",
+          "doc-95b51bb6",
+          "request-2e50962c",
+          "request-3a87d4a1",
+          "request-2e50962c",
+          "request-2e50962c",
+          "request-2e50962c",
+          "chat-998e7ab3",
+          "request-920e1a2c",
+          "doc-5f79420d",
+          "request-9bfe910a",
+          "request-920e1a2c",
+          "request-9bfe910a",
+          "doc-5f79420d",
+          "request-9bfe910a",
+          "chat-998e7ab3",
+          "request-9bfe910a",
+          "request-704fe21e",
+          "request-9bfe910a",
+          "request-9bfe910a",
+          "request-704fe21e",
+          "request-9bfe910a",
+          "request-9bfe910a",
+          "request-704fe21e",
+          "request-704fe21e",
+          "request-9bfe910a",
+          "request-554ac441",
+          "request-554ac441",
+          "request-3a87d4a1",
+          "request-2e50962c",
+          "request-bce2b6f9",
+          "request-4a4ca4a1",
+          "doc-26483f95",
+          "doc-26483f95",
+          "doc-95b51bb6",
+          "request-3a87d4a1",
+          "doc-26483f95",
+          "chat-998e7ab3",
+          "chat-998e7ab3",
+          "request-bbff35c7",
+          "request-13a5e206",
+          "request-c7f76fbf",
+          "request-b0abafbf",
+          "doc-92653384",
+          "request-3a87d4a1",
+          "chat-998e7ab3",
+          "chat-06d47a5c",
+          "request-bbff35c7",
+          "request-13a5e206",
+          "doc-8f1d018c",
+          "doc-92653384",
+          "request-ee6ed740",
+          "doc-26483f95",
+          "request-920e1a2c",
+          "request-9bfe910a",
+          "chat-998e7ab3",
+          "request-920e1a2c",
+          "request-704fe21e",
+          "request-2e50962c",
+          "request-920e1a2c",
+          "request-920e1a2c",
+          "request-704fe21e",
+          "doc-5f79420d",
+          "request-ee6ed740",
+          "request-920e1a2c",
+          "request-704fe21e",
+          "request-704fe21e",
+          "request-9bfe910a",
+          "request-920e1a2c",
+          "request-ddd47be3",
+          "request-ee6ed740",
+          "request-3a87d4a1",
+          "request-2e50962c",
+          "doc-5f79420d",
+          "doc-95b51bb6",
+          "request-95dffc48",
+          "request-95dffc48",
+          "doc-95b51bb6",
+          "request-95dffc48",
+          "chat-b2147b5c",
+          "doc-95b51bb6",
+          "chat-06d47a5c",
+          "request-3a87d4a1",
+          "doc-95b51bb6",
+          "doc-5f79420d",
+          "request-3a87d4a1",
+          "request-3a87d4a1",
+          "request-95dffc48"
+        ]
+      }
     }
   },
   "by_type": {
@@ -154980,7 +154899,6 @@
       "report-58632744",
       "report-5869e78e",
       "report-5877bee2",
-      "report-58c1c6a8",
       "report-58cfb44f",
       "report-58d00715",
       "report-58d86d51",
@@ -155096,7 +155014,6 @@
       "report-5dec28d5",
       "report-5decc0a6",
       "report-5defef3c",
-      "report-5e0c2a97",
       "report-5e0d2bba",
       "report-5e13a10f",
       "report-5e254d03",
@@ -155436,7 +155353,6 @@
       "report-70d65976",
       "report-70f1206d",
       "report-70f9e2d1",
-      "report-70f9f6c7",
       "report-71070278",
       "report-711e58de",
       "report-71215400",
@@ -155680,7 +155596,6 @@
       "report-7d8dd209",
       "report-7db1f680",
       "report-7db6396f",
-      "report-7dbf80fd",
       "report-7dca41e1",
       "report-7ddee737",
       "report-7de26877",
@@ -155954,7 +155869,6 @@
       "report-8b95580b",
       "report-8bae0fb7",
       "report-8bb94c3b",
-      "report-8bc8d791",
       "report-8bcb0897",
       "report-8c124ffb",
       "report-8c2583c4",
@@ -156164,7 +156078,6 @@
       "report-97cacf80",
       "report-97d70645",
       "report-97da1c3e",
-      "report-97fc0e15",
       "report-981c926c",
       "report-982ae111",
       "report-982d00f0",
@@ -156187,7 +156100,6 @@
       "report-98f4d7da",
       "report-98fa37f7",
       "report-98fbe05b",
-      "report-98fc5946",
       "report-98fc9539",
       "report-98fecfad",
       "report-9901eb69",
@@ -158161,7 +158073,8 @@
       "report-ffee8e65",
       "report-fff31053",
       "report-fff96718",
-      "report-0e27086e"
+      "report-0e27086e",
+      "report-1ded5dfc"
     ],
     "bundle": [
       "bundle-0385746c",
@@ -158171,7 +158084,6 @@
       "bundle-31e474b9",
       "bundle-39edf66d",
       "bundle-4ff83a8b",
-      "bundle-5052a63c",
       "bundle-5607a08d",
       "bundle-6a071846",
       "bundle-77b28def",
@@ -158192,7 +158104,8 @@
       "bundle-e59210c5",
       "bundle-ee56a66e",
       "bundle-f39884d2",
-      "bundle-fd009b93"
+      "bundle-fd009b93",
+      "bundle-5052a63c"
     ],
     "acceptance_criterion": [
       "acceptance_criterion-002fc710",
@@ -166720,7 +166633,6 @@
         "report-5d95c944",
         "report-5db75b97",
         "report-5db98c44",
-        "report-5e0c2a97",
         "report-5e254d03",
         "report-5f83e766",
         "report-606752da",
@@ -166746,7 +166658,6 @@
         "report-6cec4cca",
         "report-6decd207",
         "report-6e648e87",
-        "report-70f9f6c7",
         "report-712b3fb9",
         "report-71315737",
         "report-71b1019e",
@@ -168295,7 +168206,6 @@
         "report-8610e3f9",
         "report-8ca84ea7",
         "report-9462cde7",
-        "report-97fc0e15",
         "report-a280f1d1",
         "report-a5809508",
         "report-ae92dcef",
@@ -168352,7 +168262,8 @@
         "report-dd9cbac9",
         "report-ec0d27a9",
         "report-f2b243d0",
-        "report-ff87fd31"
+        "report-ff87fd31",
+        "report-1ded5dfc"
       ],
       "overlap_resolution": [
         "report-044db82b",
@@ -168655,7 +168566,6 @@
         "report-5e3306c9",
         "report-64bcbf1c",
         "report-7af8f046",
-        "report-7dbf80fd",
         "report-85003dc4",
         "report-8fad00d4",
         "report-9120f040",
@@ -168748,7 +168658,6 @@
         "report-540cf83a",
         "report-55d8a179",
         "report-56449702",
-        "report-8bc8d791",
         "report-9d3d87ad"
       ],
       "sync_main_review": [
@@ -168776,7 +168685,6 @@
         "report-31234d67",
         "report-69e94af9",
         "report-7ef6a9ea",
-        "report-98fc5946",
         "report-e37a6b4a"
       ],
       "blocked_by_handoff": [
@@ -168829,7 +168737,6 @@
         "report-4acfb510",
         "report-4ca4463f",
         "report-562404f9",
-        "report-58c1c6a8",
         "report-5b0cc0f1",
         "report-75f53b61",
         "report-ad9e2575",
@@ -169087,7 +168994,6 @@
         "bundle-31e474b9",
         "bundle-39edf66d",
         "bundle-4ff83a8b",
-        "bundle-5052a63c",
         "bundle-5607a08d",
         "bundle-6a071846",
         "bundle-77b28def",
@@ -169435,7 +169341,8 @@
         "todo-9843ab51",
         "todo-b84c20e6",
         "todo-c71a5e3c",
-        "todo-d61dcb04"
+        "todo-d61dcb04",
+        "bundle-5052a63c"
       ]
     },
     "commits": {
@@ -170374,9 +170281,6 @@
       ],
       "2d59a3b63f7807d6af225b52f2a56778dccf15f7": [
         "bundle-4ff83a8b"
-      ],
-      "77b55581e4e033085d4c8c6a09133591db247fd8": [
-        "bundle-5052a63c"
       ],
       "62a5507efb93485fa1f11bfdb12c9671670c2a4c": [
         "bundle-5607a08d"
@@ -172369,17 +172273,20 @@
       ],
       "686fbd608595d9d99a40a1ff0a78364b577d77f8": [
         "request-ffdc3e43"
+      ],
+      "77b55581e4e033085d4c8c6a09133591db247fd8": [
+        "bundle-5052a63c"
       ]
     },
     "bundle_type": {
       "reconcile": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-5607a08d",
         "bundle-78f4e2fe",
         "bundle-94dbe947",
         "bundle-b3b7c399",
-        "bundle-fd009b93"
+        "bundle-fd009b93",
+        "bundle-5052a63c"
       ]
     },
     "priority": {
@@ -172481,7 +172388,6 @@
         "bundle-31e474b9",
         "bundle-39edf66d",
         "bundle-4ff83a8b",
-        "bundle-5052a63c",
         "bundle-5607a08d",
         "bundle-6a071846",
         "bundle-77b28def",
@@ -172679,7 +172585,8 @@
         "request-fe808622",
         "request-ff0cdfa7",
         "request-ffdc3e43",
-        "todo-23de59e3"
+        "todo-23de59e3",
+        "bundle-5052a63c"
       ],
       "high": [
         "bug-05898428",
@@ -181991,11 +181898,11 @@
       ]
     },
     "reconcile_error": {
-      "reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.mode_overrides.route_blocked_by': batch 0 of story-c4f329d3 edited production code in reconcile mode without a granted `code_frozen` override naming it:\nvitest.node.config.mts": [
-        "bundle-5052a63c"
-      ],
       "reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.fix_planning.validate_fix_plan': test_fix planner emitted an invalid plan twice; rejected: the aligned_to_tip ruling cannot be accepted: no failing test in blocked_by_ruling.tests belongs to `acceptance_criterion-2b82c3cf`: nothing to resolve": [
         "bundle-5607a08d"
+      ],
+      "reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.mode_overrides.route_blocked_by': batch 0 of story-c4f329d3 edited production code in reconcile mode without a granted `code_frozen` override naming it:\nvitest.node.config.mts": [
+        "bundle-5052a63c"
       ]
     },
     "intent_uid": {
@@ -182159,7 +182066,8 @@
         "story-219b4217",
         "story-4630e921",
         "story-5b5be809",
-        "story-7d255580"
+        "story-7d255580",
+        "report-1ded5dfc"
       ]
     },
     "updated_by": {
@@ -194888,7 +194796,8 @@
         "report-d91ea163",
         "report-e30dc8d8",
         "report-ed9f3f94",
-        "report-0e27086e"
+        "report-0e27086e",
+        "report-1ded5dfc"
       ],
       "reconcile-REQ-162": [
         "report-00ed24bc",
@@ -198385,8 +198294,6 @@
         "report-aed1b88b"
       ],
       "report-98fc5946": [
-        "report-58c1c6a8",
-        "report-8bc8d791",
         "report-9e9f839a"
       ],
       "report-c73fa129": [
@@ -198405,13 +198312,6 @@
         "report-5dd00405",
         "report-c5b99f7d",
         "report-cc1802cb"
-      ],
-      "dccfa99b": [
-        "report-5e0c2a97",
-        "report-70f9f6c7",
-        "report-7dbf80fd",
-        "report-97fc0e15",
-        "report-98fc5946"
       ],
       "capability-938f26ec": [
         "report-5ebffa3e",
@@ -199965,10 +199865,6 @@
         "report-78ec9923",
         "report-7b5ac912"
       ],
-      "report-0d908354": [
-        "report-7dbf80fd",
-        "report-97fc0e15"
-      ],
       "report-ba25a95c": [
         "report-810dd941",
         "report-9120f040"
@@ -200072,7 +199968,6 @@
         "report-78ec9923",
         "report-7af8f046",
         "report-7b5ac912",
-        "report-7dbf80fd",
         "report-7e9e9341",
         "report-810dd941",
         "report-839b67f9",
@@ -200085,7 +199980,6 @@
         "report-8fad00d4",
         "report-9120f040",
         "report-9462cde7",
-        "report-97fc0e15",
         "report-9a57f7b2",
         "report-9efb9c0c",
         "report-9f0c7534",
@@ -200979,7 +200873,8 @@
         "report-dd9cbac9",
         "report-ec0d27a9",
         "report-f2b243d0",
-        "report-ff87fd31"
+        "report-ff87fd31",
+        "report-1ded5dfc"
       ],
       "regression": [
         "report-08ec8f69",
@@ -201061,7 +200956,6 @@
         "report-5e3306c9",
         "report-64bcbf1c",
         "report-7af8f046",
-        "report-7dbf80fd",
         "report-85003dc4",
         "report-8fad00d4",
         "report-9120f040",
@@ -202749,7 +202643,6 @@
     "BUNDLE-7": "bundle-31e474b9",
     "BUNDLE-36": "bundle-39edf66d",
     "BUNDLE-10": "bundle-4ff83a8b",
-    "BUNDLE-37": "bundle-5052a63c",
     "BUNDLE-32": "bundle-5607a08d",
     "BUNDLE-1": "bundle-6a071846",
     "BUNDLE-19": "bundle-77b28def",
@@ -208409,7 +208302,6 @@
     "REPORT-3013": "report-58632744",
     "REPORT-10899": "report-5869e78e",
     "REPORT-2284": "report-5877bee2",
-    "REPORT-1070": "report-58c1c6a8",
     "REPORT-3768": "report-58cfb44f",
     "REPORT-3926": "report-58d00715",
     "REPORT-7227": "report-58d86d51",
@@ -208525,7 +208417,6 @@
     "REPORT-3029": "report-5dec28d5",
     "REPORT-4131": "report-5decc0a6",
     "REPORT-7650": "report-5defef3c",
-    "REPORT-1079": "report-5e0c2a97",
     "REPORT-8001": "report-5e0d2bba",
     "REPORT-5553": "report-5e13a10f",
     "REPORT-7191": "report-5e254d03",
@@ -208865,7 +208756,6 @@
     "REPORT-1748": "report-70d65976",
     "REPORT-4583": "report-70f1206d",
     "REPORT-8217": "report-70f9e2d1",
-    "REPORT-1081": "report-70f9f6c7",
     "REPORT-4221": "report-71070278",
     "REPORT-1323": "report-711e58de",
     "REPORT-4678": "report-71215400",
@@ -209109,7 +208999,6 @@
     "REPORT-7790": "report-7d8dd209",
     "REPORT-1733": "report-7db1f680",
     "REPORT-7174": "report-7db6396f",
-    "REPORT-1078": "report-7dbf80fd",
     "REPORT-7988": "report-7dca41e1",
     "REPORT-7405": "report-7ddee737",
     "REPORT-1737": "report-7de26877",
@@ -209383,7 +209272,6 @@
     "REPORT-5945": "report-8b95580b",
     "REPORT-2271": "report-8bae0fb7",
     "REPORT-3142": "report-8bb94c3b",
-    "REPORT-1072": "report-8bc8d791",
     "REPORT-2754": "report-8bcb0897",
     "REPORT-3594": "report-8c124ffb",
     "REPORT-5563": "report-8c2583c4",
@@ -209593,7 +209481,6 @@
     "REPORT-1811": "report-97cacf80",
     "REPORT-1485": "report-97d70645",
     "REPORT-6018": "report-97da1c3e",
-    "REPORT-1077": "report-97fc0e15",
     "REPORT-6015": "report-981c926c",
     "REPORT-4079": "report-982ae111",
     "REPORT-4635": "report-982d00f0",
@@ -209616,7 +209503,6 @@
     "REPORT-2947": "report-98f4d7da",
     "REPORT-6021": "report-98fa37f7",
     "REPORT-1604": "report-98fbe05b",
-    "REPORT-1069": "report-98fc5946",
     "REPORT-4548": "report-98fc9539",
     "REPORT-7403": "report-98fecfad",
     "REPORT-4595": "report-9901eb69",
@@ -211992,19 +211878,21 @@
     "TODO-13": "todo-b84c20e6",
     "TODO-14": "todo-c71a5e3c",
     "TODO-6": "todo-d61dcb04",
-    "REPORT-10951": "report-0e27086e"
+    "REPORT-10951": "report-0e27086e",
+    "REPORT-10952": "report-1ded5dfc",
+    "BUNDLE-37": "bundle-5052a63c"
   },
   "backlinks_index": {
     "chat-06d47a5c": {
       "mentions": [
         "bug-b6268a25",
-        "bundle-5052a63c",
         "report-3a992759",
         "report-d9dd02a7",
         "request-3a032190",
         "request-3a87d4a1",
         "request-4a4ca4a1",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "request-26dafd83": {
@@ -212016,7 +211904,6 @@
     "doc-721a48c9": {
       "mentions": [
         "bug-b6268a25",
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "bundle-fd009b93",
         "chat-2aaa79f4",
@@ -212031,13 +211918,13 @@
         "request-2bd9d184",
         "request-72001560",
         "request-ba3e3fba",
-        "request-d41fd017"
+        "request-d41fd017",
+        "bundle-5052a63c"
       ]
     },
     "request-8c5c0bb6": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "bundle-fd009b93",
         "comment-d394036b",
@@ -212052,13 +211939,13 @@
         "request-86e78464",
         "request-8c5c0bb6",
         "request-93cc89ff",
-        "request-b813aa4a"
+        "request-b813aa4a",
+        "bundle-5052a63c"
       ]
     },
     "request-3df2d0e7": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "bundle-fd009b93",
         "doc-5f79420d",
@@ -212076,7 +211963,8 @@
         "request-93cc89ff",
         "request-95b2b06a",
         "request-95dffc48",
-        "request-b813aa4a"
+        "request-b813aa4a",
+        "bundle-5052a63c"
       ]
     },
     "doc-95b51bb6": {
@@ -212084,7 +211972,6 @@
         "bug-82d884c9",
         "bug-e771acac",
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "bundle-fd009b93",
         "comment-238015b4",
@@ -212121,7 +212008,8 @@
         "request-b813aa4a",
         "request-bce2b6f9",
         "request-c7f76fbf",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "doc-8493c0f1": {
@@ -212129,7 +212017,6 @@
         "bug-364445f8",
         "bug-8dfa60ea",
         "bundle-203b1dc2",
-        "bundle-5052a63c",
         "bundle-5607a08d",
         "bundle-87be4669",
         "bundle-8e1807f6",
@@ -212157,14 +212044,14 @@
         "request-bfd833d0",
         "request-e53d068f",
         "story-0cb7f25b",
-        "story-31204812"
+        "story-31204812",
+        "bundle-5052a63c"
       ]
     },
     "doc-92653384": {
       "mentions": [
         "bug-af5e6965",
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "bundle-fd009b93",
         "chat-2aaa79f4",
@@ -212192,13 +212079,13 @@
         "request-86e78464",
         "request-b813aa4a",
         "request-bce2b6f9",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "request-93cc89ff": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "doc-95b51bb6",
         "report-2d8c6755",
         "report-5bdeacfe",
@@ -212207,7 +212094,8 @@
         "request-3a87d4a1",
         "request-420e1a6e",
         "request-95dffc48",
-        "request-c4ab7564"
+        "request-c4ab7564",
+        "bundle-5052a63c"
       ]
     },
     "doc-5f79420d": {
@@ -212215,7 +212103,6 @@
         "bug-e771acac",
         "bundle-203b1dc2",
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-87be4669",
         "bundle-94dbe947",
         "bundle-fd009b93",
@@ -212256,13 +212143,13 @@
         "request-b813aa4a",
         "request-c7f76fbf",
         "request-da60b61b",
-        "story-0cd18650"
+        "story-0cd18650",
+        "bundle-5052a63c"
       ]
     },
     "request-3a87d4a1": {
       "mentions": [
         "bug-e8899581",
-        "bundle-5052a63c",
         "comment-761b2db1",
         "doc-26483f95",
         "doc-8f1d018c",
@@ -212277,26 +212164,26 @@
         "request-4a4ca4a1",
         "request-bce2b6f9",
         "request-ddd47be3",
-        "request-ee6ed740"
+        "request-ee6ed740",
+        "bundle-5052a63c"
       ]
     },
     "request-4a4ca4a1": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "doc-26483f95",
         "report-87958ccb",
         "report-e7d5a6ed",
         "request-2ac88003",
         "request-3a87d4a1",
         "request-b0abafbf",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "request-b0abafbf": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "doc-26483f95",
         "doc-95b51bb6",
         "doc-acac479d",
@@ -212305,17 +212192,18 @@
         "request-3a87d4a1",
         "request-c7f76fbf",
         "request-ddd47be3",
-        "request-ee6ed740"
+        "request-ee6ed740",
+        "bundle-5052a63c"
       ]
     },
     "request-873e74dd": {
       "mentions": [
         "bug-55832d21",
         "bundle-0385746c",
-        "bundle-5052a63c",
         "bundle-7985e0d1",
         "chat-66d44613",
-        "request-3a87d4a1"
+        "request-3a87d4a1",
+        "bundle-5052a63c"
       ]
     },
     "doc-95b1b7f1": {
@@ -212324,7 +212212,6 @@
         "bundle-0385746c",
         "bundle-0e41ff44",
         "bundle-15c1f647",
-        "bundle-5052a63c",
         "bundle-5607a08d",
         "bundle-6a071846",
         "bundle-77b28def",
@@ -212381,32 +212268,32 @@
         "request-b19f2526",
         "request-ba3e3fba",
         "request-e077c051",
-        "request-f5aad951"
+        "request-f5aad951",
+        "bundle-5052a63c"
       ]
     },
     "request-7af3f4e4": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "request-2e50962c",
         "request-3a032190",
-        "request-b0abafbf"
+        "request-b0abafbf",
+        "bundle-5052a63c"
       ]
     },
     "request-c7f76fbf": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "request-2e50962c",
         "request-b0abafbf",
         "request-bce2b6f9",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "request-3bc4b835": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "doc-95b51bb6",
         "request-2e50962c",
@@ -212414,14 +212301,14 @@
         "request-7af3f4e4",
         "request-8c5c0bb6",
         "request-95dffc48",
-        "request-da60b61b"
+        "request-da60b61b",
+        "bundle-5052a63c"
       ]
     },
     "request-86e78464": {
       "mentions": [
         "bug-af5e6965",
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "bundle-fd009b93",
         "doc-8f1d018c",
@@ -212435,14 +212322,14 @@
         "request-8a5f499e",
         "request-b813aa4a",
         "request-bce2b6f9",
-        "request-c7f76fbf"
+        "request-c7f76fbf",
+        "bundle-5052a63c"
       ]
     },
     "request-407a6fd8": {
       "mentions": [
         "bug-38efa295",
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-87be4669",
         "bundle-94dbe947",
         "comment-d394036b",
@@ -212459,13 +212346,13 @@
         "request-8c5c0bb6",
         "request-95dffc48",
         "request-b813aa4a",
-        "request-c7f76fbf"
+        "request-c7f76fbf",
+        "bundle-5052a63c"
       ]
     },
     "request-920e1a2c": {
       "mentions": [
         "bug-3fe8c3a6",
-        "bundle-5052a63c",
         "comment-3251b325",
         "report-132efb58",
         "report-80a5e192",
@@ -212476,13 +212363,13 @@
         "request-9bfe910a",
         "request-ddd47be3",
         "request-ee6ed740",
-        "todo-3c78b018"
+        "todo-3c78b018",
+        "bundle-5052a63c"
       ]
     },
     "doc-26483f95": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "comment-5c5852f7",
         "comment-f2d1aa6d",
         "doc-95b51bb6",
@@ -212490,14 +212377,14 @@
         "request-6c30c342",
         "request-b0abafbf",
         "request-ddd47be3",
-        "request-ee6ed740"
+        "request-ee6ed740",
+        "bundle-5052a63c"
       ]
     },
     "request-bbff35c7": {
       "mentions": [
         "bug-f65d693a",
         "bundle-203b1dc2",
-        "bundle-5052a63c",
         "bundle-87be4669",
         "bundle-94dbe947",
         "doc-d652a3b1",
@@ -212506,13 +212393,13 @@
         "request-72001560",
         "request-8c5c0bb6",
         "request-b9aa241d",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "request-13a5e206": {
       "mentions": [
         "bundle-203b1dc2",
-        "bundle-5052a63c",
         "bundle-87be4669",
         "bundle-94dbe947",
         "comment-63a2ba86",
@@ -212526,13 +212413,13 @@
         "request-439cd0c8",
         "request-78370159",
         "request-8c5c0bb6",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "doc-8f1d018c": {
       "mentions": [
         "bug-3fe8c3a6",
-        "bundle-5052a63c",
         "chat-762b15a2",
         "comment-d842395c",
         "epic-0728e1c5",
@@ -212542,13 +212429,13 @@
         "request-1e65c6db",
         "request-2ac88003",
         "request-ddd47be3",
-        "todo-d61dcb04"
+        "todo-d61dcb04",
+        "bundle-5052a63c"
       ]
     },
     "request-95dffc48": {
       "mentions": [
         "bundle-39edf66d",
-        "bundle-5052a63c",
         "bundle-fd009b93",
         "doc-26483f95",
         "doc-5f79420d",
@@ -212558,7 +212445,8 @@
         "request-420e1a6e",
         "request-4a4ca4a1",
         "request-93cc89ff",
-        "request-c7f76fbf"
+        "request-c7f76fbf",
+        "bundle-5052a63c"
       ]
     },
     "doc-d88e2e1c": {
@@ -213845,7 +213733,6 @@
     },
     "request-2e50962c": {
       "mentions": [
-        "bundle-5052a63c",
         "doc-acac479d",
         "request-3a032190",
         "request-3a87d4a1",
@@ -213853,59 +213740,59 @@
         "request-9bfe910a",
         "request-bce2b6f9",
         "request-ddd47be3",
-        "request-ee6ed740"
+        "request-ee6ed740",
+        "bundle-5052a63c"
       ]
     },
     "chat-8529c537": {
       "mentions": [
-        "bundle-5052a63c",
         "doc-26483f95",
         "doc-acac479d",
         "request-2e50962c",
         "request-3a87d4a1",
-        "request-bce2b6f9"
+        "request-bce2b6f9",
+        "bundle-5052a63c"
       ]
     },
     "request-bce2b6f9": {
       "mentions": [
-        "bundle-5052a63c",
         "comment-ff54f8a3",
         "report-a2f2107c",
         "report-e7d5a6ed",
         "report-fbc2cf29",
         "request-2e50962c",
         "request-3a87d4a1",
-        "request-ddd47be3"
+        "request-ddd47be3",
+        "bundle-5052a63c"
       ]
     },
     "request-3a032190": {
       "mentions": [
-        "bundle-5052a63c",
-        "request-3a87d4a1"
+        "request-3a87d4a1",
+        "bundle-5052a63c"
       ]
     },
     "request-ddd47be3": {
       "mentions": [
-        "bundle-5052a63c",
         "report-e7d5a6ed",
         "request-3a87d4a1",
-        "request-9bfe910a"
+        "request-9bfe910a",
+        "bundle-5052a63c"
       ]
     },
     "chat-b2147b5c": {
       "mentions": [
-        "bundle-5052a63c",
         "bundle-94dbe947",
         "doc-acac479d",
         "request-2e50962c",
         "request-4a4ca4a1",
         "request-81c9ad89",
-        "request-bce2b6f9"
+        "request-bce2b6f9",
+        "bundle-5052a63c"
       ]
     },
     "doc-2b91ec43": {
       "mentions": [
-        "bundle-5052a63c",
         "bundle-b3b7c399",
         "comment-48483d87",
         "comment-761b2db1",
@@ -213914,37 +213801,37 @@
         "request-2e50962c",
         "request-4fcbd354",
         "request-94e93caa",
-        "request-a03967f2"
+        "request-a03967f2",
+        "bundle-5052a63c"
       ]
     },
     "bug-b6268a25": {
       "mentions": [
-        "bundle-5052a63c",
-        "request-bce2b6f9"
+        "request-bce2b6f9",
+        "bundle-5052a63c"
       ]
     },
     "bug-38efa295": {
       "mentions": [
-        "bundle-5052a63c",
         "request-3a032190",
-        "request-46f2245a"
+        "request-46f2245a",
+        "bundle-5052a63c"
       ]
     },
     "chat-998e7ab3": {
       "mentions": [
-        "bundle-5052a63c",
         "comment-ee83c1ee",
         "request-4af0cf7f",
         "request-704fe21e",
         "request-920e1a2c",
         "request-9bfe910a",
         "request-ddd47be3",
-        "request-ee6ed740"
+        "request-ee6ed740",
+        "bundle-5052a63c"
       ]
     },
     "request-9bfe910a": {
       "mentions": [
-        "bundle-5052a63c",
         "report-dc7359b1",
         "report-f6ef1a4f",
         "request-33c49c03",
@@ -213953,12 +213840,12 @@
         "request-9bfe910a",
         "request-ddd47be3",
         "request-ee6ed740",
-        "todo-3c78b018"
+        "todo-3c78b018",
+        "bundle-5052a63c"
       ]
     },
     "request-704fe21e": {
       "mentions": [
-        "bundle-5052a63c",
         "comment-3251b325",
         "report-132efb58",
         "report-80a5e192",
@@ -213967,12 +213854,12 @@
         "request-920e1a2c",
         "request-9bfe910a",
         "request-ee6ed740",
-        "todo-3c78b018"
+        "todo-3c78b018",
+        "bundle-5052a63c"
       ]
     },
     "request-554ac441": {
       "mentions": [
-        "bundle-5052a63c",
         "bundle-5607a08d",
         "bundle-b3b7c399",
         "doc-8f1d018c",
@@ -213980,19 +213867,20 @@
         "request-2ac88003",
         "request-3f8737f2",
         "request-920e1a2c",
-        "request-b474390f"
+        "request-b474390f",
+        "bundle-5052a63c"
       ]
     },
     "request-ee6ed740": {
       "mentions": [
-        "bundle-5052a63c",
         "epic-ee37a03f",
         "report-a2f2107c",
         "request-33c49c03",
         "request-8fc4003a",
         "request-9bfe910a",
         "request-ddd47be3",
-        "todo-3c78b018"
+        "todo-3c78b018",
+        "bundle-5052a63c"
       ]
     },
     "doc-c93c09a6": {
