@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-38 — REQ-199/200/201/202/203, 
   BUG-62)'
 created_by: xgd
 created_at: '2026-11-05T21:02:51.986952+00:00'
-updated_at: '2026-11-05T21:08:25.310471+00:00'
+updated_at: '2026-11-05T21:29:26.625235+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -81,7 +81,7 @@ fields:
       instances (contact-form, carousel). account-chrome is another instance under
       the same contract, catalog and conformance obligations, so it extends capability-ae9d65d6
       rather than opening a new bucket.
-    story_uid: null
+    story_uid: story-179b8c06
     target_story_ids:
     - story-179b8c06
     acceptance_criteria_changes:
