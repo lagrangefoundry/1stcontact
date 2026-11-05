@@ -917,7 +917,7 @@ export const siteCapabilitiesSchema = z.object({
    * so `account-chrome` renders nothing rather than a control leading nowhere.
    */
   accounts: z.boolean().optional(),
-})
+}).strict()
 
 /** Business profile, contact, and integration config. */
 export const siteConfigSchema = z.object({
