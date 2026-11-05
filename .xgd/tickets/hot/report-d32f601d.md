@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-38 — REQ-199/200/201/202/203, 
   BUG-62)'
 created_by: xgd
 created_at: '2026-11-05T21:02:51.986952+00:00'
-updated_at: '2026-11-05T21:02:51.986952+00:00'
+updated_at: '2026-11-05T21:08:25.310471+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-7988e925
@@ -36,7 +36,7 @@ fields:
       correction but none of its 23 ACs say anything about updates written elsewhere
       (AI describeCapture / re-describe). Live update extends the same Library capability
       (capability-e9324eb7); no new capability bucket is introduced.
-    story_uid: null
+    story_uid: story-1500b111
     target_story_ids:
     - story-1500b111
     acceptance_criteria_changes:
