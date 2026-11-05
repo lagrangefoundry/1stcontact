@@ -7,10 +7,10 @@ title: GET /api/material returns the cursor read before the list, and GET /api/m
   from Last-Event-ID in preference to ?since
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-05T21:07:07.124069+00:00'
-updated_at: '2026-11-05T21:07:07.124069+00:00'
+updated_at: '2026-11-05T21:21:59.130259+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
