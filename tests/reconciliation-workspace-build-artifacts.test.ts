@@ -127,6 +127,8 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
   let builder: BuilderHandle
   let team: AccessTeam
   let d1: Awaited<ReturnType<typeof localD1>> | undefined
+  let artifactBusiness = ''
+  let alphaKey = ''
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-e674c60a-assets-'))
@@ -135,9 +137,27 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
     // Admission reads D1 before any route runs (REQ-167), so the person behind
     // the minted token must exist there: invited, entitled and agreed.
     applyLocalD1Schema(REPO)
-    seedIdentity(REPO, ARTIFACT_EMAIL, { tenantId: ARTIFACT_TENANT })
+    ;({ businessId: artifactBusiness } = seedIdentity(REPO, ARTIFACT_EMAIL, { tenantId: ARTIFACT_TENANT }))
     seedIdentity(REPO, NO_ACCOUNT_EMAIL, { tenantId: NO_ACCOUNT_TENANT })
     d1 = await localD1(REPO)
+    // The `published` channel is a ROUTE that resolves the slug to the site's
+    // key in D1 ([[REQ-190]]) and redirects to that key's public address. The
+    // site it redirects for must therefore exist in this suite's own business —
+    // seeded here rather than left to whatever an earlier run persisted. Read
+    // back, because `OR IGNORE` keeps a row an earlier run already minted.
+    const now = new Date().toISOString()
+    await d1.db
+      .prepare(
+        'INSERT OR IGNORE INTO sites (id, tenant_id, slug, site_json, version, counter, created_at, updated_at) ' +
+          'VALUES (?, ?, ?, NULL, 0, 0, ?, ?)',
+      )
+      .bind(`site_${ARTIFACT_TENANT.replace(/[^a-z0-9]/gi, '')}alpha`, artifactBusiness, 'alpha', now, now)
+      .run()
+    const row = await d1.db
+      .prepare('SELECT id FROM sites WHERE tenant_id = ? AND slug = ?')
+      .bind(artifactBusiness, 'alpha')
+      .first<{ id: string }>()
+    alphaKey = row!.id
   }, 120000)
 
   afterAll(async () => {
@@ -251,7 +271,13 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
 
     const published = await worker.fetch(req('/preview/alpha/published/', admitted), workerEnv(team, d1!.db))
     expect(published.status).toBe(302)
-    expect(published.headers.get('location')).toContain('/site/alpha/')
+    // The public address names the site's KEY, never its slug ([[REQ-190]]).
+    expect(published.headers.get('location')).toContain(`/site/${encodeURIComponent(alphaKey)}/`)
+    // A slug this business does not hold is the ROUTE's 404 — not a fall-through
+    // to the artifact binding, which would have answered `asset:`.
+    const unheld = await worker.fetch(req('/preview/no-such-site/published/', admitted), workerEnv(team, d1!.db))
+    expect(unheld.status).toBe(404)
+    expect(await unheld.text()).not.toContain('asset:')
 
     // ── nothing is resolved or transpiled while a request is answered ───────
     // Asserted as a property of the SOURCES reachable from the request path, not
