@@ -17,8 +17,9 @@ fields:
   chat_comment: comment-0fb97f84
   commits:
   - working_sha: d99c1f438572f2da868db0bc384c798858681cac
-    reconcile_sha: null
+    reconcile_sha: 6ae95aa131ef2259e5f0a122641e84f02c7d45e8
     main_sha: null
+    working_sha_history: []
   version: 0.2.24
   bundled_in: bundle-87be4669
 ---
