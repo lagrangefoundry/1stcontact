@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for story-179b8c06'
 created_by: xgd
 created_at: '2026-11-05T21:48:56.431835+00:00'
-updated_at: '2026-11-05T21:48:56.431835+00:00'
+updated_at: '2026-11-05T21:57:39.680455+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: story-179b8c06
@@ -45,6 +45,8 @@ fields:
   batch_index: 0
   parent_report_uid: report-dd671b22
   anchor_ticket: bundle-7988e925
+  ruling: granted
+  ruling_reason: the planner granted an override in its plan
 ---
 
 # Builder blocked by `code_frozen`
@@ -78,3 +80,7 @@ blocked_by:
 ```
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: granted
+
+the planner granted an override in its plan
