@@ -5,129 +5,16 @@ type: bundle
 title: BUG-55 + REQ-190 + REQ-191 + REQ-193 + REQ-192 + 5 more
 created_by: xgd
 created_at: '2026-11-01T23:18:42.510726+00:00'
-updated_at: '2026-11-04T22:20:46.245040+00:00'
+updated_at: '2026-11-05T18:35:42.461184+00:00'
 completed_at: '2026-11-04T22:20:46.245040+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
   commits:
-  - working_sha: 798310c3632ee0f06930b0de01a9768f5cad8784
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 7b67e13c501be934f5ef43d94d04d2e29849442d
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 5c012c3758da8ff9369cb98ac706c69df44006a8
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: a007aabc451fa2fd8302efb4e9287bf6499c316a
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: e862cec72c416905656a920b9ec35906719650aa
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: ae7e655715024c1b83a7026f4a03220de8c14707
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 5df406b0f8a04e410925223c3d06696c996b6394
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 0d170e40c08aeed77d06481e76733304e1eae7e1
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 3d9529a4913eeecc0d6084bb2759170c9e2744d4
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 242a8bf969984f641d5c900b74d3d29ef0d69b90
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: b38dbdabf1e2055334970bf9ed7f2a2cdc4779f3
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 164e51cba73f93580ddad61fe30a7332d891092f
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: a89fc80a4304a1f7afd7972025ba81fd172b7e33
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: fbb90d875cd58bf0f5b10076d329d73d3a2b6d1f
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 1da94d715af74dd8533d8978fc18fade48581168
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 13d686aaf097b2e8450030a9f583a72c46c53883
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: b3b210b025a0d63a16044f8a0027aff66e0ff17c
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: df47207c9ab65aa268cfb8af49535955b8221a18
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: bb73eb6d06aa063ee2ace24377823273ca17d98b
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 5360036587e3ed413b6b48e2ce1f339eaccba4ce
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: d1b3fa897b668717020ae152ac2920087d9e3e88
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 3c6d47d1a4959a135fc44d3992a07696dd0c8ba6
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 39bd0f6a3c90d2c3df3ce0169bce056c25dc6968
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 7c25b0c830f5bd55912919df264db0e583279214
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 7ea4e12b724f90d5cfc114c31a105c8d811ea5e0
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: e1fbf4319d33b5bc75c34e641ba367d3e2bcd8c8
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 2700bf90b5490f3b02db26196f3b863358eb5fb4
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: eec028deaeece091b678984390640f171a58b327
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 1ff5b509bfc8ae150fb09697b149737d99e7560f
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 77b55581e4e033085d4c8c6a09133591db247fd8
   auto_merge_back: true
   priority: medium
   skipped_commits:
@@ -205,6 +92,7 @@ fields:
   session_planner_started_at: '2026-11-04T21:50:53.824805+00:00'
   session_builder: 167165e6-3186-453b-b643-b9961fe9be7d
   session_builder_started_at: '2026-11-04T21:57:07.852497+00:00'
+  merged_at_commit: 77b55581e4e033085d4c8c6a09133591db247fd8
 ---
 
 # Bundle
