@@ -7,10 +7,10 @@ title: A material write made outside the Library appears on the open tab without
   scroll on another row unchanged
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-05T21:06:56.680654+00:00'
-updated_at: '2026-11-05T21:06:56.680654+00:00'
+updated_at: '2026-11-05T21:21:59.846125+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
