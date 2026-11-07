@@ -295,6 +295,12 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7b1025b8 — the invite modal', () => {
     expect(text(lines[2])).toContain('Cara NoAddress')
     expect(text(lines[2])).toMatch(/no primary address/i)
     expect(document.querySelector('.builder-people__tolist'), 'the modal closed over its report').toBeTruthy()
+    // Something was sent, so the selection is cleared and Invite goes dead again.
+    expect(
+      boxes().map((box) => box.checked),
+      'a send in which something went out left the selection ticked',
+    ).toEqual([false, false, false])
+    expect(inviteButton().disabled, 'a cleared selection left Invite live').toBe(true)
 
     // Only the no-primary contact, and every result refused: the selection survives.
     document.body.replaceChildren()

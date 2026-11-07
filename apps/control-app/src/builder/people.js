@@ -995,15 +995,19 @@ export function createPeoplePanel(options = {}) {
             subjectField.value,
             bodyField.value,
           )
-          await refresh()
-          said.replaceChildren(...outcomeLines(answer.results ?? []))
-          said.hidden = false
           // THE SELECTION IS CLEARED ONLY ONCE SOMETHING WAS SENT, and the
           // dialog stays open on top of the report. An operator who has just
           // mailed nine people and refused one needs to read which one; closing
-          // over the answer is how that gets missed.
-          selected.clear()
-          syncInvite()
+          // over the answer is how that gets missed. A send in which nothing
+          // went out (every result refused or failed) leaves every tick in
+          // place, so the operator can fix those rows and send again
+          // ([[REQ-199]]). Cleared before the refresh, so the redrawn rows
+          // show the selection as it now is.
+          const results = Array.isArray(answer.results) ? answer.results : []
+          if (results.some((result) => result && result.status === 'sent')) selected.clear()
+          await refresh()
+          said.replaceChildren(...outcomeLines(results))
+          said.hidden = false
         } catch (err) {
           said.replaceChildren(
             el('p', 'builder-people__outcome', err instanceof Error ? err.message : String(err)),

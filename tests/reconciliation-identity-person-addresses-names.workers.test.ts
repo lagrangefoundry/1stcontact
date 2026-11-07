@@ -17,6 +17,7 @@ import { currentNameOf, formerNamesOf } from '../apps/control-app/src/names'
 import {
   ADMIN_BUSINESSES_PATH,
   PEOPLE_PATH,
+  PERSON_ADD_PATH,
   PERSON_INVITE_PATH,
   PERSON_RECORD_PATH,
   PERSON_STATUS_PATH,
@@ -33,16 +34,17 @@ import { inviteAccount } from './support/invite-account'
  * Covers the criteria this bundle adds or restates:
  *  - AC-2247 the person record carries no address; addresses are rows, casefolded,
  *    at most one primary, one person per address per business;
- *  - AC-2248 admission and the invite resolve a person through any address;
- *  - AC-1744 case/padding are the same person, with the schema enforcing it;
- *  - AC-2171 a re-invite neither restamps nor supersedes an existing name;
+ *  - AC-2257 (runtime) a non-owner role is refused only at the ownership gates;
  *  - AC-2249 correcting the address rewrites the primary row and moves no key;
  *  - AC-2251 a name is a superseding row, corrected unless marked changed;
  *  - AC-2252 (the route half) clearing every part leaves no name, and clearing
  *    the displayed name while a part remains is refused.
  *
- * EVIDENCE. workerd against real D1 with the deployed baseline. Invites go
- * through the Worker's own `fetch` with a real RS256 Access token verified
+ * AC-2248, AC-1744 and AC-2171 moved onto the add route with [[REQ-199]] and are
+ * proved in `test_reconciliation_contacts_add_invite.workers.test.ts`.
+ *
+ * EVIDENCE. workerd against real D1 with the deployed baseline. Contacts are
+ * created through the add route, via the Worker's own `fetch` with a real RS256 Access token verified
  * against a stubbed JWKS (the one external boundary). Constraints are proved by
  * the database refusing the write; rows are read back out of D1.
  */
@@ -59,7 +61,7 @@ function identityEnv(tenantId = PLATFORM): IdentityEnv {
   return { DB: env.DB as D1Database, SITES: env.SITES as R2Bucket, TENANT_ID: tenantId }
 }
 
-function workerEnv(): Env {
+function workerEnv(overrides: Partial<Env> = {}): Env {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
@@ -69,8 +71,12 @@ function workerEnv(): Env {
     ACCESS_TEAM_DOMAIN: TEAM,
     ACCESS_AUD: AUD,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
+    ...overrides,
   } as Env
 }
+
+/** What a deliverable deployment carries, so the invite route can send ([[REQ-199]]). */
+const DELIVERABLE = { MAIL_FROM: 'no-reply@example.test', SESSION_COOKIE_NAME: 'session' } as Partial<Env>
 
 function b64url(bytes: Uint8Array | string): string {
   const raw =
@@ -107,18 +113,22 @@ function stubJwks(): void {
 let seq = 0
 const anEmail = (): string => `story7b1025b8-b37-${(seq += 1)}@example.test`
 
-interface InviteBody {
+interface AddBody {
   created: boolean
   person: Person
 }
 
-async function postInvite(
+/**
+ * Add a contact through the add route ([[REQ-199]]) — the act that creates a
+ * person and their first address. (Before REQ-199 the invite route did this.)
+ */
+async function postAdd(
   token: string,
   body: Record<string, unknown>,
   businessId: string,
-): Promise<{ status: number; body: InviteBody }> {
+): Promise<{ status: number; body: AddBody }> {
   const response = await worker.fetch(
-    new Request(`https://app.example/b/${businessId}${PERSON_INVITE_PATH}`, {
+    new Request(`https://app.example/b/${businessId}${PERSON_ADD_PATH}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'cf-access-jwt-assertion': token },
       body: JSON.stringify(body),
@@ -127,8 +137,8 @@ async function postInvite(
   )
   const status = response.status
   const text = await response.text()
-  expect(status, `invite refused: ${text}`).toBe(200)
-  return { status, body: JSON.parse(text) as InviteBody }
+  expect(status, `add refused: ${text}`).toBe(200)
+  return { status, body: JSON.parse(text) as AddBody }
 }
 
 /** An owner of the 1st Contact business, seeded the way production seeds one. */
@@ -254,9 +264,9 @@ describe('a person and their addresses', () => {
     const { results: columns } = await env.DB.prepare('PRAGMA table_info(users)').all<{ name: string }>()
     expect((columns ?? []).map((c) => c.name)).not.toContain('email')
 
-    // An invited person is written together with their first address, primary.
+    // A person created by the add is written together with their first address, primary.
     const first = anEmail()
-    const invited = await postInvite(token, { email: first }, PLATFORM)
+    const invited = await postAdd(token, { email: first }, PLATFORM)
     expect(invited.body.created).toBe(true)
     const personId = invited.body.person.id
     let held = await emailsOf(identityEnv(), personId)
@@ -303,7 +313,7 @@ describe('a person and their addresses', () => {
     }
 
     // Within one business an address reaches exactly one person.
-    const rival = await postInvite(token, { email: anEmail() }, PLATFORM)
+    const rival = await postAdd(token, { email: anEmail() }, PLATFORM)
     await expect(
       userEmailInsert(identityEnv(), {
         userId: rival.body.person.id,
@@ -316,7 +326,7 @@ describe('a person and their addresses', () => {
 
     // The same address in another business is an unrelated person there.
     const owner = await aCustomerOwner()
-    const there = await postInvite(owner.token, { email: first }, owner.businessId)
+    const there = await postAdd(owner.token, { email: first }, owner.businessId)
     expect(there.body.created).toBe(true)
     expect(there.body.person.id).not.toBe(personId)
     expect(await peopleAt(owner.businessId, first)).toEqual([there.body.person.id])
@@ -330,7 +340,7 @@ describe('a person and their addresses', () => {
     stubJwks()
     const owner = await aCustomerOwner()
     const older = anEmail()
-    const invited = await postInvite(owner.token, { email: older }, owner.businessId)
+    const invited = await postAdd(owner.token, { email: older }, owner.businessId)
     expect(invited.body.created).toBe(true)
     const personId = invited.body.person.id
     const newer = anEmail()
@@ -395,7 +405,7 @@ describe('a person and their addresses', () => {
 
     // A real contact in the owner's business, put there through the product path,
     // so the list comparison below compares something and the refusals have a target.
-    const contact = await postInvite(owner.token, { email: anEmail(), displayName: 'Kept Name' }, owner.businessId)
+    const contact = await postAdd(owner.token, { email: anEmail(), displayName: 'Kept Name' }, owner.businessId)
     expect(contact.body.created).toBe(true)
     const contactId = contact.body.person.id
     const stateOf = async () =>
@@ -423,15 +433,29 @@ describe('a person and their addresses', () => {
     expect(ownerPeople.canInvite).toBe(true)
     expect(staffPeople.canInvite).toBe(false)
 
-    // Refused at the owner-gated routes: invite, record edit, sign-in status.
+    // Refused at the owner-gated routes: add, invite, record edit, sign-in status.
     const target = contactId
     const before = await countPeople(owner.businessId)
-    const invite = await at(owner.businessId, PERSON_INVITE_PATH, {
+    const addAsStaffMember = await at(owner.businessId, PERSON_ADD_PATH, {
       method: 'POST',
       body: JSON.stringify({ email: anEmail() }),
     })
+    expect(addAsStaffMember.status).toBe(403)
+    const staffInvite = (path: string, init: RequestInit, token = staffToken) =>
+      worker.fetch(
+        new Request(`https://app.example/b/${owner.businessId}${path}`, {
+          ...init,
+          headers: { 'content-type': 'application/json', 'cf-access-jwt-assertion': token },
+        }),
+        workerEnv(DELIVERABLE),
+      )
+    const invite = await staffInvite(PERSON_INVITE_PATH, {
+      method: 'POST',
+      body: JSON.stringify({ ids: [contactId] }),
+    })
     expect(invite.status).toBe(403)
     expect(await countPeople(owner.businessId)).toBe(before)
+    expect(await invitedAtOf(contactId), 'a refused invite stamped the contact').toBeNull()
     const record = await at(owner.businessId, PERSON_RECORD_PATH, {
       method: 'POST',
       body: JSON.stringify({ id: target, displayName: 'Not Allowed' }),
@@ -448,9 +472,14 @@ describe('a person and their addresses', () => {
     expect(contactAfter?.status).toBe(contactBefore?.status)
     expect(contactAfter?.status).not.toBe('suspended')
 
-    // The owner passes the same invite gate.
-    const ownerInvite = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    // The owner passes the same invite gate, for the same contact.
+    const ownerInvite = await staffInvite(
+      PERSON_INVITE_PATH,
+      { method: 'POST', body: JSON.stringify({ ids: [contactId] }) },
+      owner.token,
+    )
     expect(ownerInvite.status).toBe(200)
+    expect(await invitedAtOf(contactId)).toBeTruthy()
 
     // Add-a-business: a `staff` member of the 1st Contact business is refused
     // (404, the admin route's answer), where an owner of it is let through.
@@ -473,100 +502,6 @@ describe('a person and their addresses', () => {
     )
     expect(addAsOwner.status).toBe(400)
   })
-
-  it('test_UAT_AC2248_admission_and_the_invite_resolve_a_person_through_any_of_their_addresses', async () => {
-    stubJwks()
-    const token = await anOperatorToken()
-    const primary = anEmail()
-    const secondary = anEmail()
-
-    const invited = await postInvite(token, { email: primary }, PLATFORM)
-    const personId = invited.body.person.id
-    await userEmailInsert(identityEnv(), { userId: personId, tenantId: PLATFORM, email: secondary, primary: false }).run()
-
-    // Inviting the secondary address reaches the same person and writes nothing new.
-    const before = await countPeople(PLATFORM)
-    const again = await postInvite(token, { email: secondary }, PLATFORM)
-    expect(again.body.created).toBe(false)
-    expect(again.body.person.id).toBe(personId)
-    expect(await countPeople(PLATFORM)).toBe(before)
-    expect(await peopleAt(PLATFORM, primary)).toEqual([personId])
-    expect(await peopleAt(PLATFORM, secondary)).toEqual([personId])
-    expect(await emailsOf(identityEnv(), personId)).toHaveLength(2)
-
-    // A login at the secondary address is that person, carrying the primary.
-    await provisionBusiness(identityEnv(), { accountId: await accountIdOf(personId), name: 'Secondary Co' })
-    const admitted = await admit(identityEnv(), secondary)
-    expect(admitted.ok, `refused: ${!admitted.ok ? admitted.reason : ''}`).toBe(true)
-    expect(admitted.ok && admitted.user.id).toBe(personId)
-    expect(admitted.ok && admitted.user.email).toBe(primary)
-  })
-
-  it('test_UAT_AC1744_case_and_padding_are_the_same_person_at_the_invite_route_and_at_login_with_the_schema_casefolding', async () => {
-    stubJwks()
-    const token = await anOperatorToken()
-    const email = anEmail()
-    const typed = `  ${email.replace('story', 'StOrY').replace('example', 'EXAMPLE')}  `
-
-    const first = await postInvite(token, { email: typed }, PLATFORM)
-    expect(first.body.created).toBe(true)
-    const personId = first.body.person.id
-    const stored = await emailsOf(identityEnv(), personId)
-    expect(stored.map((e) => e.email)).toEqual([email])
-
-    // The schema refuses an address not already casefolded and trimmed.
-    const now = new Date().toISOString()
-    await expect(
-      env.DB.prepare(
-        'INSERT INTO user_emails (id, user_id, tenant_id, email, is_primary, created_at, updated_at) ' +
-          'VALUES (?, ?, ?, ?, 0, ?, ?)',
-      )
-        .bind(newId('eml'), personId, PLATFORM, `Mixed-${email}`.replace('mixed', 'MIXED'), now, now)
-        .run(),
-    ).rejects.toThrow(/CHECK constraint failed/i)
-
-    const again = await postInvite(token, { email: email.toUpperCase() }, PLATFORM)
-    expect(again.body.created).toBe(false)
-    expect(again.body.person.id).toBe(personId)
-    expect(await peopleAt(PLATFORM, email)).toEqual([personId])
-
-    await provisionBusiness(identityEnv(), { accountId: await accountIdOf(personId), name: 'Cased Co' })
-    const admitted = await admit(identityEnv(), ` ${email.toUpperCase()} `)
-    expect(admitted.ok, `refused: ${!admitted.ok ? admitted.reason : ''}`).toBe(true)
-    expect(admitted.ok && admitted.user.id).toBe(personId)
-  })
-})
-
-describe('a re-invite', () => {
-  it('test_UAT_AC2171_a_re_invite_does_not_restamp_and_never_supersedes_an_existing_current_name', async () => {
-    stubJwks()
-    const owner = await aCustomerOwner()
-    const email = anEmail()
-
-    const first = await postInvite(owner.token, { email }, owner.businessId)
-    expect(first.body.person.name).toBeNull()
-    const personId = first.body.person.id
-    const stamp = await invitedAtOf(personId)
-    expect(stamp).toBeTruthy()
-
-    const second = await postInvite(owner.token, { email, displayName: 'Bob Smith' }, owner.businessId)
-    expect(second.body.created).toBe(false)
-    expect(second.body.person.id).toBe(personId)
-    expect(await invitedAtOf(personId), 'a re-invite restamped the invitation').toBe(stamp)
-    expect(second.body.person.name?.displayName).toBe('Bob Smith')
-
-    const third = await postInvite(owner.token, { email, displayName: 'Robert Smith' }, owner.businessId)
-    expect(third.body.created).toBe(false)
-    expect(await invitedAtOf(personId)).toBe(stamp)
-    expect(third.body.person.name?.displayName, 'the invite superseded an existing name').toBe('Bob Smith')
-
-    const { results } = await env.DB.prepare(
-      'SELECT display_name, superseded_at FROM user_names WHERE user_id = ?',
-    )
-      .bind(personId)
-      .all<{ display_name: string; superseded_at: string | null }>()
-    expect(results).toEqual([{ display_name: 'Bob Smith', superseded_at: null }])
-  })
 })
 
 describe('correcting an address', () => {
@@ -578,7 +513,7 @@ describe('correcting an address', () => {
     const corrected = anEmail()
 
     // A person with a business of their own, a name, and a second address.
-    const invited = await postInvite(token, { email: first, displayName: 'Casey Typo' }, PLATFORM)
+    const invited = await postAdd(token, { email: first, displayName: 'Casey Typo' }, PLATFORM)
     const personId = invited.body.person.id
     await provisionBusiness(identityEnv(), { accountId: await accountIdOf(personId), name: 'Correction Co' })
     await userEmailInsert(identityEnv(), { userId: personId, tenantId: PLATFORM, email: second, primary: false }).run()
@@ -607,7 +542,7 @@ describe('correcting an address', () => {
     expect(await footprint(personId)).toEqual(before)
 
     // A person holding no address at all gains the corrected one, as primary.
-    const bare = await postInvite(token, { email: anEmail() }, PLATFORM)
+    const bare = await postAdd(token, { email: anEmail() }, PLATFORM)
     const bareId = bare.body.person.id
     await env.DB.prepare('DELETE FROM user_emails WHERE user_id = ?').bind(bareId).run()
     expect(await emailsOf(identityEnv(), bareId)).toEqual([])
@@ -636,7 +571,7 @@ describe('a name is a row that is superseded, never updated', () => {
   it('test_UAT_AC2251_a_name_is_superseded_as_corrected_unless_marked_changed_and_only_changed_former_names_reach_the_client', async () => {
     stubJwks()
     const owner = await aCustomerOwner()
-    const contact = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    const contact = await postAdd(owner.token, { email: anEmail() }, owner.businessId)
     const personId = contact.body.person.id
 
     // The person record carries no name column.
@@ -717,7 +652,7 @@ describe('a name is a row that is superseded, never updated', () => {
     expect(await formerNamesOf(identityEnv(), personId)).toEqual(['Sarah Jones'])
 
     // A mononym — a displayed name and nothing else — is a complete name.
-    const prince = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    const prince = await postAdd(owner.token, { email: anEmail() }, owner.businessId)
     const mono = await postRecord(owner.token, { id: prince.body.person.id, displayName: 'Prince' }, owner.businessId)
     expect(mono.status, await mono.clone().text()).toBe(200)
     expect(await currentNameOf(identityEnv(), prince.body.person.id)).toMatchObject({
@@ -734,7 +669,7 @@ describe('a name is a row that is superseded, never updated', () => {
   it('test_UAT_AC2252_clearing_every_part_through_the_route_leaves_no_name_and_clearing_only_the_displayed_name_is_refused', async () => {
     stubJwks()
     const owner = await aCustomerOwner()
-    const contact = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    const contact = await postAdd(owner.token, { email: anEmail() }, owner.businessId)
     const personId = contact.body.person.id
     const set = await postRecord(
       owner.token,

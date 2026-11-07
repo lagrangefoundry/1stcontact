@@ -17,16 +17,16 @@ import {
   type AdmittedBusiness,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
-import { currentNameOf } from '../apps/control-app/src/names'
-import { invitePerson, peopleOf } from '../apps/control-app/src/people'
+import { peopleOf } from '../apps/control-app/src/people'
 import { PORTAL_PATH } from '../apps/control-app/src/portal'
 import {
   ADMIN_BUSINESSES_PATH,
   PEOPLE_PATH,
+  PERSON_ADD_PATH,
   PERSON_INVITE_PATH,
 } from '../apps/control-app/src/router'
 import { acceptTerms, TERMS_ACCEPT_PATH } from '../apps/control-app/src/terms'
-import { seedContact } from './support/contact'
+import { addAndInvite } from './support/add-and-invite'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
 
@@ -45,9 +45,14 @@ import { inviteAccount } from './support/invite-account'
  * from a return value.
  *
  * `inviteAccount` IS A FIXTURE, not a shipped call: it composes the two shipped
- * calls (`invitePerson` into the 1st Contact business, then `provisionBusiness`)
+ * calls (`addContact` into the 1st Contact business, then `provisionBusiness`)
  * so a case whose subject is admission can start from "an entitled account
- * exists". Cases whose subject is the invite or provisioning call those directly.
+ * exists". Since [[REQ-199]] the invite is a transition on an existing contact,
+ * by id: a case whose subject is the invite adds the contact first and then
+ * invites that id — through the routes (`addThenInvite`) or the shipped calls
+ * (`addAndInvite`). The add-route and invite-route criteria themselves (AC-1743,
+ * AC-1744, AC-2169, AC-2171, AC-2172) are proved in
+ * `test_reconciliation_contacts_add_invite.workers.test.ts`.
  */
 
 const PLATFORM = 'story7b1025b8-r186-platform'
@@ -146,8 +151,36 @@ interface InvitedPersonJson {
   invitedAt: string | null
 }
 
+/** What a deliverable deployment carries, so the invite route can send ([[REQ-199]]). */
+const DELIVERABLE: Partial<Env> = { MAIL_FROM: 'no-reply@example.test', SESSION_COOKIE_NAME: 'session' } as Partial<Env>
+
+const postAdd = async (token: string | null, body: unknown, businessId: string | null) =>
+  worker.fetch(POST(token, PERSON_ADD_PATH, body, businessId), workerEnv(DELIVERABLE))
+
 const postInvite = async (token: string | null, body: unknown, businessId: string | null) =>
-  worker.fetch(POST(token, PERSON_INVITE_PATH, body, businessId), workerEnv())
+  worker.fetch(POST(token, PERSON_INVITE_PATH, body, businessId), workerEnv(DELIVERABLE))
+
+/**
+ * Add a contact through the add route, then invite that contact by id through
+ * the invite route — the two acts [[REQ-199]] split the old invite into. Both
+ * must answer 200 and the invite must report one `sent` result for that id.
+ */
+async function addThenInvite(
+  token: string,
+  body: { email: string; displayName?: string },
+  businessId: string,
+): Promise<{ created: boolean; person: InvitedPersonJson }> {
+  const added = await postAdd(token, body, businessId)
+  expect(added.status, 'the add was refused').toBe(200)
+  const addedBody = await added.json<{ created: boolean; person: InvitedPersonJson }>()
+  const invited = await postInvite(token, { ids: [addedBody.person.id] }, businessId)
+  expect(invited.status, 'the invite was refused').toBe(200)
+  const { results } = await invited.json<{
+    results: Array<{ contactId: string; status: string; person: InvitedPersonJson | null }>
+  }>()
+  expect(results.map((r) => [r.contactId, r.status])).toEqual([[addedBody.person.id, 'sent']])
+  return { created: addedBody.created, person: results[0].person! }
+}
 
 /** An entitled account of 1st Contact who has accepted the terms — setup, not a claim. */
 async function anAccount(email: string, name = 'A Business') {
@@ -286,40 +319,7 @@ afterEach(() => {
 
 // ─── The invite: a transition on one row ────────────────────────────────────
 
-describe('the invite is a transition, not a creation', () => {
-  it('test_UAT_AC2169_inviting_a_known_contact_promotes_that_row_and_reports_created', async () => {
-    stubJwks()
-    const owner = anEmail()
-    const account = await anAccount(owner, "Alice's Plumbing")
-    const token = await mint(owner)
-
-    const contact = anEmail()
-    // A contact: known to the business, never invited.
-    const contactId = await seedContact(identityEnv(), { tenantId: account.businessId, email: contact })
-    expect((await rowsFor(account.businessId, contact))[0].invited_at).toBeNull()
-
-    const promoted = await postInvite(token, { email: contact }, account.businessId)
-    expect(promoted.status).toBe(200)
-    const promotedBody = await promoted.json<{ created: boolean; person: InvitedPersonJson }>()
-    expect(promotedBody.created, 'a promoted contact was reported as created').toBe(false)
-    expect(promotedBody.person.id).toBe(contactId)
-    const rows = await rowsFor(account.businessId, contact)
-    expect(rows, 'the invite inserted a second row for one address').toHaveLength(1)
-    expect(rows[0].id).toBe(contactId)
-    expect(rows[0].invited_at, 'the promotion did not stamp the row').toBeTruthy()
-
-    const fresh = anEmail()
-    const inserted = await postInvite(token, { email: fresh }, account.businessId)
-    expect(inserted.status).toBe(200)
-    const insertedBody = await inserted.json<{ created: boolean; person: InvitedPersonJson }>()
-    expect(insertedBody.created).toBe(true)
-    const [row] = await rowsFor(account.businessId, fresh)
-    expect(row.id).toBe(insertedBody.person.id)
-    expect(row.status).toBe('active')
-    expect(row.invited_at).toBeTruthy()
-    expect(row.first_seen_at).toBeNull()
-  })
-
+describe('the invite is a transition on an existing contact', () => {
   it('test_UAT_AC2170_invites_from_two_businesses_differ_only_in_tenant_and_no_level_column', async () => {
     stubJwks()
     const operatorEmail = anEmail()
@@ -329,18 +329,13 @@ describe('the invite is a transition, not a creation', () => {
 
     const alice = anEmail()
     const bob = anEmail()
-    const fromPlatform = await postInvite(
-      await mint(operatorEmail),
-      { email: alice, displayName: 'Same Name' },
-      PLATFORM,
-    )
-    expect(fromPlatform.status).toBe(200)
-    const fromCustomer = await postInvite(
+    // The same two acts — add, then invite that contact by id — into two businesses.
+    await addThenInvite(await mint(operatorEmail), { email: alice, displayName: 'Same Name' }, PLATFORM)
+    await addThenInvite(
       await mint(customerOwner),
       { email: bob, displayName: 'Same Name' },
       customer.businessId,
     )
-    expect(fromCustomer.status).toBe(200)
 
     const [aliceRow] = await rowsFor(PLATFORM, alice)
     const [bobRow] = await rowsFor(customer.businessId, bob)
@@ -348,7 +343,7 @@ describe('the invite is a transition, not a creation', () => {
     expect(bobRow.tenant_id).toBe(customer.businessId)
 
     // Every column apart from identifiers, the address, timestamps and the tenant.
-    // `account_id` is a per-person identifier: the invite mints one account per
+    // `account_id` is a per-person identifier: the add mints one account per
     // person ([[REQ-194]]).
     const shape = (row: UserDbRow) =>
       Object.fromEntries(
@@ -370,156 +365,9 @@ describe('the invite is a transition, not a creation', () => {
     expect(customers.map((p) => p.email)).toContain(bob)
     expect(ours.map((p) => p.email)).not.toContain(bob)
   })
-
-  it('test_UAT_AC2171_a_re_invite_does_not_restamp_and_never_overwrites_a_name', async () => {
-    stubJwks()
-    const owner = anEmail()
-    const account = await anAccount(owner, "Alice's Plumbing")
-    const token = await mint(owner)
-    const email = anEmail()
-
-    const first = await postInvite(token, { email }, account.businessId)
-    expect(first.status).toBe(200)
-    const firstBody = await first.json<{ person: InvitedPersonJson }>()
-    const personId = firstBody.person.id
-    expect(firstBody.person.name).toBeNull()
-    expect(await currentNameOf(identityEnv(), personId), 'a nameless invite wrote a name').toBeNull()
-    const stamp = (await rowsFor(account.businessId, email))[0].invited_at
-    expect(stamp).toBeTruthy()
-
-    // The name history lives in `user_names` ([[REQ-193]]): every row, current or superseded.
-    const nameRows = async () =>
-      (
-        await env.DB.prepare('SELECT display_name, superseded_at FROM user_names WHERE user_id = ?')
-          .bind(personId)
-          .all<{ display_name: string; superseded_at: string | null }>()
-      ).results ?? []
-
-    const second = await postInvite(token, { email, displayName: 'Bob Smith' }, account.businessId)
-    expect(second.status).toBe(200)
-    const secondBody = await second.json<{ created: boolean; person: InvitedPersonJson }>()
-    expect(secondBody.created).toBe(false)
-    expect(secondBody.person.id).toBe(personId)
-    let [row] = await rowsFor(account.businessId, email)
-    expect(row.invited_at, 'a re-invite restamped the invitation').toBe(stamp)
-    expect((await currentNameOf(identityEnv(), personId))?.displayName, 'an empty name was not filled').toBe(
-      'Bob Smith',
-    )
-
-    const third = await postInvite(token, { email, displayName: 'Robert Smith' }, account.businessId)
-    expect(third.status).toBe(200)
-    ;[row] = await rowsFor(account.businessId, email)
-    expect(row.invited_at).toBe(stamp)
-    expect(
-      (await currentNameOf(identityEnv(), personId))?.displayName,
-      'the invite overwrote an existing name',
-    ).toBe('Bob Smith')
-    expect(await nameRows(), 'the re-invite wrote or superseded a name row').toEqual([
-      { display_name: 'Bob Smith', superseded_at: null },
-    ])
-  })
-
-  it('test_UAT_AC1743_re_inviting_a_known_address_reports_the_person_and_creates_nothing', async () => {
-    stubJwks()
-    const owner = anEmail()
-    const account = await anAccount(owner, "Alice's Plumbing")
-    const token = await mint(owner)
-    const email = anEmail()
-
-    const before = {
-      tenants: await count('tenants'),
-      memberships: await count('memberships'),
-      entitlements: await count('entitlements'),
-    }
-    const first = await postInvite(token, { email }, account.businessId)
-    const again = await postInvite(token, { email }, account.businessId)
-    expect(first.status).toBe(200)
-    expect(again.status, 'a re-invite failed rather than reporting').toBe(200)
-
-    const firstBody = await first.json<{ created: boolean; person: InvitedPersonJson }>()
-    const againBody = await again.json<{ created: boolean; person: InvitedPersonJson }>()
-    expect(againBody.created).toBe(false)
-    expect(againBody.person.id).toBe(firstBody.person.id)
-    expect(await rowsFor(account.businessId, email)).toHaveLength(1)
-    expect({
-      tenants: await count('tenants'),
-      memberships: await count('memberships'),
-      entitlements: await count('entitlements'),
-    }).toEqual(before)
-  })
-
-  it('test_UAT_AC1744_case_and_padding_are_the_same_person_at_the_invite_route_and_at_login', async () => {
-    stubJwks()
-    const operatorEmail = anEmail()
-    await anOperator(operatorEmail)
-    const token = await mint(operatorEmail)
-    const email = anEmail()
-
-    const first = await postInvite(token, { email: `  ${email.replace('story', 'StOrY')}  ` }, PLATFORM)
-    expect(first.status).toBe(200)
-    const firstBody = await first.json<{ created: boolean; person: InvitedPersonJson }>()
-    expect(firstBody.created).toBe(true)
-    const stored = await rowsFor(PLATFORM, email)
-    expect(stored, 'the address was not stored casefolded and trimmed').toHaveLength(1)
-    expect(stored[0].email).toBe(email)
-
-    const again = await postInvite(token, { email: email.toUpperCase() }, PLATFORM)
-    const againBody = await again.json<{ created: boolean; person: InvitedPersonJson }>()
-    expect(againBody.created).toBe(false)
-    expect(againBody.person.id).toBe(firstBody.person.id)
-    expect(await rowsFor(PLATFORM, email)).toHaveLength(1)
-
-    await provisionBusiness(identityEnv(), { accountId: firstBody.person.accountId, name: 'Cased' })
-    const admitted = await admit(identityEnv(), ` ${email.toUpperCase()} `)
-    expect(admitted.ok).toBe(true)
-    expect(admitted.ok && admitted.user.id).toBe(firstBody.person.id)
-  })
 })
 
 describe('who may invite', () => {
-  it('test_UAT_AC2172_only_an_owner_may_invite_and_every_refusal_writes_nothing', async () => {
-    stubJwks()
-    const alice = anEmail()
-    const account = await anAccount(alice, "Alice's Plumbing")
-
-    // An owner into their own business.
-    const ok = await postInvite(await mint(alice), { email: anEmail() }, account.businessId)
-    expect(ok.status).toBe(200)
-
-    // Scoped to the 1st Contact business, which Alice does not own.
-    const intoOurs = anEmail()
-    const refusedOurs = await postInvite(await mint(alice), { email: intoOurs }, PLATFORM)
-    expect(refusedOurs.status).toBe(403)
-    expect(await rowsFor(PLATFORM, intoOurs)).toHaveLength(0)
-
-    // A platform-operator holder with no owner membership on the scoped business.
-    const operatorEmail = anEmail()
-    const operator = await anOperator(operatorEmail)
-    expect(operator.platform_operator, 'the operator does not hold the capability').toBe(1)
-    const intoHers = anEmail()
-    const refusedOperator = await postInvite(await mint(operatorEmail), { email: intoHers }, account.businessId)
-    expect(refusedOperator.status).toBe(403)
-    expect(await rowsFor(account.businessId, intoHers)).toHaveLength(0)
-
-    // The dev-open loopback path carries no admission and owns nothing.
-    const loopback = anEmail()
-    const refusedLoopback = await worker.fetch(
-      POST(null, PERSON_INVITE_PATH, { email: loopback }),
-      workerEnv({ ACCESS_DEV_OPEN: '1', ACCESS_TEAM_DOMAIN: '', ACCESS_AUD: '' }),
-    )
-    expect(refusedLoopback.status).toBe(403)
-    expect(await rowsFor(PLATFORM, loopback)).toHaveLength(0)
-
-    // An owner posting an empty address.
-    const usersBefore = await count('users')
-    for (const blank of ['', '   ']) {
-      const refusedEmpty = await postInvite(await mint(alice), { email: blank }, account.businessId)
-      expect(refusedEmpty.status).toBe(400)
-      expect((await refusedEmpty.json<{ error: string }>()).error).toMatch(/needs an email address/i)
-    }
-    expect(await count('users')).toBe(usersBefore)
-  })
-
   it('test_UAT_AC2174_the_people_list_reports_canInvite_and_canFulfil_separately', async () => {
     stubJwks()
     const operatorEmail = anEmail()
@@ -552,18 +400,25 @@ describe('the invite writes no membership and no grant', () => {
     await anOperator(operatorEmail)
     const email = anEmail()
 
+    // Add a contact to the 1st Contact business and invite them by id.
     const memberships = await count('memberships')
     const entitlements = await count('entitlements')
-    const response = await postInvite(await mint(operatorEmail), { email }, PLATFORM)
-    expect(response.status).toBe(200)
-    const invited = await response.json<{ person: InvitedPersonJson }>()
-    expect(await count('memberships'), 'the invite wrote a membership').toBe(memberships)
-    expect(await count('entitlements'), 'the invite wrote a grant').toBe(entitlements)
+    const invited = await addThenInvite(await mint(operatorEmail), { email }, PLATFORM)
+    expect(invited.created).toBe(true)
+    expect(invited.person.invitedAt, 'the invite did not stamp the contact').toBeTruthy()
+    expect(await count('memberships'), 'the add or invite wrote a membership').toBe(memberships)
+    expect(await count('entitlements'), 'the add or invite wrote a grant').toBe(entitlements)
 
+    // Not signed up, and their account owns no business: admitted with nothing,
+    // not refused ([[REQ-203]]). The terms gate is what bounds this admission.
+    const [stored] = await rowsFor(PLATFORM, email)
+    expect(stored.tos_accepted_at, 'the invitee has already signed up').toBeNull()
     const bare = await admit(identityEnv(), email)
-    expect(bare.ok).toBe(false)
-    expect(!bare.ok && bare.reason).toBe('no_membership')
+    expect(bare.ok, `refused: ${!bare.ok ? bare.reason : ''}`).toBe(true)
+    expect(bare.ok && bare.user.id).toBe(invited.person.id)
+    expect(bare.ok && bare.businesses).toEqual([])
 
+    // Provisioning lists exactly that business, and no second person exists.
     const business = await provisionBusiness(identityEnv(), {
       accountId: invited.person.accountId,
       name: 'Now Theirs',
@@ -571,6 +426,18 @@ describe('the invite writes no membership and no grant', () => {
     const admitted = await admit(identityEnv(), email)
     expect([...byId(admitted).keys()]).toEqual([business.businessId])
     expect(await rowsFor(PLATFORM, email)).toHaveLength(1)
+
+    // Their account now owns a business: with the membership withdrawn they are
+    // refused, and the missing membership is the recorded reason.
+    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
+      .bind(ISO(0), invited.person.id)
+      .run()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const withdrawn = await admit(identityEnv(), email)
+    expect(withdrawn.ok).toBe(false)
+    expect(!withdrawn.ok && withdrawn.reason).toBe('no_membership')
+    const logged = warn.mock.calls.map(([line]) => String(line))
+    expect(logged.some((line) => line.includes('"reason":"no_membership"') && line.includes(email))).toBe(true)
   })
 
   it('test_UAT_AC2115_a_grant_names_its_business_as_object_and_optionally_an_account_as_subject', async () => {
@@ -590,8 +457,9 @@ describe('the invite writes no membership and no grant', () => {
     // The invite writes no grant; provisioning writes one naming the business only.
     const email = anEmail()
     const before = await count('entitlements')
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
-    expect(await count('entitlements'), 'the invite wrote a grant').toBe(before)
+    const invited = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email })
+    expect(invited.person.invitedAt).toBeTruthy()
+    expect(await count('entitlements'), 'the add or invite wrote a grant').toBe(before)
     const business = await provisionBusiness(identityEnv(), { accountId: invited.person.accountId, name: 'Object' })
     const { results: written } = await env.DB.prepare(
       'SELECT business_id, account_id FROM entitlements WHERE business_id = ?',
@@ -636,9 +504,10 @@ describe('provisioning a business', () => {
     const email = anEmail()
     const tenantsBefore = await count('tenants')
     const sitesBefore = await count('sites')
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
+    const invited = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email })
+    expect(invited.person.invitedAt).toBeTruthy()
 
-    // The invite: no tenant, membership, grant or site for that person.
+    // The add and the invite: no tenant, membership, grant or site for that person.
     expect(await count('tenants')).toBe(tenantsBefore)
     expect(await count('sites')).toBe(sitesBefore)
     expect(
@@ -771,10 +640,10 @@ describe('invite plus provisioning makes a customer', () => {
     const operatorToken = await mint(operatorEmail)
     const alice = anEmail()
 
-    const invited = await postInvite(operatorToken, { email: alice }, PLATFORM)
-    expect(invited.status).toBe(200)
-    const invitedBody = await invited.json<{ created: boolean; person: InvitedPersonJson }>()
+    // Add Alice, then invite her by id ([[REQ-199]]).
+    const invitedBody = await addThenInvite(operatorToken, { email: alice }, PLATFORM)
     expect(invitedBody.created).toBe(true)
+    expect(invitedBody.person.invitedAt).toBeTruthy()
 
     const provisioned = await worker.fetch(
       POST(operatorToken, ADMIN_BUSINESSES_PATH, { accountEmail: alice, name: "Alice's Plumbing" }, PLATFORM),
@@ -786,6 +655,11 @@ describe('invite plus provisioning makes a customer', () => {
     const aliceToken = await mint(alice)
     const accepted = await worker.fetch(POST(aliceToken, TERMS_ACCEPT_PATH, {}), workerEnv())
     expect(accepted.status).toBe(204)
+    // Accepting did not provision a second business: the account already owns one ([[REQ-203]]).
+    const { results: owned } = await env.DB.prepare('SELECT id FROM tenants WHERE owner_account_id = ?')
+      .bind(invitedBody.person.accountId)
+      .all<{ id: string }>()
+    expect((owned ?? []).map((t) => t.id)).toEqual([business.businessId])
 
     const admitted = await admit(identityEnv(), alice)
     expect(admitted.ok).toBe(true)
@@ -823,13 +697,14 @@ describe('login binds, and provisions nothing', () => {
     await expect(admit(identityEnv({ TENANT_ID: '' }), email)).rejects.toThrow(/TENANT_ID.*wrangler\.toml/s)
     expect(await stamps()).toEqual(before)
 
-    // The invite carries no such refusal: it is scoped by the caller's business.
-    const invited = await invitePerson(
+    // The add and the invite carry no such refusal: they are scoped by the caller's business.
+    const invited = await addAndInvite(
       identityEnv({ TENANT_ID: '' }),
       { businessId: seeded.businessId },
       { email: anEmail() },
     )
     expect(invited.created).toBe(true)
+    expect(invited.person.invitedAt).toBeTruthy()
   })
 
   it('test_UAT_AC1747_a_proven_address_with_no_person_is_refused_and_creates_nothing', async () => {
@@ -1243,9 +1118,15 @@ describe('the request path', () => {
     const inactiveSeed = await inviteAccount(identityEnv(), { email: inactive, endsAt: null })
     await env.DB.prepare('UPDATE users SET status = ? WHERE id = ?').bind('suspended', inactiveSeed.user.id).run()
 
-    // Invited and given no business: no live membership.
+    // An account that owns a business, with the membership withdrawn: no live
+    // membership. (An invitee who has not signed up and owns nothing is admitted
+    // with nothing since [[REQ-203]], so is not this reason.)
     const unmembered = anEmail()
-    await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: unmembered })
+    const unmemberedSeed = await inviteAccount(identityEnv(), { email: unmembered, endsAt: null })
+    await acceptTerms(identityEnv(), unmemberedSeed.user.id)
+    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
+      .bind(ISO(0), unmemberedSeed.user.id)
+      .run()
 
     const ungranted = anEmail()
     const ungrantedSeed = await inviteAccount(identityEnv(), { email: ungranted, endsAt: null })

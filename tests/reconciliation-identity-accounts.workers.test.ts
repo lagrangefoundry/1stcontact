@@ -13,7 +13,8 @@ import {
   type Admission,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
-import { invitePerson, openGrant, personDetail } from '../apps/control-app/src/people'
+import { openGrant, personDetail } from '../apps/control-app/src/people'
+import { addAndInvite } from './support/add-and-invite'
 import { seedContact } from './support/contact'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
@@ -23,8 +24,9 @@ import { inviteAccount } from './support/invite-account'
  * people belong to it** ([[REQ-194]]).
  *
  * WHAT THIS FILE PROVES. The account criteria the story gained or had restated
- * when the account became a table of its own: the invite mints an account beside
- * the person and the schema refuses a person without one (AC-2253); an account may
+ * when the account became a table of its own (the add minting an account beside
+ * the person, AC-2253, is proved on the add route by
+ * `test_reconciliation_contacts_add_invite.workers.test.ts`): an account may
  * hold several people and provisioning makes all of them owners (AC-2254); the
  * role is a foothold read by one ownership question only (AC-2257); a business key
  * is opaque and distinct from its owning account's key (AC-1741); provisioning
@@ -39,7 +41,8 @@ import { inviteAccount } from './support/invite-account'
  *
  * WHAT MAKES IT EVIDENCE. Every case runs inside workerd against a real D1 with
  * the deployed baseline applied by the helper the store suites use. Behaviour is
- * driven through the shipped calls (`invitePerson`, `provisionBusiness`, `admit`,
+ * driven through the shipped calls (`addContact` then `invitePeople` by id —
+ * the `addAndInvite` fixture, [[REQ-199]] — `provisionBusiness`, `admit`,
  * `openGrant`, `personDetail`, `ensurePlatformOperator`), and rows are read back
  * out of D1 rather than trusted from a return value. The only direct writes are
  * the ones a criterion demands: the second person on an account (the shape v1
@@ -109,56 +112,10 @@ beforeAll(async () => {
 // ─── The account record ─────────────────────────────────────────────────────
 
 describe('the account is a record people belong to', () => {
-  it('test_UAT_AC2253_an_invite_mints_an_opaque_account_and_the_schema_refuses_a_person_without_one', async () => {
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
-    expect(invited.created).toBe(true)
-
-    // Read the person's account back from storage, not from the return value.
-    const accountId = await accountOf(invited.person.id)
-    expect(accountId).toBe(invited.person.accountId)
-    expect(accountId).toMatch(/^acct_[0-9a-f]{32}$/)
-
-    const account = await accountById(identityEnv(), accountId)
-    expect(account?.tenant_id, 'the account belongs to the inviting business').toBe(PLATFORM)
-    expect(account?.status).toBe('active')
-    expect(await peopleOnAccount(identityEnv(), accountId)).toEqual([invited.person.id])
-
-    // Break glass gives a newly created operator an account of their own too.
-    const operatorEmail = anEmail()
-    await ensurePlatformOperator({ ...identityEnv(), PLATFORM_ADMINS: operatorEmail }, operatorEmail)
-    const operator = await env.DB.prepare(
-      'SELECT u.id AS id, u.account_id AS account_id FROM users u ' +
-        'WHERE u.id = (SELECT user_id FROM user_emails WHERE tenant_id = ? AND email = ?)',
-    )
-      .bind(PLATFORM, operatorEmail)
-      .first<{ id: string; account_id: string }>()
-    expect(operator?.account_id).toMatch(/^acct_[0-9a-f]{32}$/)
-    expect(await peopleOnAccount(identityEnv(), operator!.account_id)).toEqual([operator!.id])
-
-    // The schema refuses a person with no account, and one naming a missing account.
-    const peopleBefore = await count('users')
-    await expect(
-      env.DB.prepare(
-        'INSERT INTO users (id, tenant_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-      )
-        .bind(newId('usr'), PLATFORM, 'active', '2026-01-01', '2026-01-01')
-        .run(),
-    ).rejects.toThrow()
-    await expect(
-      env.DB.prepare(
-        'INSERT INTO users (id, tenant_id, account_id, status, created_at, updated_at) ' +
-          'VALUES (?, ?, ?, ?, ?, ?)',
-      )
-        .bind(newId('usr'), PLATFORM, newId('acct'), 'active', '2026-01-01', '2026-01-01')
-        .run(),
-    ).rejects.toThrow()
-    expect(await count('users')).toBe(peopleBefore)
-  })
-
   it('test_UAT_AC2254_an_account_holding_two_people_makes_both_owners_of_its_new_business', async () => {
     const firstEmail = anEmail()
     const secondEmail = anEmail()
-    const first = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: firstEmail })
+    const first = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email: firstEmail })
     const accountId = first.person.accountId
     // The shape v1 does not build: a second person on the same account, as a row.
     const second = await seedContact(identityEnv(), {
@@ -206,7 +163,7 @@ describe('the account is a record people belong to', () => {
     expect([...identity.matchAll(/role === 'owner'/g)]).toHaveLength(1)
 
     // People sharing an account are not told apart by role: both hold `owner`.
-    const first = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
+    const first = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
     const second = await seedContact(identityEnv(), {
       tenantId: PLATFORM,
       email: anEmail(),
@@ -252,7 +209,7 @@ describe('a business is owned by an account', () => {
   })
 
   it('test_UAT_AC1742_provisioning_writes_an_account_owned_business_grant_and_unnamed_starter_site', async () => {
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
+    const invited = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
     const accountId = invited.person.accountId
 
     // The invite wrote no tenant, membership, grant or site for that account.
@@ -328,7 +285,7 @@ describe('a business is owned by an account', () => {
 
     // The invite writes no grant.
     const before = await count('entitlements')
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
+    const invited = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
     expect(await count('entitlements'), 'the invite wrote a grant').toBe(before)
     const accountId = invited.person.accountId
 
@@ -391,7 +348,7 @@ describe('a business is owned by an account', () => {
 
   it('test_UAT_AC2255_a_business_names_its_owning_account_the_platform_is_owned_by_nobody_and_no_business_key_reads_acct', async () => {
     // Provisioned through invite-then-provision: the owner is the account, not the person.
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
+    const invited = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
     const accountId = await accountOf(invited.person.id)
     const business = await provisionBusiness(identityEnv(), { accountId, name: 'Owned Ltd' })
     expect(business.businessId).toMatch(/^biz_[0-9a-f]{32}$/)
@@ -455,7 +412,7 @@ describe('provisioning needs a real payer', () => {
 
     // The operator's lookup takes an address, in any case, and answers with the account.
     const email = anEmail()
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
+    const invited = await addAndInvite(identityEnv(), { businessId: PLATFORM }, { email })
     const accountId = await accountOf(invited.person.id)
     await provisionBusiness(identityEnv(), { accountId, name: 'Looked Up Ltd' })
     const found = await findAccount(identityEnv(), email.toUpperCase())
