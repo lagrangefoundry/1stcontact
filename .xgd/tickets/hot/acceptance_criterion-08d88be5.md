@@ -5,15 +5,16 @@ type: acceptance_criterion
 title: The apex address returns a holding response and never serves any site's content
 created_by: xgd
 created_at: '2026-08-06T18:50:01.754987+00:00'
-updated_at: '2026-09-10T16:55:56.952524+00:00'
+updated_at: '2026-11-07T06:56:19.906725+00:00'
 completed_at: null
-last_field_updated: uat_coverage
-status: active
+last_field_updated: status
+status: superseded
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
   uat_coverage: pass
+  superseded_by_uid: bundle-7988e925
 ---
 
 ## Criterion
