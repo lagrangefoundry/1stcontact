@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-11-07T06:53:45.607503+00:00'
+updated_at: '2026-11-07T22:34:04.209491+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -470,15 +470,10 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   The preset lives in `l2/account-chrome.ts` and is registered in `l2/presets.ts`
   under the behavior id. The sign-in POST sends `{ email }` as JSON with
   `credentials: 'same-origin'`.
-- **Code issue: the capability record is not closed (contradicts REQ-200).**
-  REQ-200's "What was built" says the `capabilities` record is "closed rather
-  than an open bag, so a typo is a validation error and not a declaration nothing
-  reads". `siteCapabilitiesSchema` is a plain `z.object({ accounts })` without
-  `.strict()`, so zod **strips** an unknown key such as `acounts` instead of
-  rejecting it. The site validates and the misspelt declaration is silently
-  dropped. AC-2329 states the intent (an unknown capability key fails site
-  validation). This is a code issue for `fix_uat_coverage`: make the record
-  strict.
+- **Resolved: the capability record is closed (REQ-200).** `siteCapabilitiesSchema`
+  was a plain `z.object({ accounts })`, so zod stripped an unknown key such as
+  `acounts` instead of rejecting it. It is now `.strict()` (report-078b06e6,
+  BUNDLE-38), so a misspelt capability key fails site validation, as AC-2329 states.
 
 ### Reconciliation Decisions
 
