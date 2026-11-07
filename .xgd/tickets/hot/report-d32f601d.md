@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-38 — REQ-199/200/201/202/203, 
   BUG-62)'
 created_by: xgd
 created_at: '2026-11-05T21:02:51.986952+00:00'
-updated_at: '2026-11-05T21:29:26.625235+00:00'
+updated_at: '2026-11-07T06:58:34.005750+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -120,7 +120,7 @@ fields:
       holding response (AC-913) and puts the apex site out of scope; REQ-200 deliberately
       changes that. Session-aware state and its cache policy are serving behaviour
       of the same capability-a12e557f; no new bucket.
-    story_uid: null
+    story_uid: story-d34eccd8
     target_story_ids:
     - story-d34eccd8
     acceptance_criteria_changes:
