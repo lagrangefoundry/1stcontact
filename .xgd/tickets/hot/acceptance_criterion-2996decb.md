@@ -6,10 +6,10 @@ title: account-chrome is catalogued beside contact-form with an L2 slot preset, 
   meets the module contract and conformance obligations
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-05T21:26:15.927741+00:00'
-updated_at: '2026-11-05T21:26:15.927741+00:00'
+updated_at: '2026-11-07T06:53:49.171909+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
