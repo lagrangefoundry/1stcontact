@@ -6,9 +6,9 @@ title: 'Identity: add records a Lead, the invite mails a selection, provisioning
   a business, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-07T08:05:50.043615+00:00'
+updated_at: '2026-11-07T08:10:31.737961+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -119,9 +119,11 @@ row is held against; there is no level to branch on (DOC-42 §3).
 
 *Neither the add nor the invite writes a membership or a grant* (DOC-42 §4–§5).
 Membership is the right to run a business, and the app is something a business
-provides; neither act confers either. An invited person who holds no business is
-therefore refused at the door as having no membership — a visible, nameable
-state, not a gap.
+provides; neither act confers either. An invited person therefore holds no
+business, and their admitted set is **empty** (REQ-203, superseding REQ-186's
+"invited and no more is `no_membership`"): they are admitted to the terms gate,
+which opens nothing else, and accepting the terms is what provisions their first
+business (STORY-161).
 
 *Who may add and invite.* Only an owner of the business the caller is scoped to
 (DOC-42 §7 condition 1 alone) — uniform, so a customer may add and invite into
@@ -163,8 +165,23 @@ moment, the one preserving access longest). A business whose membership is
 withdrawn or expired is absent entirely, so a former member is not told which
 businesses they used to reach.
 
-*Membership admits; entitlement does not* (DOC-42 §4–§5, REQ-178 reopen). The
-person is refused only when no live membership remains. A business whose grant
+*Signing up is admitted* (REQ-203). A person holding no live membership is
+nonetheless admitted, with no businesses, when **both** hold: they have not signed
+up (no terms acceptance is recorded — the access axis, not the pipeline stage, so
+a Lead nobody invited is treated identically) **and** their account owns no
+business. This admission opens no route: the terms gate runs next and refuses an
+unaccepted session everything but the interstitial and the accept route, and
+admission is still bounded by there being a person record at all, so self-signup
+stays absent. The second condition is what keeps every refusal that should survive:
+a person whose membership was withdrawn or expired, or whose membership rows were
+lost, has an account that already owns a business and is refused `no_membership`
+exactly as before; so is a person who has accepted the terms and still holds
+nothing. Re-inviting remains the repair. The ownership question is one shared
+definition, asked both here and by the provisioning hook on acceptance, so the door
+opens exactly when acceptance has something to give.
+
+*Membership admits; entitlement does not* (DOC-42 §4–§5, REQ-178 reopen). Apart
+from signing up, the person is refused only when no live membership remains. A business whose grant
 has lapsed, not started or been revoked stays in the set, marked unselectable —
 and a person whose **every** business has lapsed is still admitted, with nothing
 selectable. Refusing them would remove the remedy with the access: they could not
@@ -196,10 +213,18 @@ a grant. Only capacity grants decide whether a business may be entered; a grant
 naming an account against a business does not make that business selectable for
 its members, and such a business reports `never_granted`.
 
-*One refusal, many reasons.* Every refused visitor is told the same thing in the
-same way; which check failed is recorded for the operator rather than returned to
-the caller, because naming the failed check is an account-existence oracle to
-anyone who can pass a one-time PIN. The decision runs where the identity gate
+*One refusal, many reasons* (BUG-62). Every refused visitor is told the same thing
+in the same way — *"1st Contact cannot open this for you at the moment. Please get
+in touch and we will sort it out."* — a sentence true of every reason that claims
+nothing ended and names no check, and that is also true of the scope refusal of an
+admitted caller naming a business that is not theirs, so the two stay
+byte-identical. Which check failed is recorded for the operator rather than
+returned to the caller, because naming the failed check is an account-existence
+oracle to anyone who can pass a one-time PIN. Admission writes that record itself,
+once, as a structured `admission_denied` line carrying the reason, the attempted
+address, and whether this deployment's break-glass operator list names that address
+(`platformAdminSeed`), so a misconfigured operator list is diagnosable from the
+Worker's output alone; the code rendering the refusal only renders it. The decision runs where the identity gate
 runs, before any storage handle exists and before any path is examined. An
 admitted person reaches the builder once they have also accepted the current
 terms (REQ-169, the next check in the same place).
@@ -214,7 +239,7 @@ template's declared tokens, per-contact refusals and outcomes, and its routes; t
 people list's separate may-invite and may-provision flags; provisioning a business
 for an existing account; the composition of the invite and provisioning in the
 DOC-42 §1 sequence; the admission rule (including its refusal when the platform
-tenant is unconfigured), the set of businesses it returns with each one's
+tenant is unconfigured, and its admission of a contact who is signing up), the set of businesses it returns with each one's
 selectability and lapse reason, the arrival stamps, and the shape of the refusal.
 
 **Out of scope**: proving who the caller is, and the shape of the verdict the
@@ -222,7 +247,8 @@ identity gate hands onward — both belong to CAP-103; which business is selecte
 where a returning operator lands, and refusing a business-scoped request into a
 lapsed business (REQ-168); the endpoint that lists businesses for the switcher and
 the account surface that renders lapse reasons in words (REQ-180) and the switcher
-itself (REQ-179); the terms interstitial and its gate (REQ-169); the pipeline and
+itself (REQ-179); the terms interstitial and its gate (REQ-169), and the business
+provisioned when the terms are accepted (REQ-203, STORY-161); the pipeline and
 access axes of a contact and how the tab labels them (REQ-188, STORY-165); the
 template store and its token declarations (REQ-197); the mail port (REQ-196); the
 message record, the detail pane's message list and the bounced-address marker
@@ -320,6 +346,19 @@ invites or creating businesses.
 - **The lapse reason is recovered, not recorded.** It is derived by re-reading the
   business's capacity grants without the covering filters, so a grant written by
   any path is explained and nothing must be kept in step at write time.
+- **The denial log lives in admission (BUG-62).** Each refusing return in `admit`
+  goes through one helper that writes
+  `console.warn(JSON.stringify({ event: 'admission_denied', reason, email,
+  platformAdminSeed }))` and returns the refusal; `index.ts`'s `denied()` takes no
+  admission and only builds the 403, so a second caller of admission, or a new
+  refusal reason, cannot be silent and one refusal is never two lines.
+  `no_entitlement` no longer refuses admission, so it is logged by `index.ts` as
+  `no_business` where its consequence is, not as a denial.
+- **The signing-up predicate (REQ-203).** `admit` evaluates it only when the
+  resolved business set is empty: `tos_accepted_at` null (the cheap half, already in
+  hand) and `accountOwnsBusiness(users.account_id)` false — `tenants` filtered on
+  `owner_account_id`, whose null for the platform business matches nobody. The same
+  exported function is the guard in `onboarding.ts`.
 - **Deploy ordering, recorded rather than solved.** Once admission is enforced,
   anyone without a person record is refused. The add and invite surfaces exist but
   require an owner of the business, so they cannot bootstrap the first owner of
@@ -519,6 +558,25 @@ invites or creating businesses.
   `refused`, so an operator whose whole selection was refused has to re-tick it.
   AC-2339 states the intent (the selection survives); `fix_uat_coverage` should
   make the panel clear the selection only when at least one result is `sent`.
+
+- **An invitee holding nothing is admitted, not refused** (decided at
+  reconciliation, 2026-11-07, BUNDLE-38). REQ-203 names and overturns REQ-186's
+  "invited and no more is `no_membership`". AC-2173, which carried that claim
+  (and had been rewritten mid-cycle to the new behaviour), is marked superseded by
+  this bundle; its surviving half — the invite writes no membership or grant, so
+  the admitted set is empty — is restated in the new admission criterion
+  (AC-2340) together with the refusals that survive. AC-2079 stays superseded.
+- **The refusal is truthful and logged where decided** (decided at reconciliation,
+  2026-11-07, BUNDLE-38). BUG-62 rewords the single message and moves its log line
+  into admission. AC-1758 now pins the sentence, that it claims no ending and names
+  no reason, and that the scope refusal shares it. AC-1759 now pins one structured
+  line per refusal at the point of decision with `platformAdminSeed`, and four
+  admission reasons rather than five (no eligible grant is logged separately and
+  does not refuse admission).
+- **`platformAdminSeed` is in the log line** (decided at reconciliation,
+  2026-11-07). BUG-62's acceptance asks that a misconfigured `PLATFORM_ADMINS` be
+  diagnosable from the Worker's output alone; its *Additions to scope* adds the
+  boolean as the consequence. Formalized in AC-1759.
 
 ## Dependencies
 
