@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-05835b4c'
 created_by: xgd
 created_at: '2026-11-07T21:43:51.245856+00:00'
-updated_at: '2026-11-07T21:43:51.245856+00:00'
+updated_at: '2026-11-07T21:49:31.173850+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 result: pass
 fields:
   report_kind: fix_plan
@@ -202,3 +202,14 @@ One batch. All failures share one root cause (fixtures that predate REQ-190/191/
 
 ## Resolution ladder (REQ-938)
 Batch 0: rung 1 decided. REQ-190, REQ-194, REQ-191/193, REQ-199 and REQ-203 are all later than the stories that own AC-2132..AC-2142 and AC-2203..AC-2211, and they supersede the fixtures those tests use. For AC-2208's backfill half, rung 2 confirms it: the reference has no pipeline-stage migration, and the baseline declares the column with default `lead`. Every other test stands at rung 3 against unchanged production code.
+
+## Aligned to running code (REQ-895)
+
+AC-2208 asks that a pipeline-stage migration backfill existing contacts by their invite stamp; the REQ-190 rebaseline folded every prior migration into 0001_baseline.sql with pipeline_stage as a baseline column, and the bundle states the database was wiped rather than migrated, so no intent in scope requires a backfill and the reference has none to test.
+
+- **ACs retired or rewritten**: AC-2208
+- **Failing tests covered**: story-0ea74f39 — the one-time pipeline backfill test_UAT_AC2208_existing_contacts_backfilled_by_invite_stamp_and_operator_seeded_invited
+- **Tip evidence** (read at `reconcile-src-BUNDLE-38`):
+  - `db/migrations/0001_baseline.sql` lines 419-449
+  - `apps/control-app/src/identity.ts` lines 1228-1260
+- **Intent** `bundle-7988e925`: "There is no separate migration, because the database has been wiped rather than migrated and a baseline that has never been applied is not re-based by editing it."
