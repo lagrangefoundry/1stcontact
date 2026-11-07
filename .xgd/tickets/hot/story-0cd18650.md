@@ -6,15 +6,17 @@ title: 'Terms of Service Gate: An Admitted Person Accepts The Current Terms Befo
   Anything Behind Them Is Served'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:39:04.792559+00:00'
-updated_at: '2026-11-07T08:11:57.695505+00:00'
+updated_at: '2026-11-07T08:11:58.142795+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-94dbe947
   capability_uid: capability-3606e35b
   story_kind: upgrade
   story_points: 2
+  updated_by:
+  - bundle-7988e925
 ---
 
 ## Story
