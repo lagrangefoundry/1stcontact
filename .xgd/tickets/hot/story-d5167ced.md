@@ -5,9 +5,9 @@ type: story
 title: 'Platform Build, Deploy & Smoke: One Path To Ship A Worker, And Proof It Serves'
 created_by: xgd
 created_at: '2026-08-20T05:29:12.423310+00:00'
-updated_at: '2026-09-19T14:10:27.243827+00:00'
+updated_at: '2026-11-07T21:08:31.354098+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-77b28def
@@ -93,17 +93,20 @@ it ran. Non-executable files are ignored, so each directory's documentation live
 hooks. Apps are **discovered** from the tree rather than read from a list, whose failure mode is
 an app that silently never gets built.
 
-**Smoke — prove it serves, and prove the private half does not.** Eleven HTTP checks against a
-live origin, exiting non-zero naming the ones that failed. Nine are about what the public site
-serves: the apex resolves; an unknown site is not found; a site that exists but has published
-nothing is **indistinguishable** from one that does not exist, in status *and* body, because a 404
-that says which would answer questions about sites the asker has no business knowing exist; the
-trailing-slash redirect holds on both the published and the preview channel; the preview index
-serves HTML; the preview channel's caching and robots policy are right; a miss inside a preview is
-a non-indexable 404; and every same-origin asset the rendered page references resolves with the
-content type its extension implies — following attribute references **and one level into
-stylesheets**, where web fonts hide, because a missing font is invisible in a screenshot and
-obvious to a reader.
+**Smoke — prove it serves, and prove the private half does not.** Ten HTTP checks against a
+live origin, exiting non-zero naming the ones that failed. Eight are about what the public site
+serves, on the **one channel that exists** — the published site, addressed by its own key: the
+apex resolves; an unknown site is not found; a site that exists but has published nothing is
+**indistinguishable** from one that does not exist, in status *and* body, because a 404 that says
+which would answer questions about sites the asker has no business knowing exist; the published
+trailing-slash redirect holds; the published index really is HTML; it carries the published cache
+policy, which is pinned to the serving Worker's own value rather than restated by hand; a miss under
+a published site — an object or a directory — is a 404 and never a listing; and every same-origin
+asset the published index references resolves with the content type its extension implies —
+following attribute references **and one level into stylesheets**, where web fonts hide, because a
+missing font is invisible in a screenshot and obvious to a reader. There is no preview or
+sha-addressed channel to smoke: that channel was deleted, and the checks and option that addressed
+it went with it rather than being kept as checks that could only ever skip.
 
 The other two are the inverse assertion, about the operator surface: an unauthenticated caller to
 the control origin is **challenged rather than served**, and the Worker's platform-default
@@ -114,10 +117,21 @@ refused, an unconfigured Worker refuses itself, and a retired default hostname d
 Only a success is a failure. Each of the two is selected by its **own** option and, against an
 origin it does not apply to, is reported **skipped by name** rather than failing there — the
 control surface and the public site are independent axes, and a run against one must not be
-reported as a failure of the other.
+reported as a failure of the other. The one exception to "supply it or skip" is a fact about this
+deployment rather than a guess: when the origin under test is the platform's own apex, the control
+origin defaults to the control application declared beside it. No other origin derives one — a
+staging origin with no control sibling would otherwise report a failing gate for a host that was
+never the control app. The platform-default hostname is never derived, because it embeds an account
+identifier the repository does not hold.
 
 A check with nothing to test against reports **skip**, never quiet success, and skips are counted
-in the summary: a run that skipped everything has proved nothing and says so. The check engine is
+in the summary: a run that skipped everything has proved nothing and says so. **No check can only
+skip**: with every input supplied nothing is skipped, and every skip names the one argument that
+would make that check run — the site key for the six published-site checks, the control origin or
+the platform-default hostname for the two operator-surface ones. A check that skips without saying
+what it wants is indistinguishable from a check that can never run. The site key option is called
+what the segment is; the earlier name for it, and the preview-identifier option, are not accepted,
+and an unknown argument is an error rather than being silently ignored. The check engine is
 drivable against a supplied origin, so its failure path is exercised without breaking a real
 deploy.
 
@@ -179,9 +193,10 @@ echoes a value back.
   the refusal of an unknown app.
 - The hook contract: discovery by executability, sorted order, the context each hook receives,
   and abort-before-upload on failure.
-- The eleven live-origin checks — nine public-serving and two asserting the operator surface is
-  private — their pass, fail and skip reporting, their per-axis option selection, and the failure
-  naming.
+- The ten live-origin checks — eight public-serving on the published channel and two asserting the
+  operator surface is private — their pass, fail and skip reporting, their per-axis option
+  selection, the apex-only control-origin default, the published cache policy pinned to the serving
+  Worker's, skips that name their missing argument, and the failure naming.
 - Every named environment repeating every top-level declaration, checked across the tree for
   variables and bindings, with the single stated exception for a local-development relaxation that
   must stay absent.
@@ -362,6 +377,37 @@ configuration, which is what this story can observe and what a regression can ho
    complete store completes — because the useful claim is precisely that the flag gates the check and
    nothing else. The incomplete leg is the one that also evidences the atomicity above: a build that
    stops there must leave the previous tree serving.
+
+*Decided 2026-11-07, reconciling BUNDLE-38 (BUG-57) against this story.*
+
+10. **The draft-channel criteria are rewritten onto the published channel, not deprecated.** BUG-57
+    states that the five `draft_*` checks and `--draft` leave with the channel REQ-149 D7 deleted, and
+    that their coverage is ported to the published channel. The criteria that pinned them (AC-1339,
+    AC-1336, AC-1337, AC-1338) are therefore edited in place to name the published channel — the
+    capability (prove the deploy serves) is unchanged; only the channel it is proved on moved.
+
+11. **The control-origin default is the apex pair only, per the intent's own refinement.** BUG-57's
+    point 4 said `app.<host>` of `--origin`; its "Refinements made while implementing" section
+    retracts that for the apex this repository names, citing the false-alarm on a staging origin.
+    The later refinement is the operative intent and the code matches it, so the new criterion states
+    the narrow rule and that no other origin derives a control origin.
+
+12. **The check count is ten, not the nine the intent's "Expected result" totals imply.** The
+    intent's own enumeration — two origin-level checks, two renamed key-gated checks, four ported
+    checks and two control-surface checks — sums to ten, and the code runs ten. The "3 run, 6
+    skipped" / "8 run, 1 skipped" figures are an arithmetic slip, not a behaviour; decided that the
+    criteria state the enumerated set: with no arguments against the apex three run and seven skip;
+    adding a site key, nine run and only the platform-default-hostname check skips; with every input,
+    nothing skips.
+
+13. **The published channel has no robots assertion.** The deleted preview checks asserted a
+    non-indexable marking; the intent's list of what is ported does not include it, and a published
+    site is meant to be indexed. Decided: no criterion asserts a robots policy on the published
+    channel, and the "lost non-indexable marking" breakage leaves AC-1337's list.
+
+14. **One breakage may fail more than one check.** BUG-57 states that a site root that stops serving
+    genuinely fails every check sharing that response. AC-1337 is sharpened from "exactly the owning
+    check" to "the owning check plus exactly those that share its response", which stays exact.
 
 ## Dependencies
 
