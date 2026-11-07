@@ -7,10 +7,10 @@ title: Accepting the terms for an admission holding nothing provisions the accou
   no acceptance; re-accepting with a business already held provisions nothing
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T08:09:47.537101+00:00'
-updated_at: '2026-11-07T08:09:47.537101+00:00'
+updated_at: '2026-11-07T22:33:00.334355+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cd18650
   kind: behavior
