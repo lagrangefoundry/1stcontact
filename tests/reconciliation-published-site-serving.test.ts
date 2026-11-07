@@ -2,7 +2,7 @@
  * Reconciliation UATs for story-d34eccd8 — **serving a published site**: a URL
  * names a site, and the revision record says which bytes answer it.
  *
- * These are the nine criteria that are claims about the ADDRESSING GRAMMAR and
+ * These are the eight criteria that are claims about the ADDRESSING GRAMMAR and
  * the HEADER POLICY above the store, so they are proved here in Node against
  * bindings faked at the one boundary this repo does not own (R2 and D1). The
  * three that are claims about the runtime and the record itself — serving a live
@@ -18,7 +18,10 @@
  *   AC-909 — a short lifetime, never immutable, never a crawler directive.
  *   AC-911 — a warm request skips the store; a not-found is never retained.
  *   AC-912 — read-only: HEAD is bodiless, anything writing is refused.
- *   AC-913 — the apex is a holding response and never a site's content.
+ *
+ * AC-913 (the apex as a holding response) is superseded by REQ-200: the apex now
+ * serves the configured apex site, proved by the apex and session criteria in
+ * `test_UAT_FC_REQ-200_apex_and_session.test.ts`.
  *
  * NOTHING BELOW IS A HAND-BUILT SNAPSHOT. Every published byte comes out of a
  * REAL publish through `publishInto`, at keys the shared key builders decide, so
@@ -138,36 +141,6 @@ async function settle(res: Response): Promise<Response> {
 }
 
 describe('story-d34eccd8 — serving a published site', () => {
-  it('test_UAT_AC913_the_apex_holds_and_never_serves_a_site', async () => {
-    // AC-913 — the root is reserved for a marketing site that does not exist
-    // yet, so it answers a holding response and nothing else. With a real site
-    // published in the same store, none of that site's content may appear: the
-    // apex must not quietly become "whichever site sorted first".
-    await publishRevision('APEX-MUST-NOT-SHOW-THIS')
-
-    const apex = await get('/')
-    expect(apex.status).toBe(200)
-    expect(apex.headers.get('content-type')).toBe('text/plain; charset=utf-8')
-    const body = await apex.text()
-    expect(body).toBe('Hello from 1stcontact.io')
-    expect(body).not.toContain('APEX-MUST-NOT-SHOW-THIS')
-    expect(body).not.toContain(SLUG)
-    expect(body).not.toContain('<html')
-
-    // A query string does not turn the apex into anything else.
-    const queried = await get('/?utm_source=newsletter')
-    expect(queried.status).toBe(200)
-    expect(queried.headers.get('content-type')).toBe('text/plain; charset=utf-8')
-    expect(await queried.text()).toBe('Hello from 1stcontact.io')
-
-    // And the same holding response is what an empty store answers with, so the
-    // apex does not depend on there being anything published at all.
-    published = emptyPublished()
-    const empty = await get('/')
-    expect(empty.status).toBe(200)
-    expect(await empty.text()).toBe('Hello from 1stcontact.io')
-  })
-
   it('test_UAT_AC904_a_bare_published_root_redirects_to_the_slashed_form', async () => {
     // AC-904 — correctness, not tidiness. Rendered pages reference their assets
     // document-relatively (REQ-109) so a revision is relocatable under any path
