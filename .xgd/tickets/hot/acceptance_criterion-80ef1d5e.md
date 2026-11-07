@@ -7,9 +7,9 @@ title: 'The smoke check asserts the operator surface is private: an unauthentica
   its own option'
 created_by: xgd
 created_at: '2026-08-31T12:12:25.714590+00:00'
-updated_at: '2026-09-10T05:44:37.575668+00:00'
+updated_at: '2026-11-07T21:09:53.458294+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d5167ced
@@ -36,7 +36,9 @@ and a check that recognised only one of them would fail a correctly-protected or
   and the report says so rather than reporting an error.
 
 Each check is **skipped by name** when its option is not supplied, with the missing option named as
-the reason. Neither may fail against an origin it does not apply to: the control surface and the
+the reason. The single exception is the control origin when the origin under test is the platform's
+own apex: it defaults to the control application declared beside that apex (see the apex-default
+criterion), so the challenge check runs on a bare invocation. Neither may fail against an origin it does not apply to: the control surface and the
 public site are independent axes, and pointing the check at one must not be reported as a failure
 of the other.
 
@@ -54,5 +56,5 @@ Then drive it twice against a public builder: once with the control origin servi
 unauthenticated caller, once with the default hostname answering. Each run exits non-zero, the
 failure list names exactly the check that owns that door, and its detail names the exposure.
 
-Finally, run with neither option supplied: both checks are reported skipped, each naming the option
-it wanted, and the run does not fail on their account.
+Finally, run against an origin other than the apex with neither option supplied: both checks are
+reported skipped, each naming the option it wanted, and the run does not fail on their account.
