@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-179b8c06'
 created_by: xgd
 created_at: '2026-11-07T06:38:03.583262+00:00'
-updated_at: '2026-11-07T06:38:03.583262+00:00'
+updated_at: '2026-11-07T06:49:52.487947+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -66,6 +66,7 @@ fields:
         a test file to add a browser-free parse check of the generated bundle.
       files:
       - tests/test_UAT_FC_REQ-145_build_artifacts.test.ts
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3
