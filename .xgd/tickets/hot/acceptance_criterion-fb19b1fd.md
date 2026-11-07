@@ -6,10 +6,10 @@ title: Pressing Continue on a live link signs the person in with a session cooki
   the builder and the apex both read
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T08:23:13.641033+00:00'
-updated_at: '2026-11-07T08:23:13.641033+00:00'
+updated_at: '2026-11-07T21:04:42.165191+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e0ca0a36
   kind: behavior
