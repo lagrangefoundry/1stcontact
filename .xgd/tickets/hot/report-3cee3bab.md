@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-05835b4c'
 created_by: xgd
 created_at: '2026-11-07T21:43:51.245856+00:00'
-updated_at: '2026-11-07T21:49:31.173850+00:00'
+updated_at: '2026-11-07T22:07:50.034253+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -155,6 +155,7 @@ fields:
         sentence: There is no separate migration, because the database has been wiped
           rather than migrated and a baseline that has never been applied is not re-based
           by editing it.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 1
