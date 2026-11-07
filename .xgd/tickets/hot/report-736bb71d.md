@@ -1,0 +1,554 @@
+---
+uid: report-736bb71d
+id: REPORT-11195
+type: report
+title: 'Report: batch_quality_check for report-05835b4c'
+created_by: xgd
+created_at: '2026-11-07T23:03:26.336174+00:00'
+updated_at: '2026-11-07T23:03:26.336174+00:00'
+completed_at: null
+last_field_updated: created_at
+result: pass
+fields:
+  report_kind: batch_quality_check
+  subject_uid: report-05835b4c
+  parent_report_uid: report-0b15e2c3
+  batch_index: 0
+  quality_fix_cycle: 0
+---
+
+{
+  "timestamp": "2026-11-07T22:59:18.262930Z",
+  "lint": null,
+  "build": null,
+  "preflight": {
+    "status": "pass",
+    "violations": []
+  },
+  "suites": {
+    "javascript-vitest": {
+      "suite_name": "javascript-vitest",
+      "status": "success",
+      "exit_code": 0,
+      "duration_seconds": 10.838487334083766,
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "total": 91,
+      "deselected": 20,
+      "test_filter": [
+        "test_UAT_AC2132_",
+        "test_UAT_AC2133_",
+        "test_UAT_AC2134_",
+        "test_UAT_AC2135_",
+        "test_UAT_AC2136_",
+        "test_UAT_AC2137_",
+        "test_UAT_AC2138_",
+        "test_UAT_AC2139_",
+        "test_UAT_AC2140_",
+        "test_UAT_AC2141_",
+        "test_UAT_AC2142_",
+        "test_UAT_AC2203_",
+        "test_UAT_AC2204_",
+        "test_UAT_AC2205_",
+        "test_UAT_AC2206_",
+        "test_UAT_AC2207_",
+        "test_UAT_AC2208_",
+        "test_UAT_AC2209_",
+        "test_UAT_AC2210_",
+        "test_UAT_AC2211_",
+        "test_UAT_AC2333_",
+        "test_UAT_AC2334_",
+        "test_UAT_AC2335_",
+        "test_UAT_AC2356_",
+        "test_UAT_AC2357_",
+        "test_UAT_FC_REQ-199_",
+        "test_UAT_FC_REQ-203_",
+        "test_UAT_FC_BUG-62_",
+        "test_UAT_FC_BUG-57_",
+        "test_UAT_FC_REQ-200_"
+      ],
+      "scope_ac_backed": false,
+      "coverage": null,
+      "lines_covered": 0,
+      "lines_total": 0,
+      "files_covered": [],
+      "junit_xml_path": null,
+      "stdout": "control\"],\"fullName\":\"REQ-199 \u2014 add is its own control test_UAT_FC_REQ-199_the_tab_carries_a_plus_control_that_adds_a_contact\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_the_tab_carries_a_plus_control_that_adds_a_contact\",\"duration\":24.33158400000002,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 add is its own control\"],\"fullName\":\"REQ-199 \u2014 add is its own control test_UAT_FC_REQ-199_the_add_dialog_says_that_nothing_is_sent\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_the_add_dialog_says_that_nothing_is_sent\",\"duration\":5.714666999999963,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 invite is a selection, not a form\"],\"fullName\":\"REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_every_row_carries_a_checkbox\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_every_row_carries_a_checkbox\",\"duration\":3.0794579999999314,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 invite is a selection, not a form\"],\"fullName\":\"REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_invite_is_disabled_with_none_checked_and_enabled_with_one_or_more\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_invite_is_disabled_with_none_checked_and_enabled_with_one_or_more\",\"duration\":5.504041000000143,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 invite is a selection, not a form\"],\"fullName\":\"REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_the_stylesheet_has_a_rule_for_the_disabled_state\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_the_stylesheet_has_a_rule_for_the_disabled_state\",\"duration\":0.8857089999999062,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 invite is a selection, not a form\"],\"fullName\":\"REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_ticking_a_row_does_not_move_the_detail_pane\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_ticking_a_row_does_not_move_the_detail_pane\",\"duration\":18.586708999999928,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 the invite modal is a message\"],\"fullName\":\"REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_from_is_display_only_and_subject_and_body_come_from_the_template\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_from_is_display_only_and_subject_and_body_come_from_the_template\",\"duration\":13.963207999999895,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 the invite modal is a message\"],\"fullName\":\"REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_the_recipient_field_is_labelled_to_list_and_explains_itself_on_hover\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_the_recipient_field_is_labelled_to_list_and_explains_itself_on_hover\",\"duration\":10.162500000000136,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 the invite modal is a message\"],\"fullName\":\"REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_the_to_list_shows_one_selected_address_per_line\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_the_to_list_shows_one_selected_address_per_line\",\"duration\":8.469125000000076,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 the invite modal is a message\"],\"fullName\":\"REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_a_selected_contact_with_no_address_is_visible_before_anything_is_sent\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_a_selected_contact_with_no_address_is_visible_before_anything_is_sent\",\"duration\":8.957750000000033,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 the invite modal is a message\"],\"fullName\":\"REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_sending_posts_the_selected_ids_with_the_edited_copy\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_sending_posts_the_selected_ids_with_the_edited_copy\",\"duration\":24.62691700000005,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 the invite modal is a message\"],\"fullName\":\"REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_the_report_names_every_selected_contact_and_the_selection_clears\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_the_report_names_every_selected_contact_and_the_selection_clears\",\"duration\":11.292874999999867,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 what the report says\"],\"fullName\":\"REQ-199 \u2014 what the report says test_UAT_FC_REQ-199_every_outcome_gets_a_line_and_a_refusal_names_the_person_and_the_reason\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_every_outcome_gets_a_line_and_a_refusal_names_the_person_and_the_reason\",\"duration\":0.4187500000000455,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-199 \u2014 what the report says\"],\"fullName\":\"REQ-199 \u2014 what the report says test_UAT_FC_REQ-199_the_two_outcomes_worth_acting_on_are_accented_by_one_rule\",\"status\":\"passed\",\"title\":\"test_UAT_FC_REQ-199_the_two_outcomes_worth_acting_on_are_accented_by_one_rule\",\"duration\":0.12295899999980975,\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1794092361682,\"endTime\":1794092361818.4187,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-38/tests/test_UAT_FC_REQ-199_contacts_tab.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"REQ-200 \u00b7 the apex is a published site\"],\"fullName\":\"REQ-200 \u00b7 the apex is a published site test_UAT_FC_REQ_200_apex_serves_a_published_site_and_the_literal_is_gone\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ_200_apex_serves_a_published_site_and_the_literal_is_gone\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 the apex is a published site\"],\"fullName\":\"REQ-200 \u00b7 the apex is a published site test_UAT_AC2333_apex_pages_and_assets_resolve_at_the_root\",\"status\":\"passed\",\"title\":\"test_UAT_AC2333_apex_pages_and_assets_resolve_at_the_root\",\"duration\":34.42899999999986,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 the apex is a published site\"],\"fullName\":\"REQ-200 \u00b7 the apex is a published site test_UAT_FC_REQ_200_the_authored_apex_site_carries_the_module\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ_200_the_authored_apex_site_carries_the_module\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 the Worker reads a session only to select a state\"],\"fullName\":\"REQ-200 \u00b7 the Worker reads a session only to select a state test_UAT_AC2334_signed_out_by_default_and_signed_in_with_a_session\",\"status\":\"passed\",\"title\":\"test_UAT_AC2334_signed_out_by_default_and_signed_in_with_a_session\",\"duration\":6.126375000000053,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 the Worker reads a session only to select a state\"],\"fullName\":\"REQ-200 \u00b7 the Worker reads a session only to select a state test_UAT_FC_REQ_200_no_published_content_becomes_gated\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ_200_no_published_content_becomes_gated\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 the Worker reads a session only to select a state\"],\"fullName\":\"REQ-200 \u00b7 the Worker reads a session only to select a state test_UAT_AC2335_a_session_dependent_response_is_not_shared_cached\",\"status\":\"passed\",\"title\":\"test_UAT_AC2335_a_session_dependent_response_is_not_shared_cached\",\"duration\":8.274875000000065,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 the Worker reads a session only to select a state\"],\"fullName\":\"REQ-200 \u00b7 the Worker reads a session only to select a state test_UAT_FC_REQ_200_a_request_with_a_session_never_reads_the_shared_cache\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ_200_a_request_with_a_session_never_reads_the_shared_cache\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 a session does not cross a cookie domain\"],\"fullName\":\"REQ-200 \u00b7 a session does not cross a cookie domain test_UAT_FC_REQ_200_host_must_be_within_the_issuing_domain\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ_200_host_must_be_within_the_issuing_domain\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-200 \u00b7 a session does not cross a cookie domain\"],\"fullName\":\"REQ-200 \u00b7 a session does not cross a cookie domain test_UAT_FC_REQ_200_a_cookie_from_another_domain_authenticates_nothing\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ_200_a_cookie_from_another_domain_authenticates_nothing\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1794092362068,\"endTime\":1794092362117.275,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-38/tests/test_UAT_FC_REQ-200_apex_and_session.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"story-0ea74f39 \u2014 the Contacts tab draws two axes\"],\"fullName\":\"story-0ea74f39 \u2014 the Contacts tab draws two axes test_UAT_AC2209_each_row_draws_stage_and_member_badge_separately\",\"status\":\"passed\",\"title\":\"test_UAT_AC2209_each_row_draws_stage_and_member_badge_separately\",\"duration\":29.591417000000092,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-0ea74f39 \u2014 the Contacts tab draws two axes\"],\"fullName\":\"story-0ea74f39 \u2014 the Contacts tab draws two axes test_UAT_AC2210_two_facets_narrow_independently_and_combine\",\"status\":\"passed\",\"title\":\"test_UAT_AC2210_two_facets_narrow_independently_and_combine\",\"duration\":45.73070899999993,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-0ea74f39 \u2014 the Contacts tab draws two axes\"],\"fullName\":\"story-0ea74f39 \u2014 the Contacts tab draws two axes test_UAT_AC2211_styling_is_keyed_on_the_axis_never_a_value\",\"status\":\"passed\",\"title\":\"test_UAT_AC2211_styling_is_keyed_on_the_axis_never_a_value\",\"duration\":9.404833000000053,\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1794092361682,\"endTime\":1794092361766.4048,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-38/tests/test_reconciliation_contact_axes.test.ts\"}]}",
+      "stderr": "",
+      "tests": [
+        {
+          "name": "Terms of service gate \u2014 before acceptance test_UAT_AC2132_unaccepted_navigation_is_answered_with_terms_at_requested_url",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 before acceptance test_UAT_AC2133_unaccepted_non_navigation_requests_are_refused_403_plain_text",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 before acceptance test_UAT_AC2134_terms_gate_responses_are_not_cacheable_and_not_indexable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 before acceptance test_UAT_AC2139_terms_page_renders_every_paragraph_and_references_nothing_external",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 before acceptance test_UAT_AC2141_terms_page_offers_only_an_agree_control_and_declining_records_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 acceptance test_UAT_AC2135_accepting_as_json_records_current_version_and_acceptance_time",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 acceptance test_UAT_AC2136_acceptance_not_posted_as_json_is_refused_and_leaves_record_untouched",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 acceptance test_UAT_AC2137_after_acceptance_the_same_urls_answer_normally",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 acceptance test_UAT_AC2140_terms_path_stays_readable_and_shows_acceptance_date_once_accepted",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 versions and configuration test_UAT_AC2138_changing_the_current_version_re_prompts_an_earlier_acceptor",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Terms of service gate \u2014 versions and configuration test_UAT_AC2142_loopback_dev_open_serves_the_builder_without_a_terms_check",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-62 \u2014 what the refused visitor is told test_UAT_FC_BUG-62_the_refusal_claims_nothing_ended",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-62 \u2014 what the refused visitor is told test_UAT_FC_BUG-62_the_refusal_still_names_no_reason",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-62 \u2014 the reason reaches the log test_UAT_FC_BUG-62_a_stranger_is_refused_no_user_in_one_structured_line",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-62 \u2014 the reason reaches the log test_UAT_FC_BUG-62_every_refusing_reason_names_itself_and_the_address",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-62 \u2014 the reason reaches the log test_UAT_FC_BUG-62_an_admitted_person_writes_no_denial_line",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-62 \u2014 the diagnosis that cost us one test_UAT_FC_BUG-62_a_misconfigured_platform_admins_is_readable_from_the_log",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-62 \u2014 the diagnosis that cost us one test_UAT_FC_BUG-62_a_named_operator_is_seeded_and_never_reaches_the_log",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 POST /api/people/add test_UAT_FC_REQ-199_an_owner_adds_a_contact_and_the_new_row_is_a_lead",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 POST /api/people/add test_UAT_FC_REQ-199_an_add_with_no_address_is_refused_as_the_callers_mistake",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 POST /api/people/add test_UAT_FC_REQ-199_a_caller_who_does_not_own_the_business_may_not_add_to_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 POST /api/people/add test_UAT_FC_REQ-199_the_loopback_path_may_not_add_people",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 GET /api/people/invite test_UAT_FC_REQ-199_the_draft_reports_the_sender_and_the_businesses_own_copy",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 GET /api/people/invite test_UAT_FC_REQ-199_a_caller_who_does_not_own_the_business_may_not_read_its_invite_copy",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the two acts are two paths test_UAT_FC_REQ-199_the_add_path_and_the_invite_path_are_different_routes",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the two acts are two paths test_UAT_FC_REQ-199_the_add_path_never_sends_and_the_list_shows_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 add is the fundamental act test_UAT_FC_REQ-199_adding_a_contact_leaves_them_a_lead_and_sends_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 add is the fundamental act test_UAT_FC_REQ-199_adding_an_address_already_here_finds_them_rather_than_duplicating",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 one message per contact, one recipient each test_UAT_FC_REQ-199_inviting_n_contacts_produces_n_messages_with_one_recipient_each",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 one message per contact, one recipient each test_UAT_FC_REQ-199_each_message_goes_to_that_contacts_primary_address",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 one message per contact, one recipient each test_UAT_FC_REQ-199_a_contact_with_no_primary_address_is_refused_by_name_and_the_rest_still_send",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 what the operator sees afterwards test_UAT_FC_REQ-199_inviting_moves_a_lead_to_invited_and_never_to_member",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 what the operator sees afterwards test_UAT_FC_REQ-199_a_send_the_provider_refused_is_recorded_and_still_counts_as_asking",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 what the operator sees afterwards test_UAT_FC_REQ-199_each_send_leaves_a_record_the_detail_pane_can_read",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 what the operator sees afterwards test_UAT_FC_REQ-199_a_second_press_is_a_second_message_and_a_second_event",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 what the operator sees afterwards test_UAT_FC_REQ-199_the_record_lands_with_its_journal_row_so_a_worker_can_write_a_ticket",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the copy is the template\u2019s, and the edit is for this send test_UAT_FC_REQ-199_the_modal_opens_with_the_sender_and_the_invite_templates_copy",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the copy is the template\u2019s, and the edit is for this send test_UAT_FC_REQ-199_an_edited_subject_and_body_are_what_is_sent_and_the_template_is_untouched",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the copy is the template\u2019s, and the edit is for this send test_UAT_FC_REQ-199_copy_that_lost_its_link_refuses_and_nothing_is_sent",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the tenant barrier test_UAT_FC_REQ-199_a_contact_id_from_another_business_cannot_be_invited",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the tenant barrier test_UAT_FC_REQ-199_the_same_two_acts_from_two_businesses_differ_only_in_which_rows_move",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_an_invited_contact_is_admitted_rather_than_told_their_access_has_ended",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_the_relaxed_admission_reaches_the_terms_and_nothing_else",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_accepting_the_terms_provisions_a_business_with_a_membership_and_an_open_grant",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_no_second_account_is_written_and_the_business_belongs_to_the_one_they_had",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_the_new_business_has_a_starter_site_that_is_servable_at_once",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_accepting_a_second_time_provisions_nothing_further",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_an_operator_who_re_accepts_is_not_given_a_business_of_their_own",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_after_accepting_they_land_in_the_builder_and_the_site_tab_is_first",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_a_lead_nobody_invited_is_treated_identically",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_the_business_is_named_after_the_contact_or_visibly_unnamed",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_a_member_who_holds_nothing_is_still_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-203 \u2014 signing up is what gives somebody a business test_UAT_FC_REQ-203_provisioning_is_the_hook_and_reports_whether_it_acted",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 two axes at the origin test_UAT_AC2203_member_if_and_only_if_terms_accepted",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 two axes at the origin test_UAT_AC2204_contact_begins_at_lead",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 two axes at the origin test_UAT_AC2205_invite_moves_to_invited_never_member_and_keeps_first_stamp",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 two axes at the origin test_UAT_AC2206_accepting_terms_makes_member_and_keeps_stage",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 two axes at the origin test_UAT_AC2207_stage_is_the_stored_value_not_inferred",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 the pipeline stage on the baseline schema test_UAT_AC2208_unstaged_contact_is_lead_and_seeded_operator_stage_agrees_with_its_stamp",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_no_check_can_only_ever_skip",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_every_skip_names_the_argument_that_would_run_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_the_draft_channel_checks_and_flag_are_gone",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_the_published_channel_carries_the_draft_checks_coverage \u2014 'an index served as something other th\u2026'",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_the_published_channel_carries_the_draft_checks_coverage \u2014 'a published page cached as if it were\u2026'",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_the_published_channel_carries_the_draft_checks_coverage \u2014 'a miss that answers with a listing'",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_the_published_channel_carries_the_draft_checks_coverage \u2014 'a font reached from inside the styles\u2026'",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_the_url_segment_is_a_site_key_not_a_slug",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_AC2357_control_origin_is_derived_from_the_default_apex",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_AC2357_a_non_default_origin_derives_nothing_and_skips",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_FC_BUG-57_workers_dev_origin_stays_explicit",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-57 \u2014 every smoke check is reachable test_UAT_AC2356_the_published_cache_policy_matches_the_worker",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 add is its own control test_UAT_FC_REQ-199_the_tab_carries_a_plus_control_that_adds_a_contact",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 add is its own control test_UAT_FC_REQ-199_the_add_dialog_says_that_nothing_is_sent",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_every_row_carries_a_checkbox",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_invite_is_disabled_with_none_checked_and_enabled_with_one_or_more",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_the_stylesheet_has_a_rule_for_the_disabled_state",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 invite is a selection, not a form test_UAT_FC_REQ-199_ticking_a_row_does_not_move_the_detail_pane",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_from_is_display_only_and_subject_and_body_come_from_the_template",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_the_recipient_field_is_labelled_to_list_and_explains_itself_on_hover",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_the_to_list_shows_one_selected_address_per_line",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_a_selected_contact_with_no_address_is_visible_before_anything_is_sent",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_sending_posts_the_selected_ids_with_the_edited_copy",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 the invite modal is a message test_UAT_FC_REQ-199_the_report_names_every_selected_contact_and_the_selection_clears",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 what the report says test_UAT_FC_REQ-199_every_outcome_gets_a_line_and_a_refusal_names_the_person_and_the_reason",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-199 \u2014 what the report says test_UAT_FC_REQ-199_the_two_outcomes_worth_acting_on_are_accented_by_one_rule",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-200 \u00b7 the apex is a published site test_UAT_AC2333_apex_pages_and_assets_resolve_at_the_root",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-200 \u00b7 the Worker reads a session only to select a state test_UAT_AC2334_signed_out_by_default_and_signed_in_with_a_session",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-200 \u00b7 the Worker reads a session only to select a state test_UAT_AC2335_a_session_dependent_response_is_not_shared_cached",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 the Contacts tab draws two axes test_UAT_AC2209_each_row_draws_stage_and_member_badge_separately",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 the Contacts tab draws two axes test_UAT_AC2210_two_facets_narrow_independently_and_combine",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0ea74f39 \u2014 the Contacts tab draws two axes test_UAT_AC2211_styling_is_keyed_on_the_axis_never_a_value",
+          "file": "",
+          "status": "passed"
+        }
+      ],
+      "hung_test": null,
+      "timeout_reason": null,
+      "partial_results": false,
+      "failures": []
+    }
+  },
+  "overall": {
+    "status": "success",
+    "issues": []
+  },
+  "validation": {
+    "anomalies": []
+  },
+  "blast_radius": {
+    "test_scope": "",
+    "files": []
+  }
+}
