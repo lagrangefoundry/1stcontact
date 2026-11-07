@@ -92,9 +92,24 @@ function pageWithChrome(): Record<string, unknown> {
  * Dispatching on the SQL rather than ignoring it, because the point of the
  * session cases is that the Worker asks the right questions of the right tables.
  */
-function fakeDb(fixtureDb: { prepare(q: string): unknown }, sessions: Record<string, { operates: boolean }>) {
+interface DbBehaviour {
+  /** Every query the Worker prepared, so a write would be visible. */
+  queries?: string[]
+  /** A session store whose read fails, as one with no `sessions` table does. */
+  sessionsThrow?: boolean
+}
+
+function fakeDb(
+  fixtureDb: { prepare(q: string): unknown },
+  sessions: Record<string, { operates: boolean }>,
+  behaviour: DbBehaviour = {},
+) {
   return {
     prepare(query: string) {
+      behaviour.queries?.push(query)
+      if (behaviour.sessionsThrow && query.includes('FROM sessions')) {
+        throw new Error('D1_ERROR: no such table: sessions')
+      }
       if (query.includes('FROM sessions')) {
         return {
           bind: (...values: unknown[]) => ({
@@ -120,6 +135,7 @@ interface CallOpts {
   method?: string
   env?: Partial<Env>
   cache?: { store: Map<string, Response>; puts: string[] }
+  db?: DbBehaviour
 }
 
 async function call(
@@ -153,7 +169,7 @@ async function call(
       }),
       {
         SITES: published.bucket as never,
-        DB: fakeDb(published.db, sessions) as never,
+        DB: fakeDb(published.db, sessions, opts.db) as never,
         APEX_SITE_KEY: APEX,
         SESSION_COOKIE_NAME: 'session',
         SESSION_COOKIE_DOMAIN: COOKIE_DOMAIN,
@@ -217,15 +233,36 @@ describe('REQ-200 · the apex is a published site', () => {
     expect(await res.text()).toContain('data-account-chrome')
   })
 
-  it('test_UAT_FC_REQ_200_apex_pages_and_assets_resolve_at_the_root', async () => {
+  it('test_UAT_AC2333_apex_pages_and_assets_resolve_at_the_root', async () => {
     // A real site needs its own paths, not just `/`: its stylesheet is referenced
     // document-relatively, so it is requested at the root of the host.
     const published = await publishApex(true)
     expect(parseRoute('/theme.css')).toMatchObject({ kind: 'apex', path: 'theme.css' })
-    expect((await call(published, '/theme.css')).status).toBe(200)
+    const atRoot = await call(published, '/theme.css')
+    expect(atRoot.status).toBe(200)
+    // The SAME object of the same live revision the site's own address serves.
+    const named = await call(published, `/site/${APEX}/theme.css`)
+    expect(named.status).toBe(200)
+    expect(await atRoot.text()).toBe(await named.text())
+    // `/` is that site's index page, the same document `/site/<key>/` names.
+    const index = await call(published, '/')
+    const namedIndex = await call(published, `/site/${APEX}/`)
+    expect(index.status).toBe(200)
+    expect(namedIndex.status).toBe(200)
+    expect(await index.text()).toBe(await namedIndex.text())
+    // `/site/` stays reserved: it is never read as an apex path.
+    expect(parseRoute(`/site/${APEX}/theme.css`)).not.toMatchObject({ kind: 'apex' })
+
     // And which site the apex is comes from configuration, never from the URL.
     const unconfigured = await call(published, '/', {}, { env: { APEX_SITE_KEY: undefined } })
     expect(unconfigured.status).toBe(404)
+    const unconfiguredPath = await call(published, '/theme.css', {}, { env: { APEX_SITE_KEY: undefined } })
+    expect(unconfiguredPath.status).toBe(404)
+    // A configured apex that has never published answers the same plain not-found.
+    const unpublished = await call(published, '/', {}, { env: { APEX_SITE_KEY: 'never_published_key' } })
+    expect(unpublished.status).toBe(404)
+    expect(unpublished.headers.get('content-type')).toBe(unconfigured.headers.get('content-type'))
+    expect(await unpublished.text()).toBe(await unconfigured.text())
   })
 
   it('test_UAT_FC_REQ_200_the_authored_apex_site_carries_the_module', () => {
@@ -249,22 +286,59 @@ describe('REQ-200 · the apex is a published site', () => {
 })
 
 describe('REQ-200 · the Worker reads a session only to select a state', () => {
-  it('test_UAT_FC_REQ_200_signed_out_by_default_and_signed_in_with_a_session', async () => {
+  it('test_UAT_AC2334_signed_out_by_default_and_signed_in_with_a_session', async () => {
     const published = await publishApex(true)
+    const queries: string[] = []
 
-    const anonymous = await (await call(published, '/')).text()
+    const anonymous = await (await call(published, '/', {}, { db: { queries } })).text()
     expect(anonymous).toContain('data-account-chrome="signed-out"')
 
     const signedIn = await (
-      await call(published, '/', { s1: { operates: false } }, { cookie: 'session=s1' })
+      await call(published, '/', { s1: { operates: false } }, { cookie: 'session=s1', db: { queries } })
     ).text()
     expect(signedIn).toContain('data-account-chrome="signed-in"')
     expect(signedIn).not.toContain('data-account-chrome-businesses ')
+    // Every state is in the published bytes; serving changes only which one the
+    // root names, so the two documents differ in that attribute and nothing else.
+    expect(signedIn.replace('data-account-chrome="signed-in"', 'data-account-chrome="signed-out"')).toBe(
+      anonymous,
+    )
 
     const operator = await (
-      await call(published, '/', { s1: { operates: true } }, { cookie: 'session=s1' })
+      await call(published, '/', { s1: { operates: true } }, { cookie: 'session=s1', db: { queries } })
     ).text()
     expect(operator).toContain('data-account-chrome-businesses')
+
+    // Signed out whenever the cookie cannot be trusted or read: a host outside
+    // the cookie domain, a look-alike suffix, an unknown or expired session (the
+    // store returns no live row), and a store whose read throws.
+    const signedOut = 'data-account-chrome="signed-out"'
+    for (const origin of ['https://alicesplumbing.com', 'https://not1stcontact.io']) {
+      const res = await call(published, '/', { s1: { operates: true } }, { cookie: 'session=s1', origin, db: { queries } })
+      expect(await res.text(), origin).toContain(signedOut)
+    }
+    const expired = await call(published, '/', {}, { cookie: 'session=expired', db: { queries } })
+    expect(await expired.text()).toContain(signedOut)
+    const failing = await call(
+      published,
+      '/',
+      { s1: { operates: true } },
+      { cookie: 'session=s1', db: { queries, sessionsThrow: true } },
+    )
+    expect(failing.status).toBe(200)
+    expect(await failing.text()).toContain(signedOut)
+    // A deployment that names no session cookie reads none.
+    const unnamed = await call(
+      published,
+      '/',
+      { s1: { operates: true } },
+      { cookie: 'session=s1', env: { SESSION_COOKIE_NAME: undefined }, db: { queries } },
+    )
+    expect(await unnamed.text()).toContain(signedOut)
+
+    // Reading a session never writes anything.
+    expect(queries.length).toBeGreaterThan(0)
+    expect(queries.filter((q) => /\b(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(q))).toEqual([])
   })
 
   it('test_UAT_FC_REQ_200_no_published_content_becomes_gated', async () => {
@@ -281,7 +355,7 @@ describe('REQ-200 · the Worker reads a session only to select a state', () => {
     expect(anonymous.headers.get('etag')).toBeTruthy()
   })
 
-  it('test_UAT_FC_REQ_200_a_session_dependent_response_is_not_shared_cached', async () => {
+  it('test_UAT_AC2335_a_session_dependent_response_is_not_shared_cached', async () => {
     const published = await publishApex(true)
     const cache = { store: new Map<string, Response>(), puts: [] as string[] }
 
@@ -291,6 +365,41 @@ describe('REQ-200 · the Worker reads a session only to select a state', () => {
     // The entity served is not the entity R2 stored, so R2's etag is withheld.
     expect(res.headers.get('etag')).toBeNull()
     expect(cache.puts).toEqual([])
+
+    // The same holds when it names a signed-in state.
+    const signedIn = await call(published, '/', { s1: { operates: true } }, { cookie: 'session=s1', cache })
+    expect(signedIn.headers.get('cache-control')).toBe('private, no-store')
+    expect(signedIn.headers.get('vary')).toBe('cookie')
+    expect(signedIn.headers.get('etag')).toBeNull()
+    expect(cache.puts).toEqual([])
+
+    // A header-only request reports the length of the body a fetch would serve.
+    const sessions = { s1: { operates: true } }
+    const head = await call(published, '/', sessions, { cookie: 'session=s1', method: 'HEAD' })
+    const body = await (await call(published, '/', sessions, { cookie: 'session=s1' })).text()
+    expect(head.headers.get('content-length')).toBe(String(new TextEncoder().encode(body).length))
+
+    // A request carrying a session never reads the shared cache, for any path.
+    const primed = {
+      store: new Map<string, Response>([[`${ORIGIN}/theme.css`, new Response('STALE-ANONYMOUS')]]),
+      puts: [] as string[],
+    }
+    const asset = await call(published, '/theme.css', sessions, { cookie: 'session=s1', cache: primed })
+    expect(await asset.text()).not.toContain('STALE-ANONYMOUS')
+
+    // A page without the chrome is unaffected: with or without a session it is
+    // byte-identical, keeps its etag and the short public lifetime.
+    const chromeless = await publishApex(false)
+    const anon = await call(chromeless, '/')
+    const withSession = await call(chromeless, '/', sessions, { cookie: 'session=s1' })
+    expect(await anon.text()).toBe(await withSession.text())
+    for (const r of [anon, withSession]) {
+      expect(r.headers.get('etag')).toBeTruthy()
+      expect(r.headers.get('cache-control')).toBe('public, max-age=60')
+    }
+    expect(withSession.headers.get('etag')).toBe(anon.headers.get('etag'))
+    // Non-HTML assets keep their etag too.
+    expect((await call(published, '/theme.css')).headers.get('etag')).toBeTruthy()
 
     // And a page with no chrome still is cached, so the refusal is about session
     // dependence and not about turning the cache off.

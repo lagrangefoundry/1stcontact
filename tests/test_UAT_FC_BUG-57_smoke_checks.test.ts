@@ -270,7 +270,7 @@ describe('BUG-57 — every smoke check is reachable', () => {
    * on the command line is what left the REQ-147 assertion skipped on every
    * default run.
    */
-  it('test_UAT_FC_BUG-57_control_origin_is_derived_from_the_default_apex', async () => {
+  it('test_UAT_AC2357_control_origin_is_derived_from_the_default_apex', async () => {
     const asked: string[] = []
     const challenge = async (input: string | URL) => {
       asked.push(String(input))
@@ -284,6 +284,11 @@ describe('BUG-57 — every smoke check is reachable', () => {
     const gate = derived.checks.find((c) => c.name === 'control_app_challenges_unauthenticated')!
     expect(gate.status).toBe('pass')
     expect(asked).toContain('https://app.1stcontact.io/')
+    // The platform-default hostname is never derived, even for the apex.
+    const workersDev = derived.checks.find((c) => c.name === 'control_app_workers_dev_closed')!
+    expect(workersDev.status).toBe('skip')
+    expect(workersDev.detail).toContain('--workers-dev-origin')
+    expect(asked.some((u) => u.includes('workers.dev'))).toBe(false)
 
     // An explicit origin still wins over the derivation.
     const named: string[] = []
@@ -306,7 +311,7 @@ describe('BUG-57 — every smoke check is reachable', () => {
    * gate for it. A false alarm on the assertion that says "the builder is not
    * public" is worse than a skip, so anything but the known apex must be named.
    */
-  it('test_UAT_FC_BUG-57_a_non_default_origin_derives_nothing_and_skips', async () => {
+  it('test_UAT_AC2357_a_non_default_origin_derives_nothing_and_skips', async () => {
     const asked: string[] = []
     const report = (await runSmoke({
       origin: 'https://staging.example',
@@ -357,7 +362,7 @@ describe('BUG-57 — every smoke check is reachable', () => {
    * same value — restated across a deployment boundary, so pinned rather than
    * hoped at, the arrangement the content-type table already documents.
    */
-  it('test_UAT_FC_BUG-57_the_published_cache_policy_matches_the_worker', async () => {
+  it('test_UAT_AC2356_the_published_cache_policy_matches_the_worker', async () => {
     const worker = execFileSync(
       'node',
       [
@@ -382,5 +387,22 @@ describe('BUG-57 — every smoke check is reachable', () => {
       }),
     })
     expect(agreeing.failed.map((c) => c.name)).toEqual([])
+
+    // Any other policy fails, and the failure names what it saw and what it wanted.
+    const other = 'public, max-age=3600'
+    const disagreeing = await smoke({
+      siteKey: SITE_KEY,
+      fetch: publishedOrigin({
+        [`${ROOT}/`]: () =>
+          new Response('<html><img src="./assets/logo.svg"></html>', {
+            status: 200,
+            headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': other },
+          }),
+      }),
+    })
+    const policy = disagreeing.checks.find((c) => c.name === 'published_cache_policy')!
+    expect(policy.status).toBe('fail')
+    expect(policy.detail).toContain(other)
+    expect(policy.detail).toContain(worker)
   })
 })

@@ -3,7 +3,7 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { admit, provisionInvite, type IdentityEnv } from '../apps/control-app/src/identity'
+import { admit, type IdentityEnv } from '../apps/control-app/src/identity'
 import {
   guardTerms,
   TERMS_ACCEPT_PATH,
@@ -12,6 +12,7 @@ import {
   TERMS_VERSION,
 } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
+import { inviteAccount } from './support/invite-account'
 
 /**
  * Story story-0cd18650 — Terms of Service Gate: an admitted person accepts the
@@ -19,8 +20,11 @@ import { applySchema } from './support/d1-site-factory'
  *
  * Every case drives the Worker's own `fetch` inside workerd against a real D1
  * database, carrying a real RS256 Access token verified against a stubbed JWKS
- * (the only external boundary). The person under test is invited through
- * `provisionInvite`, so the terms check is the only thing that can stop them.
+ * (the only external boundary). The person under test is seeded through the
+ * `inviteAccount` fixture — the product's `addContact` followed by
+ * `provisionBusiness` — so they hold an entitled business with a site, and the
+ * terms check is the only thing that can stop them. Accepting provisions
+ * nothing further for an account that already owns a business ([[REQ-203]]).
  * The assets binding answers a recognisable body so that a fall-through to the
  * builder is an observation rather than an inference.
  *
@@ -119,7 +123,7 @@ async function call(path: string, token: string | null, init: Init = {}, e: Env 
 let seq = 0
 async function anInvitee(): Promise<{ email: string; token: string; userId: string }> {
   const email = `tos-gate-${(seq += 1)}@example.test`
-  const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+  const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
   return { email, token: await mint(email), userId: invited.user.id }
 }
 
@@ -334,7 +338,12 @@ describe('Terms of service gate — acceptance', () => {
     const page = await expectTermsPage(await call('/', token, { headers: DOCUMENT }))
     expect(page).toContain(JSON.stringify(TERMS_ACCEPT_PATH))
     expect(page).toContain('location.reload()')
-    expect(page).not.toMatch(/location\.(href|assign|replace)\s*[=(]/)
+    // The one exception ([[REQ-203]]): served at the terms path itself, a reload
+    // would answer with the terms again, so from there it goes to the builder
+    // root. Nowhere else does the accept control navigate away.
+    const fromTermsPath = `if (location.pathname === ${JSON.stringify(TERMS_PATH)}) location.assign('/')`
+    expect(page).toContain(fromTermsPath)
+    expect(page.replace(fromTermsPath, '')).not.toMatch(/location\.(href|assign|replace)\s*[=(]/)
     await expectRefusal(await call('/builder/main.js', token, { headers: WILDCARD }), 'asset before')
 
     expect((await call(TERMS_ACCEPT_PATH, token, JSON_POST)).status).toBe(204)

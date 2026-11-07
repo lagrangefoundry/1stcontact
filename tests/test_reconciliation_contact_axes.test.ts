@@ -13,6 +13,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import type { Person } from '../apps/control-app/src/people'
+import type { PersonName } from '../apps/control-app/src/names'
 
 let createPeoplePanel: (opts?: Record<string, unknown>) => {
   element: HTMLElement
@@ -39,30 +41,45 @@ function memoryStorage() {
   }
 }
 
-interface Person {
-  id: string
-  email: string
-  displayName: string | null
-  status: string
-  invitedAt: string | null
-  firstSeenAt: string | null
-  lastSeenAt: string | null
-  termsAcceptedAt: string | null
-  pipelineStage: string
-  createdAt: string
+/**
+ * A person as the people route returns one, typed against the shipped `Person`
+ * so that a change to the payload's shape fails here at compile time rather than
+ * silently drawing "No name yet" on every row. The name is the RECORD
+ * ([[REQ-193]]); `displayName` is accepted as a shorthand for building it.
+ */
+const person = (
+  over: Partial<Omit<Person, 'name'>> & { id: string; email: string; displayName?: string | null },
+): Person => {
+  const { displayName = null, ...rest } = over
+  const name: PersonName | null =
+    displayName === null
+      ? null
+      : {
+          id: `nam_${over.id}`,
+          displayName,
+          knownAs: null,
+          title: null,
+          givenName: null,
+          middleNames: null,
+          familyName: null,
+          suffix: null,
+          createdAt: '2026-09-01T09:00:00.000Z',
+          updatedAt: '2026-09-01T09:00:00.000Z',
+        }
+  return {
+    accountId: `acct_${over.id}`,
+    name,
+    formerNames: [],
+    status: 'active',
+    invitedAt: null,
+    firstSeenAt: null,
+    lastSeenAt: null,
+    termsAcceptedAt: null,
+    pipelineStage: 'lead',
+    createdAt: '2026-09-01T09:00:00.000Z',
+    ...rest,
+  }
 }
-
-const person = (over: Partial<Person> & { id: string; email: string }): Person => ({
-  displayName: null,
-  status: 'active',
-  invitedAt: null,
-  firstSeenAt: null,
-  lastSeenAt: null,
-  termsAcceptedAt: null,
-  pipelineStage: 'lead',
-  createdAt: '2026-09-01T09:00:00.000Z',
-  ...over,
-})
 
 /** The four corners of two two-valued axes, in list order. */
 const INVITED_NON_MEMBER = person({

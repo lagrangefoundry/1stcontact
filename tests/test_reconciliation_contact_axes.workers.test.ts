@@ -4,14 +4,21 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
+  admit,
   ensurePlatformOperator,
-  findAccount,
   provisionBusiness,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
-import type { Person } from '../apps/control-app/src/people'
+import { addContact, markInvited, type Person } from '../apps/control-app/src/people'
 import { acceptTerms, TERMS_ACCEPT_PATH, TERMS_VERSION } from '../apps/control-app/src/terms'
-import { PEOPLE_PATH, PERSON_DETAIL_PATH, PERSON_INVITE_PATH } from '../apps/control-app/src/router'
+import type { Message, SendEmail } from '../apps/control-app/src/mail'
+import {
+  route,
+  PEOPLE_PATH,
+  PERSON_ADD_PATH,
+  PERSON_DETAIL_PATH,
+  PERSON_INVITE_PATH,
+} from '../apps/control-app/src/router'
 import {
   accessLabel,
   accessOf,
@@ -21,24 +28,33 @@ import {
 } from '../apps/control-app/src/builder/people-axes.js'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
+import { personByEmail } from './support/person'
 
 /**
  * story-0ea74f39 — **every contact sits on two independent axes**, at the origin.
  *
  * Access (Member / Not a member) is read from terms acceptance; the pipeline
- * stage (Lead → Invited) is a stored value. Every case drives the deployed
- * `fetch` inside workerd against a real D1 with the deployed migrations and a
- * real RS256 Access token verified against a stubbed JWKS — the JWKS fetch is
- * the only external boundary. Labels are taken from `builder/people-axes.js`,
- * the module the Contacts tab draws its rows with, so what is asserted is what
- * the operator sees. The rendering half (rows, facets, stylesheet) is the jsdom
- * sibling; the migration is its own workers file because it needs a database
- * that has not yet run 0009.
+ * stage (Lead → Invited) is a stored value. Reads drive the deployed `fetch`
+ * inside workerd against a real D1 with the baseline schema and a real RS256
+ * Access token verified against a stubbed JWKS — the JWKS fetch is the only
+ * external boundary. Labels are taken from `builder/people-axes.js`, the module
+ * the Contacts tab draws its rows with, so what is asserted is what the operator
+ * sees. The rendering half (rows, facets, stylesheet) is the jsdom sibling; the
+ * baseline-schema stage claims are their own workers file.
+ *
+ * CONTACTS ARE SEEDED THROUGH THE PRODUCT'S `addContact` ([[REQ-199]]), which
+ * writes the person, their account ([[REQ-194]]) and their primary address
+ * ([[REQ-191]]) together. A case that needs a contact in a particular state then
+ * sets only that state's columns. The invite is driven through the router's
+ * `route()` with the documented `sendEmail` seam and the admission `admit`
+ * really produced, because the deployed default cannot be told to fail and must
+ * never reach a provider from a test.
  */
 
 const PLATFORM = 'axes-platform'
 const TEAM = 'https://axes-team.cloudflareaccess.com'
 const AUD = 'd'.repeat(64)
+const FROM = 'no-reply@example.test'
 
 let signing: CryptoKeyPair
 let jwks: { keys: JsonWebKey[] }
@@ -56,6 +72,8 @@ function workerEnv(): Env {
     ACCESS_DEV_OPEN: '',
     ACCESS_TEAM_DOMAIN: TEAM,
     ACCESS_AUD: AUD,
+    MAIL_FROM: FROM,
+    SESSION_COOKIE_NAME: 'session',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   } as Env
 }
@@ -95,30 +113,40 @@ function stubJwks(): void {
 let seq = 0
 const anEmail = (): string => `axes-${(seq += 1)}@example.test`
 
-/** An owner of the platform business who has signed up, seeded the production way. */
-async function anOperator(): Promise<string> {
-  const email = anEmail()
-  await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
-  return mint(email)
+interface Operator {
+  email: string
+  token: string
 }
 
+/** An owner of the platform business who has signed up, seeded the production way. */
+async function anOperator(): Promise<Operator> {
+  const email = anEmail()
+  await ensurePlatformOperator(identityEnv(), email)
+  const person = await personByEmail(identityEnv(), PLATFORM, email)
+  if (!person) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), person.id)
+  return { email, token: await mint(email) }
+}
+
+/** The per-case state columns a seeded contact may be given. */
+type ContactState = Partial<
+  Record<'tos_accepted_at' | 'tos_version' | 'first_seen_at' | 'invited_at' | 'pipeline_stage', string>
+>
+
 /**
- * A contact created by a non-invite route. `pipeline_stage` is deliberately not
- * named: the claim is that a contact arrives at `lead` without anyone writing it.
+ * A contact, added through the product's `addContact` and then put into the
+ * state the case needs. With no state named, the row is exactly what adding
+ * produces — the claim several cases make is that nobody wrote a stage.
  */
-async function addContact(email: string, extra: Record<string, string | null> = {}): Promise<string> {
-  const id = `usr_axes_${(seq += 1)}`
-  const now = new Date().toISOString()
-  const cols = ['id', 'tenant_id', 'email', 'status', 'created_at', 'updated_at', ...Object.keys(extra)]
-  await env.DB.prepare(
-    `INSERT INTO users (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
-  )
-    .bind(id, PLATFORM, email, 'active', now, now, ...Object.values(extra))
-    .run()
-  return id
+async function aContact(email: string, state: ContactState = {}): Promise<string> {
+  const made = await addContact(identityEnv(), { businessId: PLATFORM }, { email })
+  const cols = Object.keys(state)
+  if (cols.length > 0) {
+    await env.DB.prepare(`UPDATE users SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`)
+      .bind(...Object.values(state), made.person.id)
+      .run()
+  }
+  return made.person.id
 }
 
 const call = (token: string, path: string, body?: unknown): Promise<Response> =>
@@ -130,6 +158,43 @@ const call = (token: string, path: string, body?: unknown): Promise<Response> =>
     }),
     workerEnv(),
   )
+
+/** A mail port that records what it was handed, refusing the addresses named. */
+function recording(failFor: string[] = []): { send: SendEmail; sent: Message[] } {
+  const sent: Message[] = []
+  return {
+    sent,
+    send: async (message) => {
+      if (failFor.includes(message.to)) throw new Error('mailbox does not exist')
+      sent.push(message)
+      return { providerId: `prov_${sent.length}` }
+    },
+  }
+}
+
+type InviteResult = {
+  contactId: string
+  to: string | null
+  status: 'sent' | 'failed' | 'refused'
+  reason: string | null
+}
+
+/** The invite route, as the operator's admission reaches it, with an observable port. */
+async function invite(operator: Operator, ids: string[], send: SendEmail): Promise<InviteResult[]> {
+  const admission = await admit(identityEnv(), operator.email)
+  const response = await route(
+    new Request(`https://app.example/b/${encodeURIComponent(PLATFORM)}${PERSON_INVITE_PATH}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    }),
+    workerEnv(),
+    { businessId: PLATFORM },
+    { admission, sendEmail: send },
+  )
+  expect(response.status, await response.clone().text()).toBe(200)
+  return (await response.json<{ results: InviteResult[] }>()).results
+}
 
 /** The people list, through the route the Contacts tab reads. */
 async function listed(token: string): Promise<Person[]> {
@@ -168,16 +233,16 @@ afterEach(() => {
 describe('story-0ea74f39 — two axes at the origin', () => {
   it('test_UAT_AC2203_member_if_and_only_if_terms_accepted', async () => {
     stubJwks()
-    const token = await anOperator()
+    const { token } = await anOperator()
     const now = new Date().toISOString()
     const accepted = anEmail()
     const seenOnly = anEmail()
     const invitedOnly = anEmail()
     const nothing = anEmail()
-    await addContact(accepted, { tos_accepted_at: now, tos_version: TERMS_VERSION })
-    await addContact(seenOnly, { first_seen_at: now })
-    await addContact(invitedOnly, { invited_at: now, pipeline_stage: 'invited' })
-    await addContact(nothing)
+    await aContact(accepted, { tos_accepted_at: now, tos_version: TERMS_VERSION })
+    await aContact(seenOnly, { first_seen_at: now })
+    await aContact(invitedOnly, { invited_at: now, pipeline_stage: 'invited' })
+    await aContact(nothing)
 
     const people = await listed(token)
     const of = (email: string) => people.find((p) => p.email === email)!
@@ -206,9 +271,13 @@ describe('story-0ea74f39 — two axes at the origin', () => {
 
   it('test_UAT_AC2204_contact_begins_at_lead', async () => {
     stubJwks()
-    const token = await anOperator()
+    const { token } = await anOperator()
     const email = anEmail()
-    const id = await addContact(email)
+
+    // Added through the endpoint the tab's `+` control calls; nobody names a stage.
+    const added = await call(token, PERSON_ADD_PATH, { email })
+    expect(added.status).toBe(200)
+    const id = (await added.json<{ person: Person }>()).person.id
 
     const stored = await env.DB.prepare('SELECT pipeline_stage FROM users WHERE id = ?')
       .bind(id)
@@ -226,39 +295,72 @@ describe('story-0ea74f39 — two axes at the origin', () => {
 
   it('test_UAT_AC2205_invite_moves_to_invited_never_member_and_keeps_first_stamp', async () => {
     stubJwks()
-    const token = await anOperator()
+    const operator = await anOperator()
+    const { token } = operator
 
-    // 1. A new address.
+    // 1. Add an address: a Lead with no invite stamp.
     const fresh = anEmail()
-    const first = await call(token, PERSON_INVITE_PATH, { email: fresh })
-    expect(first.status).toBe(200)
-    const made = (await first.json<{ person: Person }>()).person
-    expect(made.pipelineStage).toBe('invited')
-    expect(made.invitedAt).toBeTruthy()
-    expect(made.termsAcceptedAt).toBeNull()
+    const added = await call(token, PERSON_ADD_PATH, { email: fresh })
+    expect(added.status).toBe(200)
+    const made = (await added.json<{ person: Person }>()).person
+    expect(made.pipelineStage).toBe('lead')
+    expect(made.invitedAt).toBeNull()
+
+    //    Invite it with the port succeeding.
+    const port = recording()
+    const [sent] = await invite(operator, [made.id], port.send)
+    expect(sent.status).toBe('sent')
+    expect(port.sent.map((m) => m.to)).toEqual([fresh])
     const readBack = await listedOne(token, fresh)
     expect(readBack.pipelineStage).toBe('invited')
+    expect(readBack.invitedAt).toBeTruthy()
     expect(readBack.termsAcceptedAt).toBeNull()
     expect(row(readBack)).toEqual({ stage: 'Invited', badge: false })
 
-    // 2. The same address again: the original invite time stands.
+    // 2. Invite it again: the original invite time stands.
     await new Promise((resolve) => setTimeout(resolve, 5))
-    const again = await call(token, PERSON_INVITE_PATH, { email: fresh })
-    expect(again.status).toBe(200)
+    const [again] = await invite(operator, [made.id], recording().send)
+    expect(again.status).toBe('sent')
     const reread = await listedOne(token, fresh)
     expect(reread.invitedAt).toBe(readBack.invitedAt)
     expect(reread.pipelineStage).toBe('invited')
 
-    // 3. An existing Lead who has already accepted the terms.
+    // 3. Another contact, invited with the port failing, still moves.
+    const bounced = anEmail()
+    const bouncedId = await aContact(bounced)
+    const [failed] = await invite(operator, [bouncedId], recording([bounced]).send)
+    expect(failed.status).toBe('failed')
+    const bouncedAfter = await listedOne(token, bounced)
+    expect(bouncedAfter.pipelineStage).toBe('invited')
+    expect(bouncedAfter.invitedAt).toBeTruthy()
+    expect(bouncedAfter.termsAcceptedAt).toBeNull()
+
+    // 4. A contact holding no primary address, alongside another, is refused and not moved.
+    const mute = anEmail()
+    const muteId = await aContact(mute)
+    await env.DB.prepare('DELETE FROM user_emails WHERE user_id = ?').bind(muteId).run()
+    const alongside = anEmail()
+    const alongsideId = await aContact(alongside)
+    const results = await invite(operator, [muteId, alongsideId], recording().send)
+    expect(results.find((r) => r.contactId === muteId)?.status).toBe('refused')
+    expect(results.find((r) => r.contactId === alongsideId)?.status).toBe('sent')
+    const muteAfter = await env.DB.prepare(
+      'SELECT pipeline_stage, invited_at FROM users WHERE id = ?',
+    )
+      .bind(muteId)
+      .first<{ pipeline_stage: string; invited_at: string | null }>()
+    expect(muteAfter).toEqual({ pipeline_stage: 'lead', invited_at: null })
+
+    // 5. An existing Lead who has already accepted the terms.
     const member = anEmail()
-    const memberId = await addContact(member)
+    const memberId = await aContact(member)
     await acceptTerms(identityEnv(), memberId)
     const before = await listedOne(token, member)
     expect(before.pipelineStage).toBe('lead')
     expect(before.termsAcceptedAt).toBeTruthy()
 
-    const invitingMember = await call(token, PERSON_INVITE_PATH, { email: member })
-    expect(invitingMember.status).toBe(200)
+    const [invitingMember] = await invite(operator, [memberId], recording().send)
+    expect(invitingMember.status).toBe('sent')
     const after = await listedOne(token, member)
     expect(after.pipelineStage).toBe('invited')
     expect(after.termsAcceptedAt).toBe(before.termsAcceptedAt)
@@ -267,15 +369,27 @@ describe('story-0ea74f39 — two axes at the origin', () => {
 
   it('test_UAT_AC2206_accepting_terms_makes_member_and_keeps_stage', async () => {
     stubJwks()
-    const token = await anOperator()
+    const { token } = await anOperator()
 
-    // A Lead who may reach the door: membership + entitlement, no invite.
+    // A Lead who may reach the door: an owned business with an entitlement, no invite.
     const lead = anEmail()
-    const leadId = await addContact(lead)
-    await provisionBusiness(identityEnv(), { accountUserId: leadId, name: 'Lead Co', email: lead, endsAt: null })
+    const leadId = await aContact(lead)
+    const leadRow = await env.DB.prepare('SELECT account_id FROM users WHERE id = ?')
+      .bind(leadId)
+      .first<{ account_id: string }>()
+    await provisionBusiness(identityEnv(), {
+      accountId: leadRow!.account_id,
+      name: 'Lead Co',
+      endsAt: null,
+    })
     // An Invited contact who may reach the door.
     const invited = anEmail()
-    await inviteAccount(identityEnv(), { email: invited, accountName: 'Invited Co', endsAt: null })
+    const seeded = await inviteAccount(identityEnv(), {
+      email: invited,
+      accountName: 'Invited Co',
+      endsAt: null,
+    })
+    await markInvited(identityEnv(), { businessId: PLATFORM }, seeded.user.id)
 
     expect((await listedOne(token, lead)).pipelineStage).toBe('lead')
     expect((await listedOne(token, invited)).pipelineStage).toBe('invited')
@@ -307,14 +421,14 @@ describe('story-0ea74f39 — two axes at the origin', () => {
 
   it('test_UAT_AC2207_stage_is_the_stored_value_not_inferred', async () => {
     stubJwks()
-    const token = await anOperator()
+    const { token } = await anOperator()
     const now = new Date().toISOString()
     const stampedLead = anEmail()
     const unstampedInvited = anEmail()
     const unknown = anEmail()
-    await addContact(stampedLead, { invited_at: now, pipeline_stage: 'lead' })
-    await addContact(unstampedInvited, { pipeline_stage: 'invited' })
-    await addContact(unknown, { invited_at: now, pipeline_stage: 'qualified' })
+    await aContact(stampedLead, { invited_at: now, pipeline_stage: 'lead' })
+    await aContact(unstampedInvited, { pipeline_stage: 'invited' })
+    await aContact(unknown, { invited_at: now, pipeline_stage: 'qualified' })
 
     const people = await listed(token)
     const of = (email: string) => people.find((p) => p.email === email)!
