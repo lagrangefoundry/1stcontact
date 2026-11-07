@@ -6,15 +6,17 @@ title: 'Contacts tab: every contact sits on two independent axes — access (Mem
   and pipeline stage (Lead → Invited)'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:04:34.983161+00:00'
-updated_at: '2026-11-07T07:25:35.687773+00:00'
+updated_at: '2026-11-07T07:25:36.184151+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-39edf66d
   capability_uid: capability-e5939ceb
   story_kind: upgrade
   story_points: 2
+  updated_by:
+  - bundle-7988e925
 ---
 
 ## Story
