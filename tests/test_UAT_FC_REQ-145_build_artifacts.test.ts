@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { MODULE_CSS, MODULE_CLIENT_JS } from '../packages/framework/src/modules/module-assets'
@@ -68,6 +70,32 @@ describe('REQ-145 — build artifacts and the config that must match them', () =
     expect(MODULE_CSS.length).toBeGreaterThan(0)
     expect(MODULE_CLIENT_JS.length).toBeGreaterThan(0)
     expect(fresh.cssIds).toContain('contact-form')
+
+    // The bundle must PARSE as the `<script type="module">` it ships as. Matching
+    // its sources is not enough: several behaviors' `client.js` declare the same
+    // top-level `const` (ERROR_SELECTOR), and joined plainly that is an early
+    // SyntaxError — the whole bundle fails to load and no behavior runs on any
+    // page, which only a browser test would otherwise notice. `node --check` on
+    // an `.mjs` file applies module-goal parsing, early errors included, without
+    // executing anything.
+    const dir = mkdtempSync(path.join(tmpdir(), 'req145-client-js-'))
+    try {
+      const bundle = path.join(dir, 'capabilities.mjs')
+      writeFileSync(bundle, MODULE_CLIENT_JS)
+      const check = spawnSync(process.execPath, ['--check', bundle], { encoding: 'utf8' })
+      expect(check.stderr).toBe('')
+      expect(check.status).toBe(0)
+
+      // Non-vacuous: the same check rejects a top-level redeclaration, which is
+      // exactly the defect an unscoped concatenation of the behaviors produces.
+      const broken = path.join(dir, 'broken.mjs')
+      writeFileSync(broken, 'const ERROR_SELECTOR = 1\nconst ERROR_SELECTOR = 2\n')
+      const rejected = spawnSync(process.execPath, ['--check', broken], { encoding: 'utf8' })
+      expect(rejected.status).not.toBe(0)
+      expect(rejected.stderr).toContain('SyntaxError')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('test_UAT_FC_REQ-145_the_render_reaches_no_astro_and_no_filesystem', async () => {
