@@ -6,10 +6,10 @@ title: The published channel's cache policy is asserted equal to the Worker's ow
   published cache value
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T21:10:02.866468+00:00'
-updated_at: '2026-11-07T21:10:02.866468+00:00'
+updated_at: '2026-11-07T21:17:36.553085+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
