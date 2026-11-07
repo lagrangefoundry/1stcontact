@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-05835b4c'
 created_by: xgd
 created_at: '2026-11-07T22:37:30.509408+00:00'
-updated_at: '2026-11-07T22:37:30.509408+00:00'
+updated_at: '2026-11-07T22:56:03.699646+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-05835b4c
@@ -36,6 +36,11 @@ fields:
   batch_index: 0
   parent_report_uid: report-3cee3bab
   anchor_ticket: bundle-7988e925
+  ruling: declined
+  ruling_reason: 'Rung 3 decides: REPORT-11190 reports blocked_by null with no proposed
+    change and every test in scope passes (REPORT-11185, 204/204), so code_frozen
+    stands; the batch may touch only the in-scope test files below, and only if a
+    test regresses.'
 ---
 
 # Builder blocked by `code_frozen`
@@ -60,3 +65,7 @@ blocked_by: null
 ```
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: declined
+
+Rung 3 decides: REPORT-11190 reports blocked_by null with no proposed change and every test in scope passes (REPORT-11185, 204/204), so code_frozen stands; the batch may touch only the in-scope test files below, and only if a test regresses.
