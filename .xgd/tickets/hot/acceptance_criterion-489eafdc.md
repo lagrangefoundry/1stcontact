@@ -6,10 +6,10 @@ title: A behavior module may declare a link control, emitted as a real anchor ca
   an allowlisted href
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-05T21:26:17.771237+00:00'
-updated_at: '2026-11-05T21:26:17.771237+00:00'
+updated_at: '2026-11-07T06:53:48.720124+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
