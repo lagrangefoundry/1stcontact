@@ -6,14 +6,15 @@ title: An account's first business is provisioned after the invite, and the acco
   is then admitted with exactly that one business
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T11:57:20.505394+00:00'
-updated_at: '2026-11-04T18:51:34.790012+00:00'
+updated_at: '2026-11-07T22:32:56.180341+00:00'
 completed_at: null
-last_field_updated: body
-status: active
+last_field_updated: status
+status: superseded
 fields:
   story_uid: story-387c9dfe
   kind: behavior
   regression_only: false
+  superseded_by_uid: bundle-7988e925
 ---
 
 ## Criterion
