@@ -6,10 +6,10 @@ title: Signed out, account-chrome is a working POST form without script, and 'ch
   your email' is identical for a known and an unknown address
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-05T21:26:14.034648+00:00'
-updated_at: '2026-11-05T21:26:14.034648+00:00'
+updated_at: '2026-11-07T06:53:49.616853+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
