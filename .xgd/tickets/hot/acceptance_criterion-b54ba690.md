@@ -6,14 +6,15 @@ title: The invite control is shown only to an owner, and its dialog states that 
   message is sent
 created_by: xgd
 created_at: '2026-11-01T18:27:53.575096+00:00'
-updated_at: '2026-11-01T18:57:26.400523+00:00'
+updated_at: '2026-11-07T07:21:52.419095+00:00'
 completed_at: null
 last_field_updated: status
-status: active
+status: superseded
 fields:
   story_uid: story-7b1025b8
   kind: behavior
   regression_only: false
+  superseded_by_uid: bundle-7988e925
 ---
 
 ## Criterion
