@@ -6,9 +6,9 @@ title: An unpublished site answers indistinguishably from an unknown one, in sta
   and body, and a difference fails the check
 created_by: xgd
 created_at: '2026-08-20T05:31:41.608660+00:00'
-updated_at: '2026-09-10T05:44:34.351402+00:00'
+updated_at: '2026-11-07T21:10:01.983421+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d5167ced
@@ -20,13 +20,15 @@ fields:
 ## Criterion
 
 A site that exists but has published nothing must be **indistinguishable** from a site that does not
-exist: the smoke check compares a request for a known-but-unpublished site against one for a slug
+exist: the smoke check compares a request for a known-but-unpublished site against one for a site key
 nothing will ever deploy and requires identical response status **and identical response body**. A
 difference in either fails the check, with a message stating that the difference tells a stranger
 the site exists.
 
 When the site under test does have a live revision there is nothing to compare, and the check says
 so as a passing detail rather than asserting on a comparison it cannot make.
+
+The check is selected by the site key and, without one, is skipped naming the site-key option.
 
 ## Verification
 
