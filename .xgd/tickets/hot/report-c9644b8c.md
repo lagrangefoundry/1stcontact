@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for story-179b8c06'
 created_by: xgd
 created_at: '2026-11-07T06:26:45.741847+00:00'
-updated_at: '2026-11-07T06:26:45.741847+00:00'
+updated_at: '2026-11-07T06:41:04.068826+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: story-179b8c06
@@ -43,6 +43,11 @@ fields:
   batch_index: 1
   parent_report_uid: report-84738adf
   anchor_ticket: bundle-7988e925
+  ruling: declined
+  ruling_reason: Rungs 1 and 2 decided for the tests in iteration 2, and the required
+    production changes are committed at HEAD. Handoff report-c9644b8c proposes no
+    change (no_change_needed). code_frozen stands, and this batch edits only a test
+    file to add a browser-free parse check of the generated bundle.
 ---
 
 # Builder blocked by `code_frozen`
@@ -74,3 +79,7 @@ unverified: "AC1624 browser tests skipped — Chromium cannot launch in this san
 ```
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: declined
+
+Rungs 1 and 2 decided for the tests in iteration 2, and the required production changes are committed at HEAD. Handoff report-c9644b8c proposes no change (no_change_needed). code_frozen stands, and this batch edits only a test file to add a browser-free parse check of the generated bundle.
