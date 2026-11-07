@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-38 — REQ-199/200/201/202/203, 
   BUG-62)'
 created_by: xgd
 created_at: '2026-11-05T21:02:51.986952+00:00'
-updated_at: '2026-11-07T08:23:44.878206+00:00'
+updated_at: '2026-11-07T21:10:59.247493+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -284,7 +284,7 @@ fields:
     justification: STORY-119 already owns the smoke check (AC-1336/1337/1338/1339/1425);
       this corrects which channel it checks and its argument names. Same capability-5d07b533,
       no new bucket.
-    story_uid: null
+    story_uid: story-d5167ced
     target_story_ids:
     - story-d5167ced
     acceptance_criteria_changes:
