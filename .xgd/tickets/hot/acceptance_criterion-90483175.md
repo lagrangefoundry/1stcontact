@@ -6,10 +6,10 @@ title: Edits in the invite modal apply to that send only and never change the te
   a body that has dropped the declared {{cta_url}} is refused before anything is sent
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T07:23:03.725566+00:00'
-updated_at: '2026-11-07T07:23:03.725566+00:00'
+updated_at: '2026-11-07T08:05:53.384351+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
