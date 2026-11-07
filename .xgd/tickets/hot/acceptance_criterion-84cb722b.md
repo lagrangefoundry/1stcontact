@@ -6,14 +6,15 @@ title: The invite writes no membership and no grant; an invitee who has not sign
   up and owns no business is admitted with nothing, not refused
 created_by: xgd
 created_at: '2026-11-01T18:27:45.291361+00:00'
-updated_at: '2026-11-07T07:42:27.407945+00:00'
+updated_at: '2026-11-07T08:09:51.082731+00:00'
 completed_at: null
-last_field_updated: title
-status: active
+last_field_updated: status
+status: superseded
 fields:
   story_uid: story-7b1025b8
   kind: behavior
   regression_only: false
+  superseded_by_uid: bundle-7988e925
 ---
 
 ## Criterion
