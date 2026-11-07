@@ -808,18 +808,12 @@ CREATE INDEX IF NOT EXISTS idx_login_tokens_subject_created
 CREATE INDEX IF NOT EXISTS idx_login_tokens_expires_at
      ON login_tokens (expires_at);
 
--- A LIVE SESSION IS ONE **BEARER** OF ONE SIGN-IN ([[REQ-231]], REQ-151
--- upstream). The row is the credential; the sign-in it belongs to is the chain
--- of rows sharing an `origin_id`. `expires_at` is written once, at
--- `startSession`, and rotation carries it across unchanged — so no number of
--- rotations lengthens a session by a millisecond, and the four columns after
--- `last_seen_at` are what buy the rotation rather than what pay for it.
---
--- ALL FOUR ARE NULLABLE, AND THAT IS THE COMPONENT'S DECISION RATHER THAN A
--- LOOSENING HERE. `ALTER TABLE ADD COLUMN` cannot add a NOT NULL column without
--- a default, so a table migrated into this shape (`0002_session_rotation.sql`)
--- and a table created in it would otherwise be two different schemas for the
--- component to be correct against instead of one.
+-- THE `sessions` TABLE IS TRANSCRIBED FROM THE INSTALLED COMPONENT'S
+-- `SCHEMA_STATEMENTS` ([[REQ-202]]), column for column, so the conformance suite
+-- runs against exactly the shape the component declares. The row is the
+-- credential; the sign-in it belongs to is the chain of rows sharing an
+-- `origin_id`. The four columns after `last_seen_at` are nullable because the
+-- component declares them so.
 CREATE TABLE IF NOT EXISTS sessions (
      id            TEXT PRIMARY KEY,
      subject_id    TEXT NOT NULL,
