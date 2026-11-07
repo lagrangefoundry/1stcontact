@@ -2,13 +2,13 @@
 uid: acceptance_criterion-c63f0d1c
 id: AC-1336
 type: acceptance_criterion
-title: Against a correctly serving origin every applicable smoke check passes, and
-  any skip is named rather than forbidden
+title: Against a correctly serving origin with every input supplied all ten smoke
+  checks pass and nothing is skipped
 created_by: xgd
 created_at: '2026-08-20T05:31:20.823028+00:00'
-updated_at: '2026-09-10T05:44:30.144140+00:00'
+updated_at: '2026-11-07T21:09:25.458450+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: title
 status: active
 fields:
   story_uid: story-d5167ced
@@ -19,29 +19,32 @@ fields:
 
 ## Criterion
 
-Against an origin that is serving correctly, and given a site slug and a preview snapshot
-identifier, the smoke check runs every check applicable to that origin, every one of them passes,
-and the command exits zero with a summary stating how many passed and how many were skipped.
+Against an origin that is serving correctly, given a site key, a control origin and the
+platform-default hostname, the smoke check runs all ten checks, every one passes, **nothing is
+skipped**, and the command exits zero with a summary stating how many passed and how many were
+skipped.
 
-The nine public-serving checks are: the apex resolves; an unknown site is not found; a site with
-nothing published is indistinguishable from an unknown one; the published channel's trailing-slash
-redirect holds; the preview channel's trailing-slash redirect holds; the preview index serves HTML;
-the preview channel's caching and robots policy are correct; a miss inside a preview is a
-non-indexable not-found; and every asset the preview page references resolves.
+The eight public-serving checks are all on the published channel: the apex resolves; an unknown site
+is not found; a site with nothing published is indistinguishable from an unknown one; the published
+trailing-slash redirect holds; the published index answers successfully as HTML; the published index
+carries the published cache policy; a missing object and a missing directory under a published site
+each answer not-found rather than a listing; and every asset the published index references
+resolves. The other two assert the operator surface is private.
 
-A passing run is **not** required to have skipped nothing. The two control-surface checks sit on an
-independent axis, selected by their own options, so a run pointed at a public-serving origin has
-nothing to point them at. What the run must do is **name** what it skipped: the report lists each
-skipped check individually, so "everything applicable passed" and "nothing was left untested" are
-distinguishable rather than conflated. A skip is never counted as a pass and never makes the run
-fail.
+When fewer inputs are supplied, a passing run may skip, but each skip is **named** and names the
+argument it wanted, so "everything applicable passed" and "nothing was left untested" are
+distinguishable rather than conflated. Against the platform's own apex with no other argument, three
+checks run (the apex, the unknown site, and the control-origin challenge) and seven skip; adding a
+site key, nine run and only the platform-default-hostname check skips. A skip is never counted as a
+pass and never makes the run fail.
 
 The origin under test is a parameter of the run, so the same checks are used against production and
 against any other serving origin.
 
 ## Verification
 
-Point the check at a public-serving origin behaving as expected, supplying a slug and a preview
-identifier: the report lists all nine public-serving checks as passed, lists exactly the two
-control-surface checks as skipped and names them, and the exit status is zero. Confirm the asset
-check reports the number of assets it verified rather than reporting a pass having verified none.
+Point the check at a public-serving origin behaving as expected, supplying a site key, a control
+origin and a platform-default hostname: the report lists all ten checks as passed, none skipped, and
+the exit status is zero. Confirm the asset check reports the number of assets it verified rather than
+reporting a pass having verified none. Run it against the apex with only a site key: exactly the
+platform-default-hostname check is skipped and named.
