@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-179b8c06'
 created_by: xgd
 created_at: '2026-11-07T06:16:18.206996+00:00'
-updated_at: '2026-11-07T06:22:54.471087+00:00'
+updated_at: '2026-11-07T06:24:05.093347+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-179b8c06
@@ -36,6 +36,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
