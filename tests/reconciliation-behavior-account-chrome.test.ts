@@ -173,7 +173,17 @@ describe('story-179b8c06 — account-chrome is gated by a site declaration', () 
     // The record is CLOSED: a misspelt capability key fails site validation
     // rather than being silently dropped.
     const typo = buildSite({ capabilities: { acounts: true } })
-    expect(validateSite(typo).ok).toBe(false)
+    const typoResult = validateSite(typo)
+    expect(typoResult.ok).toBe(false)
+    if (!typoResult.ok) {
+      const capIssues = typoResult.errors.filter((e) => e.path.includes('capabilities'))
+      expect(capIssues.length).toBeGreaterThan(0)
+      expect(capIssues.map((e) => e.message).join(' ')).toContain('acounts')
+    }
+    // ...while the spelt-correctly record (and its absence) still validates.
+    for (const capabilities of [undefined, { accounts: true }, { accounts: false }]) {
+      expect(validateSite(buildSite({ capabilities })).ok).toBe(true)
+    }
   })
 })
 
