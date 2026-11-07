@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-38 — REQ-199/200/201/202/203, 
   BUG-62)'
 created_by: xgd
 created_at: '2026-11-05T21:02:51.986952+00:00'
-updated_at: '2026-11-07T06:58:34.005750+00:00'
+updated_at: '2026-11-07T07:25:36.746919+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -162,7 +162,7 @@ fields:
       flow (REQ-199)'. STORY-165 owns the invite's effect on the pipeline. This changes
       existing invite behaviour in capability-e5939ceb, so it is an upgrade, not a
       new bucket.
-    story_uid: null
+    story_uid: story-7b1025b8
     target_story_ids:
     - story-7b1025b8
     - story-0ea74f39
