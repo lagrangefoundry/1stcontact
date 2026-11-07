@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-38 — REQ-199/200/201/202/203, 
   BUG-62)'
 created_by: xgd
 created_at: '2026-11-05T21:02:51.986952+00:00'
-updated_at: '2026-11-07T08:11:58.617481+00:00'
+updated_at: '2026-11-07T08:23:44.878206+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -265,7 +265,7 @@ fields:
       a member of a customer''s business (level-2 login)'' out of scope and STORY-120
       puts ''customer sign-in to a tenant''s own builder'' out of scope. Magic-link
       issue/redeem/sessions is a genuinely new capability.'
-    story_uid: null
+    story_uid: story-e0ca0a36
   - index: 7
     component: Platform Smoke Check
     item_type: upgrade
