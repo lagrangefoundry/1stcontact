@@ -6,9 +6,9 @@ title: Accepting from /terms itself goes to the builder root, where the Site tab
   the default; accepting elsewhere reloads the requested URL
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T08:09:49.429556+00:00'
-updated_at: '2026-11-07T22:33:01.171426+00:00'
+updated_at: '2026-11-07T22:33:14.716753+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-0cd18650
@@ -28,6 +28,11 @@ accepted.
 
 ## Verification
 
-Serve the interstitial at a builder URL, accept, and assert the page reloads that URL.
-Serve the terms at `/terms`, accept, and assert the page navigates to `/` rather than
-reloading `/terms`. Then assert the builder root loads with the Site tab active.
+Serve the interstitial at a builder URL and the terms at `/terms` to an unaccepted
+contact. Assert both pages carry the accept control, and that the control's success
+branch navigates to `/` when the current path is `/terms` and reloads the current URL
+otherwise (the page script is self-contained and is not executed in the workerd test
+runtime, so the branch is asserted on the served script). Accept through the
+interstitial's own JSON POST, then assert the builder root loads the builder (not the
+terms) and that the Site tab is the first, default tab. Assert `/terms` still answers
+with the terms and the acceptance record instead of the control.
