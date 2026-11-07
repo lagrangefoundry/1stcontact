@@ -6,10 +6,10 @@ title: The apex and every path outside /site/ serve the configured apex site, an
   answer not-found when none is configured or it is unpublished
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T06:56:49.540124+00:00'
-updated_at: '2026-11-07T06:56:49.540124+00:00'
+updated_at: '2026-11-07T07:16:35.735706+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
