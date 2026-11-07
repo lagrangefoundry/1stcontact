@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-05835b4c'
 created_by: xgd
 created_at: '2026-11-07T22:51:39.295033+00:00'
-updated_at: '2026-11-07T22:51:39.295033+00:00'
+updated_at: '2026-11-07T23:03:26.805839+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -93,6 +93,7 @@ fields:
       - tests/test_UAT_FC_REQ-200_apex_and_session.test.ts
       - tests/test_UAT_FC_REQ-203_signup_provisions_business.workers.test.ts
   fix_iteration: 4
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 4 (retry 4/1)
