@@ -6,10 +6,10 @@ title: A sign-in request resolves the address only within the business the reque
   host belongs to
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T08:23:12.221083+00:00'
-updated_at: '2026-11-07T08:23:12.221083+00:00'
+updated_at: '2026-11-07T21:04:43.139941+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e0ca0a36
   kind: behavior
