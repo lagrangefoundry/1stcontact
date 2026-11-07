@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for story-e0ca0a36'
 created_by: xgd
 created_at: '2026-11-07T20:00:48.504846+00:00'
-updated_at: '2026-11-07T20:00:48.504846+00:00'
+updated_at: '2026-11-07T20:51:17.009566+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: story-e0ca0a36
@@ -68,6 +68,10 @@ fields:
   batch_index: 0
   parent_report_uid: report-952055fa
   anchor_ticket: bundle-7988e925
+  ruling: declined
+  ruling_reason: 'Rung 3 decides: the builder reported confirmed_green with blocked_by
+    null and proposed no change; every batch test passes on HEAD, so the work is complete
+    within code_frozen and no production edit is required.'
 ---
 
 # Builder blocked by `code_frozen`
@@ -124,3 +128,7 @@ blocked_by: null
 ```
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: declined
+
+Rung 3 decides: the builder reported confirmed_green with blocked_by null and proposed no change; every batch test passes on HEAD, so the work is complete within code_frozen and no production edit is required.
