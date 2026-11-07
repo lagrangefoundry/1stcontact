@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-e0ca0a36'
 created_by: xgd
 created_at: '2026-11-07T20:47:42.408850+00:00'
-updated_at: '2026-11-07T20:47:42.408850+00:00'
+updated_at: '2026-11-07T20:56:56.234955+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -57,6 +57,7 @@ fields:
         is complete within code_frozen and no production edit is required.'
       files:
       - tests/test_reconciliation_passwordless_sign_in.workers.test.ts
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 8
