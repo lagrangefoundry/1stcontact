@@ -6,10 +6,10 @@ title: The consultant can measure a drawing and solve where to put a node instea
   of guessing at it from screenshots
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T07:15:54.613397+00:00'
-updated_at: '2026-11-08T07:15:54.613397+00:00'
+updated_at: '2026-11-08T07:26:18.739983+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-c0301347
   capability_uid: capability-2d32662d
