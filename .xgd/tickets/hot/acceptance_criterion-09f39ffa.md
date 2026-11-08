@@ -6,10 +6,10 @@ title: A reminder entry whose condition does not hold is absent from the turn to
   with its separator, and the assembly is bounded by a declared 60,000-character budget
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T05:11:04.211270+00:00'
-updated_at: '2026-11-08T05:11:13.890624+00:00'
+updated_at: '2026-11-08T05:40:14.613244+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
