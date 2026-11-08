@@ -72,11 +72,10 @@ class PictureDriver extends FakeCaptureDriver {
 /** The two real stores a capture crosses, bound to one (registered) tenant. */
 async function stores(tenantId: string): Promise<{ tickets: TicketStore; references: ReferenceStore }> {
   await ensureTenant(tenantId)
-  const tickets = await ticketStoreFor({
-    DB: env.DB as D1Database,
-    BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
-  })
+  const tickets = await ticketStoreFor(
+    { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
+    { businessId: tenantId },
+  )
   const references = await r2ReferenceStore({
     DB: env.DB as D1Database,
     BLOBS: env.BLOBS as R2Bucket,
@@ -215,6 +214,7 @@ async function memberBytes(tenantId: string, uid: string, member: string): Promi
   const res = await route(
     new Request(`https://app.test/api/material/file?uid=${uid}&member=${encodeURIComponent(member)}`),
     routerEnv(tenantId),
+    { businessId: tenantId },
     {},
   )
   expect(res.status).toBe(200)
@@ -395,7 +395,7 @@ describe('AC-2080 — capture_site on the deployed host writes one multi-member 
     // fidelity surface — with only the browser it would lease injected.
     const launch = puppeteerBrowser()
     const chat = (path: string, body: unknown) =>
-      route(jsonRequest(path, body), workerEnv(TENANT), { launch })
+      route(jsonRequest(path, body), workerEnv(TENANT), { businessId: TENANT }, { launch })
 
     const opened = await chat('/api/ai/session', { slug })
     expect(opened.status).toBe(200)
