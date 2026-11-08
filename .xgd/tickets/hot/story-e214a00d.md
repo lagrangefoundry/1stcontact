@@ -6,10 +6,10 @@ title: 'L1 Modals: an author can declare an overlay panel and the controls that 
   and close it'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:07:18.748985+00:00'
-updated_at: '2026-11-08T13:07:18.748985+00:00'
+updated_at: '2026-11-08T13:25:14.343311+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-0d00566a
   capability_uid: capability-ae9d65d6
