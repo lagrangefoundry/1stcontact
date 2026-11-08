@@ -6,9 +6,9 @@ title: 'The builder is private: only granted identities reach it, on every addre
   it answers on'
 created_by: xgd
 created_at: '2026-08-31T09:31:03.958986+00:00'
-updated_at: '2026-09-10T04:34:23.159639+00:00'
+updated_at: '2026-11-08T01:42:07.915665+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -24,7 +24,8 @@ fields:
 **As the** operator of the platform, **I want** the builder to be reachable only
 by identities I have granted, on every address it answers on, **so that** the
 surface that edits and publishes every site is not exposed to whoever finds it —
-and **so that** my own automation can actually be one of those identities.
+and **so that** my own automation can actually be one of those identities,
+acting as me under my own memberships, grants and terms.
 
 ## Description
 
@@ -106,11 +107,29 @@ verify them are recorded in the repository, because a policy that lives only in
 a dashboard is one nobody can review — and the granted automation identity is a
 row in that same record, with its reason, and without its secret.
 
+**And a service token acts as a named person** (BUG-59). A service token passes
+the gate as a machine name with no address, and an address is what admission
+binds to — so, unmapped, it is refused behind the gate as an identity with no
+email. The deployment configuration declares a mapping, for every environment
+it deploys to, from a service token's machine name to the person whose
+automation it is. A mapped token is presented to admission as that person, and
+everything downstream is unchanged: that person's memberships decide which
+businesses it reaches, their grants decide which are selectable, the terms they
+accepted are the terms it operates under, and revoking them revokes it. There is
+no new principal and no second authorisation path. The mapping can only name a
+person, never widen access: empty means nobody, an unmapped token is refused
+exactly as before, a name pointing at nobody is refused as an unknown person,
+the mapping is never read from the request, and a human's own email always wins
+— the mapping is consulted only when the identity carries no email, so it can
+never redirect somebody who signed in. The repository record says which token
+names act as which person.
+
 **In scope**: the refusal behaviour of the gate and the verdict it hands onward;
 what a granted automation caller presents to it and how it is told when it is
-refused; the provisioning of that automation identity; the deployment
-configuration that leaves one door; the repository record of who is granted and
-why.
+refused; the provisioning of that automation identity; the deployment-declared mapping
+that says which person a service token acts as, and its resolution to that
+person's address before admission; the deployment configuration that leaves one
+door; the repository record of who is granted and why.
 
 **Out of scope**: what lies *behind* the gate — which now includes the decision
 about whether a verified identity may be here at all, together with the records
@@ -305,6 +324,34 @@ real push against the real Access gate landed a site into production storage).
   asserts the requests. The override is not a credential and grants nothing —
   anyone who can set it can already set the management API token — and unset,
   which is every operator invocation, the command talks to Cloudflare.
+
+- **The automation identity's seat behind the gate is now answered, by intent**
+  (recorded at reconciliation, 2026-11-07): the decision above left open
+  "whether the operator's automation is given a standing entitlement". BUG-59
+  part two asked for and answered it — a service token is a person's
+  automation, resolved through `SERVICE_TOKEN_IDENTITIES` — so that question is
+  closed by BUG-59's intent, not by reconciliation. AC-1376 is unchanged: the
+  gate's verdict on a service identity is still the gate's own claim. The
+  resolution to a person is owned here (AC-2358, AC-2359, AC-2360) because it
+  happens on the gate's branch, from the name the gate proved, before admission
+  is asked anything; what admission then does with the address belongs to
+  STORY-146, where AC-1755 is narrowed to emailless identities with no mapping.
+
+- **Mapping lookup is case- and whitespace-insensitive** (decided at
+  reconciliation, 2026-11-07): BUG-59 specifies the address is casefolded
+  through the same normalisation as the stored addresses, and its test plan says
+  the mapping is "casefolded on both sides". The landed code also trims
+  whitespace around each half of an entry and skips an entry with no `=`.
+  Case-insensitivity on both sides is formalized in AC-2358; whitespace trimming
+  is the same normalisation and gets no criterion of its own; skipping a
+  malformed entry is left unpinned, because AC-2360 already holds every
+  committed entry to the `name=address` form.
+
+- **A session-cookie admission never consults the mapping** (recorded at
+  reconciliation, 2026-11-07, from BUG-59's verification notes): the mapping is
+  resolved on the gate branch only. A passwordless session already names a
+  person and no service token holds one, so no criterion asserts mapping
+  behaviour for session-admitted requests.
 
 ## Dependencies
 
