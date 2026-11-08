@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-58b2cec4'
 created_by: xgd
 created_at: '2026-11-08T22:47:09.680135+00:00'
-updated_at: '2026-11-08T22:53:14.342084+00:00'
+updated_at: '2026-11-08T22:53:47.614900+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-58b2cec4
@@ -41,6 +41,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
