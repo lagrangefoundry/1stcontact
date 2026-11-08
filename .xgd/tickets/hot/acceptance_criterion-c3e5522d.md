@@ -2,13 +2,13 @@
 uid: acceptance_criterion-c3e5522d
 id: AC-1717
 type: acceptance_criterion
-title: Selecting a row shows the file itself and the rights record read-only, with
-  no control by which a client can assert rights
+title: Selecting a row shows the file itself and the rights record read-only except
+  an upload's role, with no control by which a client can assert rights
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:49.652644+00:00'
-updated_at: '2026-11-01T12:05:48.596456+00:00'
+updated_at: '2026-11-08T13:55:05.090769+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-1500b111
@@ -30,11 +30,15 @@ platform holds:
   rather than a broken image or an empty window.
 - **The download link is present in every case**, including the cases that now render: being
   able to read a file on screen is not the same as having it.
-- **The record, read-only.** The filename, the kind, what the client said the material is for,
-  where it came from, its rights, whether it may appear on the site, which sites it is placed on (every one, under *Placed on*) and
-  the address it was fetched from are all displayed, and none of them offers any means of
-  editing. There is no control anywhere on the pane by which a client can assert rights over a
-  file.
+- **The record, read-only but for one row of one origin.** The filename, the kind, what the
+  material is for, where it came from, its rights, whether it may appear on the site, which sites
+  it is placed on (every one, under *Placed on*) and the address it was fetched from are all
+  displayed. None of them offers any means of editing, with one exception: on material the
+  client **uploaded**, *What it is for* is a select (REQ-213; stated separately). That row was
+  chosen by the client when they dropped the file, not inferred, so correcting it asserts
+  nothing new. On fetched or captured material it is as read-only as the rest. Rights and
+  *may appear on the site* are never editable on any material: there is no control anywhere on
+  the pane by which a client can assert rights over a file.
 
 ## Verification
 
@@ -43,6 +47,8 @@ material, plus a download offer carrying the original filename. Select a documen
 the platform can read and observe its contents shown above the record, with the download offer
 still present. Select a row of a kind nothing can render — a font, an unrecognised binary — and
 observe the download offer alone, with no reader window. Point the preview at bytes that cannot
-be read and observe the "no longer in storage" statement in place of the file. Inspect every
-field row of the record and observe that none is marked or behaves as editable — in particular
-the rights and "may appear on the site" values cannot be changed from this pane.
+be read and observe the "no longer in storage" statement in place of the file. On an uploaded
+material, inspect every field row of the record and observe that only *What it is for* is
+editable. On a fetched and on a captured material, observe that no row is editable. On every
+material, observe that the rights and "may appear on the site" values cannot be changed from
+this pane.
