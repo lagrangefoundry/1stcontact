@@ -6,10 +6,10 @@ title: 'near: names nearby anchor lines from the closed anchor vocabulary with s
   distances, never snapping the point'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:46:33.163334+00:00'
-updated_at: '2026-11-08T12:46:33.163334+00:00'
+updated_at: '2026-11-08T13:05:17.789279+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-44d0a572
   kind: behavior
