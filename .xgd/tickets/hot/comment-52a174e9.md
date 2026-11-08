@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-32
 created_by: xgd
 created_at: '2026-11-04T18:56:20.615072+00:00'
-updated_at: '2026-11-05T01:05:03.508229+00:00'
+updated_at: '2026-11-05T23:34:53.462855+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -17,10 +17,11 @@ fields:
 <!-- xgd-session
 {
   "id": "fbdce008-c589-4d26-afe2-73964d76dfd0",
-  "role": "chat",
-  "backend": "claude_code",
+  "role": "chat2",
+  "backend": "claude_code+km",
   "filter_tool_use": false,
-  "backend_ref": ""
+  "backend_ref": "6fefb56f-e7a1-4648-96c1-a786a55b3164",
+  "chat_ticket_uid": "epic-24a2ec33"
 }
 -->
 
@@ -564,5 +565,283 @@ This stop wasn't the containers. It's a code bug, now filed as **BUG-353** (crit
 - Find out why a builder result was queued as a client message at all, since REQ-627 is supposed to deliver those through the job.
 
 **Until it's fixed:** I'd leave this site alone; every message on it will end "stopped". There's no safe manual workaround, because clearing the message means writing to the conversation log by hand. BUG-353 is the highest-priority child of EPIC-32 right now, ahead of BUG-352 (the build flag).
+
+<!-- xgd-turn id="2664bbe4-209b-4632-a386-9e2d15c3dfc1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T20:29:19.875582+00:00" -->
+#### You
+Can you take a look at the latest Dev runs and see if the container is working as expected?
+
+<!-- xgd-turn id="2664bbe4-209b-4632-a386-9e2d15c3dfc1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T20:32:37.886721+00:00" -->
+#### Claude
+Reading the dev worker log and the job container for runs since today's 16:08Z deploy. Request noise is drowning the log, so I'm narrowing to job events.
+
+Turns all look healthy so far; now tracing the batches of three "internal error" lines in the worker log, to see whether they're a retried step.
+
+Found something odd: around 17:30 the junction log got about 4,500 `turn_claim` writes in 3 minutes, all for one queued message. Finding the code that writes them.
+
+Tracing the claim loop into the framework's turn manager.
+
+Yes, the containers are working as intended on dev. Since today's 16:08 UTC deploy (commit `ace08312da`), every job has run in its own container and none has been lost. I found one new framework bug along the way; it didn't break any turn, but it wastes work and floods the conversation log.
+
+**The container path**
+- **13 turns on 3 sites since the deploy:** 12 finished with outcome `complete`, and one is still running (it started at 19:44 and its heartbeat is current). No turn was lost, stopped early or killed for memory. Three of them ran 37–55 minutes each, with builders delegated, and none tripped anything.
+- **One container per job:** two jobs on different sites ran side by side from 19:35 to 20:13, each in its own container. That container exited when its job ended, and only the live job's container is up now.
+- **Memory:** the recorded peaks run from 250 to 904 MB, and nothing exited abnormally.
+- **Both earlier fixes are in this deploy:** BUG-352 (the build flag) and BUG-353 (the stuck queued message that stopped every turn on the shop site). No turn since has hit the `content.startsWith` crash.
+
+**New problem: a waiting message polls in a tight loop (framework)**
+- At 17:29 the client sent three messages quickly while the consultant was mid-build. The second one took the single slot for a reply alongside a build. The third had to wait for it.
+- While waiting, the framework retried its claim about every 50 ms for two minutes (`_startTalker` in `lagrange-framework/components/ai/js/src/manager.js`).
+- Each retry writes two records to the site's conversation log and re-reads the whole log (`claimTurn`, `control.js:306`). That's about 4,500 junk records, roughly 30% of that site's whole log.
+- The client still got the right answer, but the log is permanently bigger, and every later replay and stream reads it. Re-reading the whole log on every poll also breaks the architecture rule against whole-log reads per poll.
+- A second site shows the same pattern, at a smaller scale (346 records).
+
+**Still open from last time**
+1. **The 4 GB memory cap still doesn't apply on dev.** The live container shows 1.7 GB in Docker while its row records a peak of 854 MB, so the recorded peak still seems to miss Chromium.
+2. **Leftover containers:** 17 proxy containers from yesterday's test runs are still up (20+ hours), plus several old 1.5 GB images.
+3. **Unexplained worker errors:** about 40 lines of `internal error; reference = …` appeared in the dev worker log, in batches of three between 16:11 and 19:20. None lines up with a failed turn, and I didn't trace where they come from.
+4. **Log noise:** the "malformed turn order" warnings still fill the container log.
+
+Do you want me to file the polling loop as a bug in lagrange-framework, which is where the fix belongs, and link it under EPIC-32? Items 1 and 2 could go in as one dev-setup bug under EPIC-32.
+
+<!-- xgd-turn id="30367e96-f846-4133-936a-2b703be4c5f8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T20:46:21.803953+00:00" -->
+#### You
+Yes please create the tickets
+
+<!-- xgd-turn id="51110c08-1e1b-4614-9131-ff61df4f0971-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T20:47:00.431349+00:00" -->
+#### You
+Yes please create the tickets
+
+Can you also kill the zombie containers - or give me a  command to do it please?
+
+<!-- xgd-turn id="51110c08-1e1b-4614-9131-ff61df4f0971-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T20:48:24.958721+00:00" -->
+#### Claude
+Filing the framework bug first, in lagrange-framework's own store.
+
+Now the 1stcontact dev-setup bug. Checking how the container's size is configured, to point the ticket at the right place.
+
+Confirmed that the recorded peak is the Node process's own `maxRSS` (`container/server.ts:32`), which leaves out the Chromium child processes. Filing the dev-setup bug.
+
+Both tickets are filed. Now the zombie containers: checking that each leftover proxy has no live agent container beside it before removing anything.
+
+The 17 orphans are removed, but `docker ps` now lists nothing at all, so the live dev job's container is gone too. Checking whether that job finished on its own.
+
+I've filed both tickets, linked them under EPIC-32, and removed the zombie containers myself.
+
+**Tickets:**
+- **lagrange-framework BUG-113** (high): while a message waits for the slot to reply alongside a build, the framework retries its claim every ~50 ms. Each retry writes two records to the conversation log and re-reads the whole log. The ticket includes the cause in the JS and Python versions, which both have the same loop. The fix it proposes is to check the log first, only claim once the slot is free, and wait longer between checks. The test asks that claim records stay a small constant number, however long the wait.
+- **BUG-359** (medium), covering three dev gaps:
+  - Dev containers run with no memory limit, where production has 4 GB.
+  - The recorded peak memory is only the Node process's own figure (`container/server.ts:32`), so it leaves out Chromium. It should be the whole container's peak instead.
+  - The container test suites leave containers running.
+
+  Each gap has a planned test.
+
+**Containers:**
+- **Removed:** 17 proxy containers from the test runs (`docker rm -f`). Before removing them I confirmed each had no job container still running beside it, and that none came from dev.
+- **Nothing is running now.** That's expected: the last dev job had already finished cleanly at 20:31 UTC (peak 854 MB, outcome ok), before I removed anything.
+- **I left the old images alone.** That's about 12 GB in total, mostly 1.5 GB old builds of the job image. To clear them:
+  ```
+  docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^cloudflare-dev/(agentcontainer|box):|^1stcontact-control-app-agentcontainer-production:|^onecontact-agent:' | xargs docker rmi
+  ```
+  The next dev deploy rebuilds the image it needs. If an image is still in use, Docker refuses to delete it and the rest still go.
+
+<!-- xgd-turn id="fe7afd4f-f90f-4065-a49f-3b60a4b59901-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T21:03:31.674582+00:00" -->
+#### You
+Does 359 handle all the missing clean up we need?
+
+<!-- xgd-turn id="fe7afd4f-f90f-4065-a49f-3b60a4b59901-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T21:04:04.811354+00:00" -->
+#### Claude
+Not quite. BUG-359 covers containers left running by the test suites. It doesn't cover the other leak we saw, old job images piling up, so I've added that to the ticket.
+
+**What BUG-359 already covers:**
+- **The test suites leave containers running.** All 17 zombies came from test runs (worker name without `-dev-`), and the ticket requires each suite to remove everything it started, whether it passes, fails or times out.
+
+**What it was missing: old images pile up.**
+- Each time the dev worker starts on a new snapshot, wrangler builds a fresh `cloudflare-dev/agentcontainer:<hash>` image, about 1.5 GB each. Nothing ever deletes the old ones.
+- Six of them built up in about 24 hours. Every deploy adds one, so it's ongoing.
+- I've added this to BUG-359: after a successful dev deploy or start, remove that app's older images so only the one being served remains, with a test to match.
+
+**Things I checked that don't need a ticket:**
+- **Dev jobs clean up after themselves.** Today's dev job containers and their proxies were removed when each job ended. None of the zombies came from dev.
+- **`1stcontact-control-app-agentcontainer-production:worker`** was built by `bin/build`'s trial deploy. BUG-352's fix (in today's deploy) stops `bin/build` building it.
+- **`onecontact-agent:dev` and the two `box` images** are one-offs from REQ-646's early experiments and won't come back. The `docker rmi` command from my last message clears them.
+
+I haven't checked production. Whether production containers stop when a job ends is a separate question, and I can look at it on the live account if you want.
+
+BUG-359 now has the image clean-up as its fourth item, so it covers both leaks we saw on dev.
+
+<!-- xgd-turn id="9e2620c2-61b8-446a-b8c8-4e5c3b8a8445-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T21:22:22.310966+00:00" -->
+#### You
+These clean up issue are just for dev?
+
+<!-- xgd-turn id="9e2620c2-61b8-446a-b8c8-4e5c3b8a8445-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T21:23:14.828711+00:00" -->
+#### Claude
+Short answer: the leaks we found are on your Mac only. Checking the production account for the equivalent problems.
+
+Yes, everything we found is local to your Mac, but the code has a gap that would leak in production as well.
+
+**Production today:** the job container hasn't been deployed there yet. `wrangler containers list` shows no containers, and the account's image registry is empty. So there's nothing running in production to clean up.
+
+**The production gap:**
+- **Only a successful end step stops a job's container** (`agent-container.ts:297`, called from the last step of `turn-job.ts`). Any job that ends another way leaves it running:
+  - **The end step fails all three of its attempts.**
+  - **The abandon step itself fails**, so the Workflow errors out before reaching the end step.
+  - **The Workflow is stopped from outside**, for example cancelled, or killed by a deploy.
+- **The cost:** in production a leftover container keeps billing until Cloudflare evicts it. The job's access token also stays in storage, so the container could keep calling the platform as that job. Architecture item 31 says no container stays awake between jobs; at the moment that only holds when the end step succeeds.
+- **Likely fix:** a backstop on the container's Durable Object, such as an alarm that runs when no step has arrived for N minutes. It stops the container and deletes the token, whatever happened to the Workflow.
+
+**Image build-up in production:** every production deploy will push a new 1.5 GB image to Cloudflare's registry, and old ones aren't deleted automatically. It's slow-growing and only costs storage, but it's the production version of item 4 on BUG-359.
+
+**The dev clean-up is still worth doing:** dev containers piling up hide whether jobs are ending properly, and dev is where we'd catch this production gap.
+
+My suggestion is to fold both into BUG-359 and rename it to "Job containers: …", so one ticket covers clean-up everywhere. The alternative is a separate production bug for the stop backstop, since it's about cost and security rather than dev convenience. Which do you want?
+
+<!-- xgd-turn id="cdb4828a-d82c-4931-9949-6f74779fdea8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T21:26:02.897259+00:00" -->
+#### You
+1 ticket
+
+<!-- xgd-turn id="cdb4828a-d82c-4931-9949-6f74779fdea8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T21:27:08.073891+00:00" -->
+#### Claude
+BUG-359 now covers all the container clean-up, in production and dev. I renamed it to **"Job containers: stop backstop, image pruning, true memory peak and dev limit"** and raised it to high.
+
+**Production:**
+1. **Stop backstop.** Each step re-arms an alarm on the container's Durable Object. If no step arrives in time, the alarm stops the container and deletes the job's access token, however the job ended: a failed end step, a failed abandon step, or the Workflow killed from outside.
+2. **The end step always stops the container,** even when its answer is an error.
+3. **Old registry images are pruned on deploy,** keeping the current image and the one before it for rollback.
+
+**Dev, test, and both:**
+4. **Dev uses the production memory limit.** The limit comes from the configured instance type, not a hard-coded number.
+5. **Peak memory counts the whole container,** Chromium included. It's the same server code in production.
+6. **The container test suites remove every container they start,** whether they pass, fail or time out.
+7. **Dev start removes the older job images.**
+
+Each item has a planned test. I've also noted the wider scope on EPIC-32. BUG-359 is still at draft, ready for a session to pick up.
+
+<!-- xgd-turn id="ed612afe-1471-4b4c-be68-44157a462df5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T21:40:01.963572+00:00" -->
+#### You
+Are we good with 359's decisions?
+
+<!-- xgd-turn id="ed612afe-1471-4b4c-be68-44157a462df5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T21:41:18.651912+00:00" -->
+#### Claude
+Before answering I'm checking each decision against the code. First, how long a step can run, since the backstop's timing depends on it.
+
+Not quite. Checking the decisions against the code found three that need changing, so I've rewritten those parts of BUG-359.
+
+The other decisions hold up, and the three changes are now in BUG-359:
+
+1. **Backstop timing.**
+   - **Problem:** as written, the alarm fired after "the longest a step can run plus a margin". A step's timeout is 2 hours (`ROUND_STEP`), so a stuck container would have billed for 2 hours before being stopped.
+   - **Change:** time it from idleness instead. If no step has started for a few minutes after the last one finished, the alarm stops the container and deletes the token. Between steps the Workflow calls again within about a second, so that wait is safe. A step that's still running is left alone until the 2-hour step timeout, by which point the Workflow has given up on it anyway.
+
+2. **The dev memory limit can't be set the way I wrote it.**
+   - **Problem:** local containers are created by workerd itself (the Workers runtime behind wrangler dev), and wrangler 4.111 has no option for passing a memory limit.
+   - **Change:** each job is told its instance type's limit and compares its whole-container peak with it. On dev and in the test rig, a step that goes over fails as out-of-memory, which is what production's kill would produce. In production the platform enforces the limit itself, so the comparison is only recorded.
+
+3. **The peak-memory fallback was the bug itself.**
+   - **Problem:** I'd written "fall back to the Node process's own figure where no cgroup figure exists". Cloudflare runs containers in a VM, where the cgroup may not cover just the container, so that fallback would be used and would miss Chromium again.
+   - **Change:** the fallback is now the summed memory of the server's whole process tree, read from `/proc` about once a second. The record says which method produced the number.
+
+I also dropped "dev-remote" from the registry-pruning item, since dev runs locally and has no registry.
+
+**Decisions I'm keeping:**
+- The end step always stops the container.
+- Registry pruning keeps the current image plus the one before it. The catch: you can only roll a Worker back one version, because anything older loses its image.
+- The test suites tear down every container they start.
+- Dev start removes old local images.
+
+One open question to settle when coding starts is how long the idle wait should be. I'd make it 5 minutes: long enough to cover the Workflow's retries and short enough that a leaked container costs only pennies.
+
+<!-- xgd-turn id="377736eb-6a6f-48df-99b1-8230f229afcb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T21:43:04.610695+00:00" -->
+#### You
+Can you write your decisions in the ticket body please?
+
+<!-- xgd-turn id="377736eb-6a6f-48df-99b1-8230f229afcb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T21:44:00.834179+00:00" -->
+#### Claude
+No outside edits to the body. Adding a design-decisions section before the test plan.
+
+I've added a **Design decisions** section to BUG-359, placed just before the test plan. Nothing else in the body changed, and nobody had edited it in between. It records each decision, why it was made, and what was rejected:
+
+1. **One ticket for production and dev**, at high severity because of the production cost and the job token that stays valid.
+2. **The stop backstop is an alarm on the container's Durable Object, timed from idleness:**
+   - It lives on the Durable Object because that's the only place that can stop the container even when the Workflow itself has been killed.
+   - It's timed from idleness because a step can legitimately run for 2 hours.
+   - It fires after **5 minutes** with no step started, held in one constant so it's easy to tune.
+   - A step still running is left alone until its timeout.
+   - Rejected: Cloudflare's `Container` helper class and its `sleepAfter` setting, since the alarm does the same job without switching classes.
+3. **The end step always stops the container.** A retried end step just starts a fresh one, which is safe because containers hold no state.
+4. **Registry pruning keeps the deployed image plus the one before it.** Accepted trade-off: rolling back more than one version needs a redeploy.
+5. **Dev doesn't try to cap local container memory**, because workerd and wrangler can't. Running `docker update` after the container starts was rejected as racy. Instead, a step that goes over its instance type's limit fails as out-of-memory on dev and in the test rig.
+6. **Peak memory covers the whole container.** It comes from the cgroup, with summed memory across all the server's processes as the fallback, and never from the Node process's own figure. The record says which method was used.
+7. **Local clean-up is built into the tooling.** The test suites tear down everything they start, dev start removes old images, and the items already handled elsewhere are listed as out of scope.
+
+<!-- xgd-turn id="aa077fa109e34554aa0395f71ee457af-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T23:32:43.693002+00:00" -->
+#### You
+359 has more questions please can you answer them?
+
+<!-- xgd-turn id="aa077fa109e34554aa0395f71ee457af-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T23:33:08.067646+00:00" -->
+#### Claude
+Reading BUG-359 to find its open questions; my summary was empty, so I'll fill it in as well.
+
+The BUG-359 session added "Implementation defaults". Checking its chat comment for the questions it's actually asking.
+
+Its questions are the five "Implementation defaults". Checking them against the code before I answer.
+
+`0050` already exists on xgd-working. Checking whether the BUG-359 branch has it too.
+
+Key finding: migrations `0050` and `0051` have landed on xgd-working since the BUG-359 branch was cut. Recording my summary before I answer.
+
+I checked the BUG-359 session's five open questions ("Implementation defaults") against the code. Two need changing, one needs tightening, and two are fine as written. I haven't edited the ticket yet.
+
+**Change these**
+
+1. **Migration number.** The session planned migration `0050`, but `0050_estimate_outcomes.sql` and `0051_item_live_set_by.sql` were added to xgd-working this afternoon. Its branch stops at `0049`, so a new `0050` would clash. Use the next free number when it merges, which is `0052` now. The two new `turn_log` columns are fine.
+2. **When dev counts a step as out of memory.** As written, the step runs to the end and is only marked `oom` afterwards. By then it has already written its output, which production's kill would have stopped. The retry would then run that work a second time. Instead, the memory check that runs about once a second should stop the container as soon as it goes over the limit, which is what production does. The `JOB_MEMORY_ENFORCE=1` switch is fine: set in dev and the test rig, absent in production. The test should also check that production's settings never set it.
+
+**Tighten this**
+
+3. **Which containers the test rig removes.** All the test rigs give their containers the same worker name. Removing every matching container created after the rig started would also remove another suite's live containers if two suites run at once, and the rig would then report a failure. The simplest fix is to make the container suites run one at a time and say so in the ticket. The other option is to tag containers with each run's own ID, which is more work for little gain.
+
+**Keep these**
+
+4. **Registry clean-up failures only warn.** The deploy has already succeeded by then, so a warning is right. One clarification: "the image before it" should mean the image the previous deployed Worker version uses, not simply the second-newest image. A failed deploy can push an image that was never deployed, and keeping that one would make the rollback image useless.
+5. **The local image clean-up risk.** A dev deploy that runs during a container test run can delete that run's image between two of its jobs. I'd accept that: it's rare, the only cost is a failed test run you re-run, and Docker refuses to delete an image a running container is using.
+
+I've also brought my summary up to date; it had fallen 19 exchanges behind.
+
+Shall I write these answers into BUG-359's Implementation defaults so its session can start coding?
 
 <!-- xgd-chat-end -->

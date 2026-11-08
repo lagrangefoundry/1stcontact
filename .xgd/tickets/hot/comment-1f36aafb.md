@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-26
 created_by: xgd
 created_at: '2026-10-25T20:07:14.568319+00:00'
-updated_at: '2026-10-26T23:38:40.527990+00:00'
+updated_at: '2026-11-07T20:42:26.252634+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -539,5 +539,80 @@ I've filed **REQ-471, "Hero clips: pause button on endless loops (WCAG 2.2.2)"**
 - **Reduced motion:** visitors who have it turned on see only the still picture, so there's no button.
 - **Not optional:** a site can't switch the button off, and no new settings are added to the video element.
 - **Tests:** the ticket lists them. One checks that pages still convert back to the same structured site data now that they include the button.
+
+<!-- xgd-turn id="79464591-e576-43a4-a9d5-64d561eb5b45-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T19:54:30.053038+00:00" -->
+#### You
+ok so for Lauren Owens Jewelry, I created a pan shot around a piece. I think this is good, but she actually has a carosel that fades in pictures 
+
+https://laurenowensjewellery.ie/
+
+I'd like to talk about (1) reproducing the fade in of still pictures (2) creating a carosel of videos: run video 1 crass fade frames run video 2...loop
+
+Part of the idea behind 2 is that we can start playing the video as soon as the first video arrives...
+
+What do you think?
+
+<!-- xgd-turn id="79464591-e576-43a4-a9d5-64d561eb5b45-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T19:56:07.704757+00:00" -->
+#### Claude
+I think both are good, and they should be built as one feature: **(1) is what (2) falls back to**.
+
+**Her current carousel.** I downloaded her home page. It uses a WordPress slider plugin (LayerSlider) with three full-width photos. Each one holds for about 5 s, then fades slowly into the next over 3.5 s. Her name stays on top the whole time. There are no arrows, dots or timer.
+
+**(1) Fading stills.** On its own this is ordinary; the survey counted fades as standard. It still matters because it's what she has now, so the new site shouldn't feel like a step down. It's also simple and reliable to build: a list of photos, a hold time and a fade time, all done in CSS with no script. Visitors with reduced motion turned on see the first photo.
+
+**(2) A carousel of videos.** This works well if each clip starts and ends on a still. The pattern would be: photo of piece 1 → slow pan → back to the photo → fade to the photo of piece 2 → pan → and so on.
+- The fades then happen between still frames. Fading between two moving shots usually looks muddy.
+- Each clip's still frame is a real product photo. When motion can't play (reduced motion, phone low-power mode, slow connection), visitors get exactly option (1). That passes the survey's test 4 ("it still works if the motion never plays") for free.
+- The clips need one look: the same camera move, speed and light. Then the survey's "one motion language" rule is met, even though there are several clips.
+
+**Starting before everything downloads.** You're right, and separate clips do it better than one file: clip 2 loads while clip 1 plays, and on a phone we can wait to fetch clip 3 until it's nearly due. One caveat is that a single long MP4 also starts playing before it has fully downloaded, so that alone isn't the reason to split. Separate clips win for other reasons:
+- you can swap or reorder one piece without regenerating everything;
+- each slide gets its own still;
+- the fades are free in the browser. Building them into one file would need a processing step.
+
+**How I'd build it.** One new kind of element: a slideshow whose slides can be photos or clips, with a hold time and a fade time.
+- Photo-only slideshows run on CSS alone.
+- Clip slides reuse the playback script from REQ-461/470 and add one thing: when a clip ends, the next one fades in over it.
+- The pause button from REQ-471 applies here too, because a carousel that advances by itself for more than 5 s needs one for the same accessibility rule.
+
+**One taste point.** Her 3.5 s fade within a roughly 5 s cycle means the picture is mid-fade most of the time, and that will feel even slower once clips are involved. I'd have the consultant suggest about a 1 s fade between stills, while letting her keep the slower fade if she prefers it.
+
+Two questions:
+1. Do you want both under one new child ticket of EPIC-26? That's what I'd recommend. The ticket would describe the slideshow in general terms and wouldn't name her.
+2. Would her clips be made from her three current slide photos, or from product shots like the pan you made? Her current slides are lifestyle images, and those don't all suit a pan.
+
+<!-- xgd-turn id="c3ba737e-7b40-4e3b-8248-f9b8a8b68fa6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T20:41:13.720155+00:00" -->
+#### You
+I am not really liking the pingpong for these pan shots - if there were a carousel there would be no need to ping pong 
+
+I guess ping pong could still be an option if the user wanted.
+
+1. sure
+2. Lets see it doesn't change the ticket
+
+<!-- xgd-turn id="c3ba737e-7b40-4e3b-8248-f9b8a8b68fa6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T20:42:21.189030+00:00" -->
+#### Claude
+Now adding it to EPIC-26's follow-up list.
+
+I've filed **REQ-664, "Hero slideshow: cross-fading stills and clip carousels"** as a draft child of EPIC-26, and EPIC-26's follow-up list now includes it. No code has been written; a REQ-664 session needs to build it. Like you asked, it doesn't name the client.
+
+**Ping-pong:** I recorded your decision. Clips in a slideshow don't ping-pong, because the fade to the next slide already hides the end of each clip. Ping-pong stays available if a client asks for it. Each clip is made with the slide's photo as both its first and last frame, so the camera moves out and comes back in one continuous move instead of playing backwards.
+
+What the ticket specifies:
+- **One new slideshow element.** Each slide is a photo, optionally with a clip. A still-only slideshow fades its photos using CSS, with no script. In a clip slideshow, each clip plays, then the next slide fades in over it, and after the last slide it loops.
+- **Fade length:** about 1 s by default, so the picture isn't mid-fade most of the time. A client can still choose a slower fade.
+- **Starts early:** the first photo loads at once and clip 1 plays as soon as it can. The next clip is fetched while the current one plays, and later ones aren't fetched before then. If a clip isn't ready when its slide comes up, that slide shows its still photo and the slideshow carries on, so it never sits on a spinner.
+- **When motion can't play** (reduced motion turned on, no script, a clip that won't load), visitors see the still photos fading in turn. With reduced motion turned on they see only the first photo.
+- **Pause button:** the REQ-471 button applies, because the slideshow advances by itself for longer than 5 s.
+- **For now:** no arrows, dots or swiping, and the slideshow counts as the page's one signature motion.
+- **Tests:** the ticket lists them, covering validation, rendering, the clip sequence in a real browser, pause, the security checks, and that pages still convert back to the same structured site data.
 
 <!-- xgd-chat-end -->

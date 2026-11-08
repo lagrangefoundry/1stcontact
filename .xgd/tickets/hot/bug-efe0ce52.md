@@ -6,8 +6,8 @@ title: 'public-site: /site/<key>/ returns 500 — deployed Worker predates the R
   baseline'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T20:44:03.515198+00:00'
-updated_at: '2026-11-08T00:26:13.444870+00:00'
-completed_at: '2026-11-08T00:25:51.268431+00:00'
+updated_at: '2026-11-08T01:07:00.288307+00:00'
+completed_at: '2026-11-08T01:07:00.288307+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,7 +19,8 @@ fields:
   commits:
   - working_sha: 73392632bbfc86344a8379894a945c8e49359a8d
     reconcile_sha: null
-    main_sha: null
+    main_sha: cbf19d33b858967b10a728e9d73ea4dd1bff15d9
+    working_sha_history: []
   version: 0.2.121
   bundled_in: bundle-7988e925
 ---

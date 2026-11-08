@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-11-04T20:30:41.150890+00:00'
+updated_at: '2026-11-08T00:29:31.835695+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6722,5 +6722,459 @@ It's separate from BUG-342 and from the resync damage (BUG-344); the check was a
 Until it's fixed, `bin/deploy --env dev` will keep saying "Dev is NOT up" while dev is actually running. To check dev for real, open `https://127.0.0.1:8789` and sign in.
 
 Still waiting on you: set REQ-243, REQ-244 and REQ-342 back to `ready_to_reconcile` from the dashboard.
+
+<!-- xgd-turn id="c80a00f1-0e79-45c7-96a0-2755331a0a74-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T01:51:30.189445+00:00" -->
+#### You
+Can you start figuring out what is needed to create a staging environment?
+
+I think it would be useful to be able to copy sites from dev and from prod to staging (for testing). It is also where we would run prod level tests pre deployment.
+
+<!-- xgd-turn id="c80a00f1-0e79-45c7-96a0-2755331a0a74-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T01:53:55.166332+00:00" -->
+#### Claude
+Reading the existing staging design in EPIC-16 and checking the current deploy code against it.
+
+Drafting the findings into EPIC-16 as a new section. First checking the ticket CLI notes for appending to a long body.
+
+Staging is mostly designed already: EPIC-16 worked it out in September (§1–§6 for the pre-production gate, §J for a second deployed environment). Nothing has been built yet. I added a new section, §R, to EPIC-16 with what it needs today and what has to change for your two copy uses. I haven't filed any tickets or changed any code.
+
+**Already in place:**
+- `bin/deploy --env <name>` works for any environment. The parity test fails if a new `[env.staging]` block leaves out any binding.
+- The migration step now picks the database for each environment. It used to always migrate production's.
+- `bin/copy-site` copies a site between any two businesses, but only knows two places: the local builder and production.
+
+**What staging needs:**
+- **Its own Cloudflare resources:** a D1 database, two R2 buckets, three rate-limiter IDs, four workflow names, and the Worker names.
+- **The public site must point at the staging control app.** It reaches the control app by name, so if it still names production, staging leads get written into production's database.
+- **Its own settings and services:** an Access application per staging hostname and its own service token, a Turnstile widget, Stripe test mode, a staging email sender, a platform business ID, and its secrets pushed through the existing deploy hooks.
+
+**Two new findings:**
+1. **Staging should get its own domain, not a subdomain of 1stcontact.io.** Production's session cookie is set for all of `1stcontact.io`, so browsers would send production sign-in cookies to a staging host there. Staging runs weaker configuration, so that's a real leak.
+2. **Copying from production is fine if conversations and contacts stay behind.** The security notes say staging holds no production data. The copy already refuses conversations and contacts when copying from production to your laptop; the same rule should apply to staging. The site itself (pages, Library, shop) is content meant for the public website, so it can come across. Because staging would then hold customers' unpublished drafts, both staging hostnames need the Access gate.
+
+**Suggested order:** you can use staging before the automated pipeline exists. Deploying it from your laptop and copying sites in gives you a production-like test target right away.
+1. Create the staging environment and its resources.
+2. Teach `bin/copy-site` about staging, with its own address and service token and the same refusals.
+3. A repeatable test-data seed that refuses to run against production.
+4. Move the cloud deploy onto `bin/build` and `bin/deploy`, then add the staging-then-production gate. The current GitHub deploy workflow is still the original scaffold, and getting our shared component library onto the CI runner still blocks this step.
+
+**Decisions I need before filing tickets:**
+1. A separate staging domain? If yes, which name?
+2. Should sites you copy in survive the next deploy? I'd say yes: the pipeline wipes and reseeds only its own test businesses.
+3. May staging send email to anyone, or only to an allow-list?
+4. Laptop-deployed staging first and CI later, or wait for the full pipeline?
+
+<!-- xgd-turn id="933afb4a-7b5b-47b8-80f4-87eebb50f18a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T19:51:09.321146+00:00" -->
+#### You
+Can you guide me through copying "Lauren Owens Jewelry Test 1" in my account in dev to  "Lauren Owens Jewelry" in Lauren's account in prod?
+
+<!-- xgd-turn id="933afb4a-7b5b-47b8-80f4-87eebb50f18a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T19:53:42.640588+00:00" -->
+#### Claude
+Found the tool (`bin/copy-site`, with a `--handoff` mode built for exactly this). Running a read-only dry run to check both businesses resolve before giving you the steps.
+
+Dev side resolved; production refused the credential (401). Checking which secrets file holds the production service token.
+
+In the current code the handoff routes are on the operator list (service token allowed), so production is probably running a build from before that landed (Nov 5). Checking quickly.
+
+I've found the problem: production can't take this copy yet. The copy tool is ready, but the read-only test run stopped at production's gate. Nothing was read from Lauren's business and nothing was written.
+
+**Why it stopped:** the copy uses `--handoff`, which sends the site through two new paths, `/api/handoff/*` and `/b/*/api/handoff/*` (added Nov 5). Production's Cloudflare Access application doesn't protect them yet. A request with no sign-in to `/b/x/api/export` gets redirected to the Access login page, as it should. The same request to `/b/x/api/handoff/state` gets the app's own "Sign in to continue" instead. So the service token is never checked and the request is refused. Your token is fine: it found both businesses by name.
+
+### Steps
+
+**1. Add the two paths to production's Access application.** You do this in the Cloudflare dashboard; nothing in our code does it. Go to Zero Trust → Access → Applications → the `app.1stcontact.io` application → destinations, and add:
+- `app.1stcontact.io/api/handoff/*`
+- `app.1stcontact.io/b/*/api/handoff/*`
+
+`ACCESS.md` already lists both paths.
+
+**2. Make sure production is running Nov 5 or later code.** I couldn't confirm what production runs. If you haven't deployed since Nov 5, run `bin/deploy --env production` (copy-site commit `b6a7bf1471`). That build has the handoff routes and lets the service token through on them.
+
+**3. Write the handoff note in dev.** In dev, open "Lauren Owens Jewelry Test 1" and ask the consultant to "write the handoff note". This step is optional: without a note the copy still runs, but Lauren's consultant will only know the basic facts about the business.
+
+**4. Do a test run** (reads both sides, writes nothing):
+```bash
+bin/copy-site --from dev:"Lauren Owens Jewelry Test 1" --to production:"Lauren Owens Jewelry" --handoff --dry-run
+```
+It lists what would be copied: pages, assets, Library materials, captures, shop items and whether there's a note. If Lauren's business already has a site she has edited in the builder, it refuses and tells you how many changes would be overwritten.
+
+**5. Copy for real:**
+```bash
+bin/copy-site --from dev:"Lauren Owens Jewelry Test 1" --to production:"Lauren Owens Jewelry" --handoff
+```
+- Add `--force` only if step 4 refused and you're sure her existing site should be replaced.
+- If it's interrupted, run the same command again; it picks up where it stopped.
+
+**What comes across:** the whole site, every Library item, the reference captures, the shop inventory and the note. Your test conversations, contacts, payments, domain and publish history stay in dev. Lauren's business opens in handoff mode, so she starts with a fresh conversation.
+
+**6. Check and publish.** Sign in to production, open Lauren's business and look it over. The copy doesn't publish anything; that's done from the builder.
+
+Tell me when steps 1 and 2 are done and I'll run the test run (step 4) for you.
+
+<!-- xgd-turn id="fb92076e-c1a3-42b5-9658-77404b48e952-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T20:45:07.678527+00:00" -->
+#### You
+that copy is ambiguous - business names are only unique within an account
+
+<!-- xgd-turn id="fb92076e-c1a3-42b5-9658-77404b48e952-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T20:46:20.792797+00:00" -->
+#### Claude
+You're right. Checking how the tool picks a business when a name repeats, and whether an id can be given instead.
+
+The platform directory records each business's owning account, so I can list every match with its id and account. Querying both ends (read-only).
+
+You're right, and the risk is worse than the copy failing with an error. When given a name, the tool first looks in the businesses the signed-in identity (here, the service token's user) is a member of. It only looks at the platform-wide directory if nothing matches there. If your own production account ever had a business called "Lauren Owens Jewelry", the copy would quietly pick yours instead of Lauren's. Two matches in the same list are refused, but a match in your own account is never compared with Lauren's.
+
+**Use the business ids instead.** The tool accepts an id anywhere it takes a name. I looked them up in each side's platform directory (read-only):
+
+| side | id | name | owner account |
+|---|---|---|---|
+| dev | `biz_dbe75328e63c90ffa777b0fa0ba9e1d1` | Lauren Owens Jewelry Test 1 | `acct_451eca61…` (no account name set; I assume it's yours) |
+| production | `biz_01655b617ddbacb472cfdfe3f7ee15ad` | Lauren Owens Jewelry | Lauren Owens (`acct_c7e2bad6…`) |
+
+Each name matches exactly one business on its side today, but ids keep it that way. Steps 4 and 5 become:
+
+```bash
+bin/copy-site --from dev:biz_dbe75328e63c90ffa777b0fa0ba9e1d1 \
+  --to production:biz_01655b617ddbacb472cfdfe3f7ee15ad --handoff --dry-run
+
+bin/copy-site --from dev:biz_dbe75328e63c90ffa777b0fa0ba9e1d1 \
+  --to production:biz_01655b617ddbacb472cfdfe3f7ee15ad --handoff
+```
+
+The test run (step 4) shows the name it resolved on each side, so you can confirm it's Lauren's business before the real copy. Steps 1 and 2 from before still need doing first: adding the two `/api/handoff/*` paths to production's Access application, and production running Nov 5 or later code.
+
+**The tool itself should be fixed.** It could check every place a name appears and refuse if it matches more than one business across accounts, or accept an account-qualified name (`production:"Lauren Owens/Lauren Owens Jewelry"`). Whichever it does, it should show the owner account in its output. Do you want me to file that as a bug under EPIC-16?
+
+<!-- xgd-turn id="85464c6b-3b71-41d8-8092-4cf9c92a0212-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T20:59:39.543809+00:00" -->
+#### You
+Can you create a ticket to fix the tool the name should include an account name (email) dev:martin@westhead.me:"..."
+
+<!-- xgd-turn id="85464c6b-3b71-41d8-8092-4cf9c92a0212-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T21:00:32.779537+00:00" -->
+#### Claude
+I've filed **BUG-376** under EPIC-16, at `draft` with high severity: *"bin/copy-site: a business is named by account email and name, never by name alone."*
+
+It specifies:
+- **The new form:** each end is `<env>:<email>:"<business name>"`, for example `dev:martin@westhead.me:"…"`. The email picks the account on that side, and the name is matched only within that account.
+- **A name on its own is refused** before anything is read or written; the refusal shows the right form. A `biz_…` id still works by itself, since it's already unambiguous.
+- **Specific refusals** for an unknown email, a name that account doesn't have, and an email that belongs to more than one account where the name appears in more than one of them. In every case nothing is written.
+- **The output shows each end's owner account** (email and account name), in the test run and the real copy, so you can check the target before anything is written.
+- **One shared lookup** for `copy-site` (including `--handoff` and `--backup`) and the other copy commands that take a business name.
+- **One server change:** the platform directory at `/api/admin/sites` doesn't include account emails today, so it gains them. That route already sits behind Access.
+- **Tests:** each case is checked against two accounts that hold businesses with the same name.
+
+The ticket uses example addresses rather than real customer names. I haven't coded it; BUG-376's own session will pick it up.
+
+Until then, the id-based commands from my last message are the safe way to do the Lauren copy.
+
+<!-- xgd-turn id="cef82f21-72ce-414c-bca5-3910a1c0f384-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T21:41:18.398072+00:00" -->
+#### You
+prod deploy failed:
+
+```
+f026ce9c: digest: sha256:4769887370fe0c429d3e601aac79baaf4be588307f94d4fd7cb2e4d5f748d274 size: 2080
+╭ Deploy a container application deploy changes to your application
+│
+│ Container application changes
+│ 
+├ NEW 1stcontact-control-app-agentcontainer-production
+│
+│   [[containers]]
+│   name = "1stcontact-control-app-agentcontainer-production"
+│   scheduling_policy = "default"
+│   instances = 0
+│   max_instances = 50
+│   rollout_active_grace_period = 0
+│   
+│   [containers.configuration]
+│   image = "registry.cloudflare.com/8feaadfce95919ab2d2b93aa8df6f6ce/1stcontact-control-app-agentcontainer-production@sha256:4769887370fe0c429d3e601aac79baaf4be588307f94d4fd7cb2e4d5f748d274"
+│   instance_type = "standard-1"
+│   
+│   [containers.configuration.observability.logs]
+│   enabled = true
+│   
+│   [containers.constraints]
+│   tiers = [ 1, 2 ]
+│   
+│   [containers.durable_objects]
+│   namespace_id = "31ce40bebb28483592ad149f0083736f"
+│
+
+✘ [ERROR] Error creating application due to a misconfiguration:
+
+  VALIDATE_INPUT
+  name An application name must not start with a digit
+
+martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="cef82f21-72ce-414c-bca5-3910a1c0f384-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T21:42:07.263451+00:00" -->
+#### Claude
+Cloudflare rejects container application names that start with a digit, and ours begins with "1stcontact". Finding where that name comes from.
+
+This needs a one-line config fix, but this is an epic session, so I'll file it as a child bug rather than make the change here.
+
+I've filed **BUG-378** under EPIC-16 (critical, at `draft`). Production can't be deployed until it's fixed.
+
+**Why it fails:** this is the first production deploy that includes the job container (the `[[env.production.containers]]` entry in `apps/control-app/wrangler.toml`). That entry doesn't set a `name`, so wrangler builds one from the Worker name, `1stcontact-control-app-agentcontainer-production`. Cloudflare doesn't allow container application names that start with a digit.
+
+**The fix, as specified in the ticket:**
+- Give every `[[containers]]` entry (top level, production, dev) an explicit name that starts with a letter, for example `onecontact-agent-container-production`. Worker names, bindings and the class stay the same.
+- Extend the existing wrangler parity check so it fails any environment whose container entry has no name or a name starting with a digit. That covers staging later too.
+- Find out what the failed deploy left behind: whether the Worker upload went through before the container step failed, and whether the deploy's later steps ran.
+
+**What this blocks:** the Lauren copy. Its step 2 needs production on Nov 5+ code, and this failure stops that deploy. Step 1, adding the two `/api/handoff/*` paths to the Access application in the Cloudflare dashboard, doesn't depend on the deploy and can be done now.
+
+Until BUG-378 is fixed and production deploys cleanly, keep checking the production builder. If wrangler uploaded the new Worker before the container step failed, production may now be running code whose job container doesn't exist yet. Anything that hands work to a container would then fail; I can't tell from the output you pasted whether that happened.
+
+<!-- xgd-turn id="c3bf2da3-d223-411c-9de7-520ee6344f48-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:03:36.473261+00:00" -->
+#### You
+```
+martin@nyx 1stcontact % bin/copy-site --from dev:martin@westhead.me:"Lauren Owens Jewelry Test 1" --to production:martin-github@westhead.me:"Lauren Owens Jewelry Test 1" --handoff --dry-run
+secrets file: /Users/martin/Documents/secrets/1c.dev.env (default; --no-secrets-file to skip)
+  took:  CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, FAL_KEY, STRIPE_SECRET_KEY_TEST, STRIPE_WEBHOOK_SECRET_TEST
+  kept from your environment: ANTHROPIC_API_KEY, RESEND_API_KEY, OPENAI_API_KEY, CLOUDFLARE_API_TOKEN, CLOUDFLARE_DNS_TOKEN, CLOUDFLARE_ACCOUNT_ID, ACCESS_TEAM_DOMAIN, ACCESS_AUD, SERVICE_TOKEN_IDENTITIES
+INTERNAL: No account at http://127.0.0.1:8799 has a person with the email martin@westhead.me. Nothing was read or written.
+martin@nyx 1stcontact %
+
+```
+
+dev is runnin on 8789?
+
+<!-- xgd-turn id="c3bf2da3-d223-411c-9de7-520ee6344f48-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:04:25.074007+00:00" -->
+#### Claude
+Port 8799 is the right one: it's the local Access simulator, which sits in front of the same dev builder. The question is why the lookup didn't find your email. Checking what dev records for that account.
+
+The port isn't the problem. 8799 is the local Access simulator, and it sits in front of the same dev builder you use on 8789. The problem is that dev is still running code from before BUG-376.
+
+The new lookup (BUG-376, committed today at 13:21) reads each account's email addresses from the platform directory. Dev serves a frozen snapshot that only changes when you redeploy it, and its directory still returns the old fields. Nothing in it has an email list, so every email you give is "not found". Your business is there: "Lauren Owens Jewelry Test 1" is in account `acct_451eca61…`.
+
+**To fix it, redeploy dev:**
+```bash
+bin/deploy --env dev
+```
+The deploy's final check will still report the 401 from BUG-346 if that hasn't landed yet; dev comes up regardless. Then run your dry-run again.
+
+**Production has the same gap.** Your production end (`martin-github@westhead.me:…`) needs production running BUG-376's code too, so it will fail the same way until production is redeployed. That redeploy needs BUG-378 (the container name), which is `free_coded`. Its fix is in `xgd-working`, so `bin/deploy --env production` should now get past the container step. The two `/api/handoff/*` Access paths (step 1 from before) are still needed for the handoff.
+
+**The error message misled you.** It should have said that dev's directory doesn't report emails, so dev is running older code and needs a redeploy. Instead it said no account has that email. BUG-376 is at `ready_to_reconcile`, so its body is frozen. Should I file a small follow-up bug for that message, or leave it?
+
+<!-- xgd-turn id="7268de16-efd3-4f02-9eed-7169717a1d91-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:05:00.876822+00:00" -->
+#### You
+leave it
+
+<!-- xgd-turn id="7268de16-efd3-4f02-9eed-7169717a1d91-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:05:18.138296+00:00" -->
+#### Claude
+OK, I'll leave the message as it is.
+
+Here's the order for the copy:
+1. `bin/deploy --env dev`
+2. `bin/deploy --env production`
+3. Add `/api/handoff/*` and `/b/*/api/handoff/*` to production's Access application in the Cloudflare dashboard.
+4. Run your dry-run command again, then run it without `--dry-run`.
+
+Tell me if any step fails.
+
+<!-- xgd-turn id="47ba25c6-4c87-4f90-9e7f-aec10c09c6c6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:18:35.220286+00:00" -->
+#### You
+A copy with no --handoff should copy the site chat transcript, correct?
+
+<!-- xgd-turn id="47ba25c6-4c87-4f90-9e7f-aec10c09c6c6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:18:53.655320+00:00" -->
+#### Claude
+No. A plain copy (no `--handoff`) copies only the site itself, meaning its pages and assets. The conversation never comes with it.
+
+To copy the conversation, run the same command again with `--chats`:
+
+```bash
+bin/copy-site --from dev:<email>:"<business>" --to production:<email>:"<business>" --chats
+```
+
+Each run copies either the site or the conversation, so copying both takes two runs: one without `--chats` and one with it.
+
+Two limits:
+- **`--chats` is refused when the copy goes from production to dev.** A customer's conversation can contain anything they typed, and the dev builder on your laptop runs with no sign-in check. Copying from dev to production, or between two businesses on the same side, works.
+- **`--chats` is refused together with `--handoff`.** A handoff deliberately gives the owner a fresh conversation.
+
+So for the Lauren copy (`--handoff`), her business starts with no conversation; that's by design. For your own test copy into your production account, add a second run with `--chats` if you want the conversation there too.
+
+<!-- xgd-turn id="ec5a5a54-a5bf-4694-ba37-efb1f61384c6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:21:02.928314+00:00" -->
+#### You
+That did not seem to work:
+
+```
+martin@nyx 1stcontact % bin/copy-site --from dev:martin@westhead.me:"Lauren Owens Jewelry Test 1" --to production:martin-github@westhead.me:"Lauren Owens Jewelry Test 1" --chats
+secrets file: /Users/martin/Documents/secrets/1c.dev.env (default; --no-secrets-file to skip)
+  took:  CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, FAL_KEY, STRIPE_SECRET_KEY_TEST, STRIPE_WEBHOOK_SECRET_TEST
+  kept from your environment: ANTHROPIC_API_KEY, RESEND_API_KEY, OPENAI_API_KEY, CLOUDFLARE_API_TOKEN, CLOUDFLARE_DNS_TOKEN, CLOUDFLARE_ACCOUNT_ID, ACCESS_TEAM_DOMAIN, ACCESS_AUD, SERVICE_TOKEN_IDENTITIES
+INTERNAL: Copy of 'Lauren Owens Jewelry Test 1's conversations was refused with 401: Cloudflare Access rejected this request: no Access token was presented.
+The CLOUD end is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and --client-secret. Run bin/access-token to provision one.
+martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="ec5a5a54-a5bf-4694-ba37-efb1f61384c6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:21:38.202150+00:00" -->
+#### Claude
+Only one path is unprotected. Checking every operator path against production's Access application so you can fix them all at once.
+
+That's the same gap as the handoff paths, on a different route. The service token is fine, and the copy itself is fine.
+
+Your command resolved both businesses and read the conversation from dev. It failed on the write, `POST /b/<id>/api/chats/import` on production. Production's Access application doesn't protect that one path, so Cloudflare never checks the service token and never adds the sign-in header the app requires. The app then refuses the request with "no Access token was presented".
+
+I checked all 13 operator paths against production. The other 12 are protected, including the two handoff paths you added. **Only `/b/*/api/chats/import` is missing.** It has been listed in `ACCESS.md` and in the app's operator path list since REQ-475, so it was probably skipped when the destinations were entered.
+
+**Fix:** in the Cloudflare dashboard, go to Zero Trust → Access → Applications → `app.1stcontact.io` → destinations, and add:
+- `app.1stcontact.io/b/*/api/chats/import`
+
+Then run your `--chats` command again. Nothing was written to production, so the re-run starts clean.
+
+<!-- xgd-turn id="5841f3c5-fb10-475a-8ae2-c8453d2d5479-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:25:33.205440+00:00" -->
+#### You
+```
+martin@nyx 1stcontact % bin/copy-site --from dev:martin@westhead.me:"Lauren Owens Jewelry Test 1" --to production:martin-github@westhead.me:"Lauren Owens Jewelry Test 1" --chats
+secrets file: /Users/martin/Documents/secrets/1c.dev.env (default; --no-secrets-file to skip)
+  took:  CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, FAL_KEY, STRIPE_SECRET_KEY_TEST, STRIPE_WEBHOOK_SECRET_TEST
+  kept from your environment: ANTHROPIC_API_KEY, RESEND_API_KEY, OPENAI_API_KEY, CLOUDFLARE_API_TOKEN, CLOUDFLARE_DNS_TOKEN, CLOUDFLARE_ACCOUNT_ID, ACCESS_TEAM_DOMAIN, ACCESS_AUD, SERVICE_TOKEN_IDENTITIES
+copied 'Lauren Owens Jewelry Test 1' http://127.0.0.1:8799 → 'Lauren Owens Jewelry Test 1' https://app.1stcontact.io
+  from    'Lauren Owens Jewelry Test 1' (biz_dbe75328e63c90ffa777b0fa0ba9e1d1) — owner martin@westhead.me, account acct_451eca61c0429fda94cb6812826161dc
+  to      'Lauren Owens Jewelry Test 1' (biz_1ef00a426d2af3a6ff35e60948e00ea7) — owner martin-github@westhead.me, account acct_9b21d99e2746fc452e48cc035c336032
+martin@nyx 1stcontact %
+
+```
+
+Says it worked but I don't see the chats in the builder after a reload
+
+<!-- xgd-turn id="5841f3c5-fb10-475a-8ae2-c8453d2d5479-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:26:12.050016+00:00" -->
+#### Claude
+The copy reported success, so the conversation may have gone somewhere the builder doesn't read. Checking where the chat import writes and where the builder reads.
+
+The success message doesn't say what happened to each conversation. The import counts how many it created, replaced or kept, and that output leaves the counts out. My guess is `kept`: if the production business already had a conversation that wasn't an empty placeholder (from opening the builder there and typing something, say), the import leaves it as it was unless you pass `--force`.
+
+Please run it again with `--json` so we can see the counts. It's safe to repeat: a conversation that's already there is kept, not duplicated. Don't pipe the output, because piped `--json` output gets cut off.
+
+```bash
+bin/copy-site --from dev:martin@westhead.me:"Lauren Owens Jewelry Test 1" --to production:martin-github@westhead.me:"Lauren Owens Jewelry Test 1" --chats --json
+```
+
+The `landed` block in the result tells us which case it was:
+- **`kept: 1`, `created: 0`:** the production conversation was already there and was left alone. If you're happy to replace it, add `--force`.
+- **`created: 1`:** the conversation did land. In that case the builder is reading a different conversation from the one the import wrote (it was given a different address). Send me the output and I'll trace where it went.
+- **`read: 0`:** dev returned no conversation for that business, and we should look at the dev side.
+
+<!-- xgd-turn id="981c2ffe-7133-4134-b294-aa9d86c4b0a2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:27:42.618738+00:00" -->
+#### You
+```
+martin@nyx 1stcontact % bin/copy-site --from dev:martin@westhead.me:"Lauren Owens Jewelry Test 1" --to production:martin-github@westhead.me:"Lauren Owens Jewelry Test 1" --chats --json
+secrets file: /Users/martin/Documents/secrets/1c.dev.env (default; --no-secrets-file to skip)
+  took:  CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, FAL_KEY, STRIPE_SECRET_KEY_TEST, STRIPE_WEBHOOK_SECRET_TEST
+  kept from your environment: ANTHROPIC_API_KEY, RESEND_API_KEY, OPENAI_API_KEY, CLOUDFLARE_API_TOKEN, CLOUDFLARE_DNS_TOKEN, CLOUDFLARE_ACCOUNT_ID, ACCESS_TEAM_DOMAIN, ACCESS_AUD, SERVICE_TOKEN_IDENTITIES
+{
+  "ok": true,
+  "data": {
+    "ends": {
+      "source": "http://127.0.0.1:8799",
+      "destination": "https://app.1stcontact.io"
+    },
+    "from": {
+      "id": "biz_dbe75328e63c90ffa777b0fa0ba9e1d1",
+      "name": "Lauren Owens Jewelry Test 1",
+      "owner": {
+        "account": "acct_451eca61c0429fda94cb6812826161dc",
+        "name": null,
+        "emails": [
+          "martin@westhead.me"
+        ],
+        "email": "martin@westhead.me"
+      }
+    },
+    "to": {
+      "id": "biz_1ef00a426d2af3a6ff35e60948e00ea7",
+      "name": "Lauren Owens Jewelry Test 1",
+      "owner": {
+        "account": "acct_9b21d99e2746fc452e48cc035c336032",
+        "name": null,
+        "emails": [
+          "martin-github@westhead.me"
+        ],
+        "email": "martin-github@westhead.me"
+      }
+    },
+    "read": 32,
+    "landed": {
+      "created": 0,
+      "replaced": 0,
+      "kept": 32,
+      "comments": 0,
+      "strays": 0
+    }
+  }
+}
+martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="981c2ffe-7133-4134-b294-aa9d86c4b0a2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:29:25.529410+00:00" -->
+#### Claude
+32 read, 32 kept. So the first run did write all 32 conversations into production, and this run found them already there. The builder must be opening a different conversation from the ones the import wrote. Tracing how the import addresses them.
+
+The re-addressing logic looks right on paper. Next I'm comparing the session ids the conversations carry in dev with what production now holds (ids and timestamps only, not message content).
+
+The conversation didn't come across because production already had its own site conversation, and the import leaves an existing conversation alone unless told otherwise.
+
+**What happened:**
+- **00:17 UTC:** you opened the builder for that business in production and sent a message. That started production's own site conversation (`site-site_d39e9bba…`), now holding one exchange (1.6 KB).
+- **00:24 UTC, your first `--chats` run:** the import mapped dev's site conversation onto that same production session. It found a real conversation already there, not an empty placeholder, so it kept production's and wrote nothing over it. The business conversation was kept the same way. The 29 builder-worker sessions had no counterpart in production, so they were created. Those aren't what the chat pane shows.
+- **Your second run:** everything was already present, so all 32 were kept.
+
+The builder is showing production's one-exchange conversation, while dev's (314 KB) was never written.
+
+**To fix it, run the copy again with `--force`:**
+```bash
+bin/copy-site --from dev:martin@westhead.me:"Lauren Owens Jewelry Test 1" --to production:martin-github@westhead.me:"Lauren Owens Jewelry Test 1" --chats --force --json
+```
+This replaces production's conversations with dev's, so the message you typed in production at 00:17 will be lost. `landed` should then show `replaced` rather than `kept`. Reload the builder afterwards.
+
+The plain-text success message hides this: it said "copied" when nothing was written for the conversation that matters. Only `--json` shows the counts.
 
 <!-- xgd-chat-end -->

@@ -5,9 +5,9 @@ type: epic
 title: Performance issues
 created_by: martin-github@westhead.me
 created_at: '2026-11-04T18:50:09.717766+00:00'
-updated_at: '2026-11-05T01:04:52.765874+00:00'
+updated_at: '2026-11-05T21:26:56.157179+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -22,6 +22,9 @@ fields:
   - doc-a058e491
   - bug-ca01d2d1
   - bug-105779dd
+  - bug-18884a92
+  - ticket://lagrangefoundry/lagrange-framework/bug-ff9ea440
+  session_id: fbdce008-c589-4d26-afe2-73964d76dfd0
 ---
 
 ## What this epic is for
@@ -161,3 +164,13 @@ Operational: deploy `ff8f6fbb56` (BUG-341's second fix) to dev and prod. BUG-342
   server at checkout. This is still to be confirmed.
 - **Later:** catalog search or filtering should use a static JSON index rather than
   a Worker query, and rebuilds should touch only the pages an item appears on.
+
+
+
+### 2026-11-05 dev-run review (post 16:08Z deploy)
+13 turns on 3 sites ran in per-job containers; none lost, none OOM. Filed:
+- **BUG-359** (this repo): dev has no 4 GB memory limit; recorded peak omits Chromium; container suites leak proxy containers.
+- **lagrange-framework BUG-113**: a talker waiting for its slot polls claimTalker every ~50 ms, writing two log records per poll and re-reading the whole log (~4,500 records in 2 min on one site).
+
+
+- BUG-359 widened (one ticket, operator decision): it also covers production. A job container is stopped only by a successful `end` step, so a failed `end`, a failed `abandon` or an externally killed Workflow leaves it running with a live token (fix: a stop alarm on the container's DO, and `end` always destroys). Registry images are pruned on deploy. Severity raised to high.

@@ -6,8 +6,8 @@ title: An accepted invitee gets a business, a starter site, and lands on the Sit
   tab
 created_by: CHAT-39
 created_at: '2026-09-06T23:26:46.818016+00:00'
-updated_at: '2026-11-08T00:26:11.813098+00:00'
-completed_at: '2026-11-08T00:25:33.440323+00:00'
+updated_at: '2026-11-08T01:07:08.961891+00:00'
+completed_at: '2026-11-08T01:07:08.961891+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,10 +19,12 @@ fields:
   commits:
   - working_sha: 55b8557bae24fa43b266c6502243304fb7046e55
     reconcile_sha: null
-    main_sha: null
+    main_sha: 7dab798db63906639b30b903caf9f3f736bdb79c
+    working_sha_history: []
   - working_sha: bf7559996e515c35f89bb480d6496f4c786cdd3d
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 75396788c084f8f3af9826771f6d70aceb78314e
+    main_sha: 75396788c084f8f3af9826771f6d70aceb78314e
+    working_sha_history: []
   version: 0.2.123
   bundled_in: bundle-7988e925
 ---

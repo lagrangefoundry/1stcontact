@@ -5,8 +5,8 @@ type: bug
 title: Every denial says access 'has ended' and none of them says why
 created_by: CHAT-39
 created_at: '2026-09-06T23:38:43.079204+00:00'
-updated_at: '2026-11-08T00:26:12.762436+00:00'
-completed_at: '2026-11-08T00:25:41.648626+00:00'
+updated_at: '2026-11-08T01:07:05.104857+00:00'
+completed_at: '2026-11-08T01:07:05.104857+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -16,8 +16,9 @@ fields:
   chat_comment: comment-5d576c05
   commits:
   - working_sha: 1a34cd0cd1f0f5d7c71ca3220efa1e666520c0a5
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 5e3f871705979f167789f65c6eb7697ea86ef409
+    main_sha: 5e3f871705979f167789f65c6eb7697ea86ef409
+    working_sha_history: []
   version: 0.2.122
   story_points: 2
   bundled_in: bundle-7988e925

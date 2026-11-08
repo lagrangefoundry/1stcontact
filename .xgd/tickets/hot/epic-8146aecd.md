@@ -5,7 +5,7 @@ type: epic
 title: 'Shop tab: inventory, orders and public checkout'
 created_by: CHAT-86
 created_at: '2026-11-02T17:22:56.202087+00:00'
-updated_at: '2026-11-05T00:14:07.393862+00:00'
+updated_at: '2026-11-08T00:50:32.580346+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -254,3 +254,12 @@ These supersede the sections above where they differ.
 - [[REQ-644]]: fulfilment, cancellation requests, order status page, returns and refunds, and order emails. Depends on REQ-643, on EPIC-9's refund operation, and on EPIC-30's buyer recipient.
 
 - [[REQ-651]]: an item can belong to several collections (supersedes the one-collection rule).
+
+
+## Children (2026-11-07, filed from the EPIC-9 session)
+
+- [[BUG-375]]: after the first test sale. Shop remembers its mode and filter; one "Paid — to ship" state with test orders included; pending orders whose Stripe notification was missed settle themselves; one order page reached two ways, with photos and links; **single-page checkout with Stripe's embedded form**, which supersedes "opens Stripe Checkout" in the purchase flow above. Stripe.js is the one third-party script, recorded in the Security Policy §5.
+- [[REQ-659]]: a paid buyer becomes a contact of the business at stage **customer**, and every order email is tracked on the contact.
+
+
+- [[BUG-380]]: production import stalled in the photo phase at the per-invocation request cap, stays "running", and concurrent photo stores corrupted the business's Library index.

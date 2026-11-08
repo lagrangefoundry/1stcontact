@@ -5,8 +5,8 @@ type: request
 title: 'Library tab: live updates for the material list via a change subscription'
 created_by: CHAT-27
 created_at: '2026-09-06T17:46:48.225001+00:00'
-updated_at: '2026-11-08T00:26:15.506081+00:00'
-completed_at: '2026-11-08T00:26:06.322620+00:00'
+updated_at: '2026-11-08T01:06:48.876621+00:00'
+completed_at: '2026-11-08T01:06:48.876621+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,10 +17,12 @@ fields:
   commits:
   - working_sha: ad4562818c1090acc3174845d19b56d10bb3f6a5
     reconcile_sha: null
-    main_sha: null
+    main_sha: bdbc656e838911db1e6c2b13e3cce5d01e5a05a8
+    working_sha_history: []
   - working_sha: 9ede4efd15ed134a19245b2ce423788eb6a874b5
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 068c4d8cacb71df397598af8d34f76e7edda4920
+    main_sha: 068c4d8cacb71df397598af8d34f76e7edda4920
+    working_sha_history: []
   version: 0.2.118
   bundled_in: bundle-7988e925
 ---

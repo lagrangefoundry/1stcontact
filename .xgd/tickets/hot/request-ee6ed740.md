@@ -5,8 +5,8 @@ type: request
 title: 'The Contacts tab: add a Lead, invite a selection, and see what was sent'
 created_by: xgd
 created_at: '2026-09-06T00:02:09.757977+00:00'
-updated_at: '2026-11-08T00:26:14.086800+00:00'
-completed_at: '2026-11-08T00:25:56.248079+00:00'
+updated_at: '2026-11-08T01:06:56.953291+00:00'
+completed_at: '2026-11-08T01:06:56.953291+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,11 +18,11 @@ fields:
   commits:
   - working_sha: 77d6b6b1dda7742c12ae29d7a797bfae9b220cb8
     reconcile_sha: 7bebebd5006c6e6b31ead541e102a0792107fa4e
-    main_sha: null
+    main_sha: d0e9db115874bc35888ff3da531544f6fb2bbb4c
     working_sha_history: []
   - working_sha: b98466e354fd94c282885c9df176aa79d9f01598
-    reconcile_sha: ee3cccaea411ac48d77fa09d7b2427a42cb634d4
-    main_sha: null
+    reconcile_sha: 0de1ba93f7c7f8072cca5330407451c534bdeeb5
+    main_sha: 0de1ba93f7c7f8072cca5330407451c534bdeeb5
     working_sha_history: []
   version: 0.2.120
   bundled_in: bundle-7988e925

@@ -6,14 +6,15 @@ title: 'Stripe: go live on both accounts (2FA, activation, live Connect) and the
   decisions'
 created_by: claude-chat
 created_at: '2026-11-03T20:55:22.849186+00:00'
-updated_at: '2026-11-03T20:55:22.849186+00:00'
+updated_at: '2026-11-06T21:56:15.605729+00:00'
 completed_at: null
-last_field_updated: created_at
-status: null
+last_field_updated: status
+status: open
 fields:
   kind: user_task
   parent_uid: epic-ce0874f2
   auto_merge_back: true
+  session_id: 07b695d0-07b6-4cbf-9235-c7b128ad9348
 ---
 
 **Operator task, follow-up to [[TODO-18]].** TODO-18 finished the sandbox side: Connect, OAuth for Standard accounts, the test client ID and `STRIPE_SECRET_KEY_TEST` in the secrets file. Those unblock the [[EPIC-9]] foundation code. This ticket covers what remains before anything works in **live mode** for [[GOAL-55]]. See TODO-18's comments for the setup as built.

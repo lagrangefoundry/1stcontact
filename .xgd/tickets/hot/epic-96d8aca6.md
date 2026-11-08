@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-11-04T20:29:51.641292+00:00'
+updated_at: '2026-11-07T01:53:42.894392+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -2258,3 +2258,82 @@ the cookie carried `local-dev-88241`.
 **The runbook, restated:** `bin/dev down` -> `bin/build` -> `bin/dev up` -> sign in
 at `http://127.0.0.1:8799/login`, and `bin/kb-release` as well whenever the L1
 schemas, the behaviour declarations or the surface declarations moved.
+
+
+
+---
+
+## §R — Staging, picked back up: what it needs as of 2026-11-06
+
+The operator asked what it takes to create staging, adding two uses to §1–§6's pre-production gate: **copying sites into staging from dev and from production, for testing.** Findings are read off the current tree.
+
+### R1 — Most of the design is already here
+
+§1–§6 (the gate) and §J (a deployed second environment) still hold. §J was written for a cloud `dev`; dev went local instead (§K), so **§J's checklist is now the staging checklist** with "dev" read as "staging". Since then:
+
+- **Fixed:** the migrate hook resolves the database name from `[[env.<name>.d1_databases]]` (§J3). Pointing it at staging no longer migrates production.
+- **Exists:** `bin/copy-site` ([[REQ-654]]) copies a site between any two businesses, addressed `env:"Business"`. It knows two environments: `dev`/`local` and `production`.
+- **Unchanged:** `.github/workflows/deploy.yml` is still the scaffold (§"What exists today"). Children 1–6 in §Children are all unfiled. Open question 10 (the component store in CI) still blocks child 1.
+
+### R2 — The account side, against today's `wrangler.toml`
+
+The inventory has grown since §J4:
+
+| resource | staging needs |
+|---|---|
+| D1 | one new database; all migrations apply from empty |
+| R2 | `1stcontact-sites-staging`, `1stcontact-material-staging` (the second bucket is `material` now, not `BLOBS`) |
+| rate limiters | three new `namespace_id`s (`LEAD_RATE_LIMIT`, `CHECKOUT_RATE_LIMIT`, `SIGNIN_IP_RATE_LIMIT`) |
+| Workflows | four names with a `-staging` suffix (consultant-turn, shop-import, material-import, comp-capture) |
+| Containers / DOs | free with a new Worker name, but `max_instances` should be small (production is 50) |
+| service bindings | public-site's three bindings must name `1stcontact-control-app-staging`, or staging leads land in production |
+| Access | an application per staging hostname and its own `ACCESS_AUD`; a service token for probes, copies and the deploy check ([[BUG-346]]) |
+| Turnstile | a widget for the staging hostnames, or every anonymous lead fails closed |
+| Stripe | `STRIPE_MODE=test`, test keys only |
+| email | `MAIL_FROM` on a staging sender; decide whether staging may mail anyone outside an allow-list |
+| `TENANT_ID` | a platform business minted in the staging database |
+| secrets | pushed per Worker by the existing hooks under `--env staging` |
+| KB | open question 8 still stands |
+
+`[env.staging]` is held to completeness by the parity UAT already (§J2), so a missing binding fails a test.
+
+### R3 — The hostname decision: a separate zone, because of the session cookie
+
+Production sets `SESSION_COOKIE_DOMAIN = "1stcontact.io"`. Browsers send that cookie to **every** host under `1stcontact.io`. If staging lives at `app.staging.1stcontact.io`, the staging Worker receives production session cookies from anyone signed in to production. §J5.3 flagged a cookie collision; this is worse, because staging runs weaker configuration (§5).
+
+**Recommendation: give staging its own registrable domain** in the same Cloudflare account (same Access team, same account bindings). Then cookies, Access applications and Turnstile widgets are separate by construction. `bin/smoke`'s `app.<host>` default still works on `<stagingdomain>` / `app.<stagingdomain>`.
+
+Customer sites on staging are reached by the `/site/<siteKey>/` path grammar (open question 2), so a copied site does not need its own domain.
+
+### R4 — Copying into staging: what `bin/copy-site` needs
+
+1. **An environment table instead of two ends.** `copy.ts` has one hardcoded `CLOUD_ORIGIN` (`https://app.1stcontact.io`) and maps every name to `local` or `cloud`. Staging is a third entry: its own origin and **its own** service-token pair from the secrets file. It must never fall back to production's pair (security note §2).
+2. **Downward refusals apply to staging.** Today a copy from production to the local builder refuses `--chats` and `--contacts`. **Production → staging must refuse them the same way:** chats and contacts are the third-party data security note §1 keeps out of staging. The site itself (definition, Library materials and references, captures, shop inventory) is what a business puts on its public website, which is the class [[DOC-5]] item 26 already treats as shareable. `--handoff` carries none of the refused classes, so it can stay as it is.
+3. **The destination business must exist** (copy-site never creates one). On a fresh staging that means the seed, or a way to create a business by name, comes first.
+
+**This does not conflict with security note §1**, provided R4.2 holds. Staging then holds production *site content* but no production *people*. It is still a copy of a customer's unpublished draft, so §5's Access gate on **both** staging hostnames becomes required.
+
+### R5 — One question the copies raise: does a copied site survive the next deploy?
+
+Open question 9 recommends wipe-and-reseed on every pipeline run. A site copied in for manual testing would be deleted by the next deploy. Two consistent answers:
+
+- **(a)** The pipeline wipes and reseeds **only the fixture businesses** it owns, and leaves copied businesses alone. Copies persist until removed.
+- **(b)** Everything is wiped each run, and copies are expected to be redone.
+
+Recommendation: **(a)**. The fixture tenant is what the gate depends on; copies are the operator's scratch space, so they should not be lost to a deploy.
+
+### R6 — Order of work
+
+Staging is useful before the pipeline exists: a laptop `bin/deploy --env staging` plus copy-site gives a production-shaped test target straight away. The CI gate (children 1 and 4) can follow.
+
+1. **`[env.staging]` + provisioning** (§Children child 2): wrangler blocks, resources from R2, the zone from R3, Access on both hostnames, `workers_dev = false` on both Workers, and `bin/build --env` (§J3).
+2. **`bin/copy-site` learns staging** (R4).
+3. **The fixture seed** (child 3): environment-aware, idempotent, refusing production; scoped per R5.
+4. **CI on `bin/build` + `bin/deploy`** (child 1), then **the gate** (child 4).
+
+### R7 — Operator decisions needed before filing
+
+1. A separate staging domain (R3)? If yes, which name.
+2. R5: are copied sites kept across deploys (a) or wiped (b)?
+3. May staging send email to anyone, or only to an allow-list?
+4. Staging first from the laptop (R6) and CI later, or wait for the full pipeline?

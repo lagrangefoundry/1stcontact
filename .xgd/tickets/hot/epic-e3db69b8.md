@@ -5,7 +5,7 @@ type: epic
 title: 'Legal: 1st Contact terms & privacy, and standard legal pages for client sites'
 created_by: xgd
 created_at: '2026-10-29T23:34:26.197150+00:00'
-updated_at: '2026-11-03T18:16:36.203006+00:00'
+updated_at: '2026-11-07T21:25:07.816862+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,7 +13,10 @@ fields:
   priority: medium
   epic_children:
   - request-7075ae7f
+  - request-51d90ad9
+  - request-fc2557ae
   chat_comment: comment-02b19238
+  session_id: eae99f9b-9f22-4f66-b84e-ccecf31866e1
 ---
 
 # Legal: 1st Contact terms & privacy, and standard legal pages for client sites
@@ -156,3 +159,20 @@ A simple first draft of the client's Terms and Privacy Notice, generated from th
   - The email fingerprint is not mentioned, because it does not exist in code yet.
 - **Takes effect at the next `bin/build` + `bin/deploy`.** Every level 1 user then re-accepts the Terms and re-reads the Privacy Notice on one acceptance page. The Beta Terms are unchanged.
 - **Still pending:** a lawyer's review of both documents before paid launch (the Out of scope list).
+
+
+## Update 2026-11-07: client legal documents (workstream 3) scoped as Paperwork's Legal mode
+
+Shaped with the operator in this epic's chat, prompted by EPIC-9's finding that client checkouts show no terms of sale or privacy notice. The Paperwork tab (EPIC-30, REQ-661/662) is in place; its Legal mode lists only 1st Contact's documents and is read-only.
+
+- **[[REQ-665]] — Legal mode: client legal documents built from site features** (draft, 20 pts). Modules (doc tickets, standard text filled in by code, never AI-written) chosen by features detected on the site and by region; business details form; Standard vs Edited by you per document ("if they edit they are on their own"), with a warning when an edited document misses a module, and "Go back to the standard version"; static `/legal/...` pages with footer links; rebuilt at site publish with the consultant explaining the changes first; Legal assistant can set business details and explain, never write text.
+- **[[REQ-666]] — terms at checkout, member acceptance and change notices** (draft, 13 pts, after REQ-665). Checkout line with no tick box, version recorded on the order, lasting copy in the confirmation email, Buy button needs seller details, signed-in customers agree to Terms and read the Privacy notice, re-acceptance only for material Terms changes, a "We've updated our privacy notice" Paperwork email before material privacy changes take effect.
+
+**Decisions (operator, 2026-11-07):**
+- Legal is a mode of the Paperwork tab, not a separate tab.
+- Standard changes go live at site publish; the consultant must make them clear to the owner.
+- Regions in the first release: **US, UK and EU**.
+- The Legal assistant answers questions and changes business details only; it cannot edit document text.
+- Signed-in customers are a coming feature (mailing lists, subscriptions, members-only content), not just the portal.
+
+**Still to do in this session:** draft the first module texts as doc tickets (base per region, contact form, shop, mailing list, signed-in customers, embedded media). **Open:** whether 1st Contact's own acceptance page should stop requiring a tick for the Privacy Notice.

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-10-03T18:33:25.535205+00:00'
+updated_at: '2026-11-08T00:15:29.073015+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -187,5 +187,34 @@ I've created the three child tickets. Each is at `draft`, linked to EPIC-23, and
 None of them blocks another, so they can land in any order. Each one gets built in its own ticket session; this epic session doesn't write code.
 
 One question is still open in REQ-369. You said there's no way to add contacts, but the Contacts list already has a small **+** button ("Add a contact") that only shows to the business owner. Can you not see it, or is it missing something you need? If it's just too easy to miss, making it more visible goes into REQ-369.
+
+<!-- xgd-turn id="1f8428f0-b4f3-4b50-9837-d95c4e05ba27-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:13:31.310120+00:00" -->
+#### You
+Can you own REQ-668 and answer the questions in its transcript. Please put the answers in its ticket body.
+
+<!-- xgd-turn id="1f8428f0-b4f3-4b50-9837-d95c4e05ba27-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:15:27.251147+00:00" -->
+#### Claude
+Reading DOC-45 §10 and the `site_domains` lookup to check the answers against the design. Then I'll write them into REQ-668.
+
+Writing the five answers into REQ-668's body now. They replace its "Open decisions" section; nothing else in the body changes.
+
+Adding two test-plan bullets so decisions 4 and 5 each have a UAT behind them.
+
+I've answered REQ-668's five questions in its ticket body. They replace its "Open decisions" section, and the rest of the body is unchanged. I accepted all five recommendations. Reading the code changed one answer: question 1 had to be widened.
+
+1. **The business is chosen from where the sign-in started.** The return address the send route already checks names a site, and that site's business is the one used (host → site → business).
+   - **What I added:** client pages may still be served under the apex at `1stcontact.io/site/<key>/`. A host lookup alone would send those sign-ins to 1st Contact, so a return address there resolves through the site key instead.
+   - **How a client's customer gets in:** only from that business's site or from an invite it sent. Typing `app.1stcontact.io/sign-in` directly reaches only 1st Contact's contacts.
+   - **Redeeming the link and reading the session** don't need the host, because the person's record already names their business.
+2. **One session per business per browser.** Signing in to another business replaces the current session. The cost is that someone who owns a 1st Contact business and is also Alice's Plumbing's customer gets signed out of the builder when they sign in to Alice's portal. I've recorded that as accepted.
+3. **It stays on `app.1stcontact.io` for v1.** One added rule: nothing may assume the portal is on the business's own site, so a later move to the customer's own domain stays easy.
+4. **The terms gate shows each contact their own business's documents.** A client business's contact is never asked to accept 1st Contact's. Until REQ-666 lets businesses publish their own documents, those contacts see no gate. Accepting never creates a business for them; only 1st Contact's own new contacts get a starter business. I rejected refusing them until REQ-666 lands, because REQ-666 needs them admitted to build on.
+5. **Someone with no business they can operate lands on their portal.** "Operate" means holding an owner role, or delegate once REQ-369 lands. Members still land in the builder, and a recorded return address still wins.
+
+I also added two items to the test plan, one each for decisions 4 and 5. No code was changed. REQ-668 is still at `draft`, so its own session can start building whenever you're ready.
 
 <!-- xgd-chat-end -->

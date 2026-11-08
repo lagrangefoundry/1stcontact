@@ -6,16 +6,25 @@ title: 'Shop: fulfilment, cancellation requests, order status page, returns and 
   order emails'
 created_by: EPIC-31
 created_at: '2026-11-04T17:16:37.567809+00:00'
-updated_at: '2026-11-04T22:00:01.314630+00:00'
+updated_at: '2026-11-07T15:55:10.393502+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   parent_uid: epic-8146aecd
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-539b611b
+  story_points: 20
+  commits:
+  - working_sha: cfe5627b1cb2c7edd8a926ce240bea4bad48025e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 160723384405f6ea2cedc827eba2b1f734b9247e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.807
 ---
 
 ## What changes
@@ -85,3 +94,69 @@ UATs named `test_UAT_FC_<REQ-ID>_*`, in the BUG-333 real-Chromium Shop suite (`p
 - **Styling is L1 with the site's design tokens**, so it matches the business's site. No hand-written page, no raw template holes (security policy, REQ-82). A default page exists for every site that sells.
 
 Test plan addition: the status page renders through the shared L1 renderer from the site definition; injected text in an order line name is inert on it.
+
+## Decisions made by the session (2026-11-07)
+
+I asked the operator these questions on 2026-11-05 and got no answer, so the session went ahead with its proposed defaults. The operator can overrule any of them.
+
+1. **Refunds from our buttons are built here.** `createRefund` in `payments.ts` calls Stripe `POST /v1/refunds` on the connected account with an idempotency key. It uses the same webhook and credit-note path as a refund made in the dashboard, so one refund never gets two credit notes. EPIC-9 has no separate ticket for this.
+2. **Buyer emails are built here.** Each one is recorded in the business's store against the order (not against a user or contact). It is sent in the business's name (from its verified sending domain if it has one, otherwise the platform address with the business's name), with **reply-to set to the owner**. Wording is set by the platform. There is no unsubscribe link, because these emails are about the buyer's own purchase.
+3. **Owner notifications** are new `notify()` kinds, `new_order` and `cancellation_requested`, sent to the owner and live delegates. They are **exempt from the 5-per-hour notification limit**, so a busy shop never stops hearing about orders.
+4. **"Let buyers request cancellation" is on by default.** The owner still decides every request.
+5. **Status page module:** a `status` mode on the `checkout` module. It gets a default L1 page drawn inside the site's header and footer, like the other checkout pages. Its client script calls `api/checkout/order` and `api/checkout/request-cancel`.
+6. **Private link:** a random 32-byte token. Only its SHA-256 hash is stored on the order. The token goes after `#` in the URL (`/order-status#t=…`), so it never appears in server or CDN logs.
+7. **Cancelling after a partial refund** refunds whatever has not yet been refunded, not the full amount.
+8. **One ticket**, built on the `free-REQ-644` branch over several turns.
+9. **Definition of done on dev:** still waiting on the operator for the test buyer's inbox and confirmation that our test business is connected to a Stripe test account. Until then, an email counts as received when its outgoing record exists and Resend reports it delivered.
+
+## What landed (2026-11-07, branch free-REQ-644)
+
+**Schema (`db/migrations/0053_order_fulfilment.sql`).**
+- `orders.status` keeps REQ-643's states and CHECK. A paid order moves on in a new **`fulfilment`** column: none → `shipped` | `cancelled`, then `shipped` → `returned`. The database refuses any other move.
+  - The order's state as shown is `fulfilment` if set, otherwise `status`.
+  - Rebuilding `orders` to widen its CHECK was rejected, because its implicit delete would cascade into the order's lines.
+- A cancelled order puts its stock back exactly once, using a trigger like the expiry release.
+- New tables: `order_events` (fulfilment record, each entry with an owner text and an optional buyer-safe text), `order_refunds` (refunds asked from our buttons; the row id is Stripe's idempotency key), `order_returned_lines` and `order_status_links` (the SHA-256 of each status-page token; the token itself is never stored).
+- `shop_shipping` gains `email_on_ship` and `buyer_cancel_requests`, both on by default.
+- `orders` gains `site_url`, recorded at checkout so emails can link to the status page. It also gains `app_origin`, the control app's origin as the paid webhook reached it, so a buyer's cancellation request can link the owner back without a new config var.
+
+**Refunds (`payments.ts` `createRefund`).** Calls `POST /v1/refunds` on the connected account with an `Idempotency-Key`. The reason goes in the refund's metadata. Stripe's answer goes through the same `processRefund` path as a dashboard refund's webhook, so each refund gets one credit note, carrying the button's reason ("Order cancelled", "Return", "Refund"). The webhook that follows adds nothing.
+
+**Owner actions (`fulfilment.ts`, `POST /api/shop/order/{ship,cancel,return,refund,decline}`).** Each answers the order as it now stands. A state that doesn't allow the action answers 409; an amount over what is refundable answers 400.
+- **Refundable** is the invoice total, less what has been credited, less refunds still under way.
+- **Mark shipped**, with optional tracking number and carrier. Emails the buyer only when "Email the buyer when an order ships" is on.
+- **Cancel** refunds what remains refundable (the full amount, or the rest after a goodwill refund). It also clears any pending request, restocks, rebuilds the item's pages and emails the buyer.
+- **Record return** takes the chosen lines and whether each is restocked. The proposed refund is those lines' total, capped at what is refundable; the owner may change it, and 0 is allowed (no refund). → `returned`, and the buyer is emailed.
+- **Refund** with no return: any amount up to what is refundable, on an order that isn't cancelled.
+- **Decline** a pending request, with an optional note of up to 500 characters. The note goes to the buyer by email and appears in their history.
+- The order detail now has `refundable`, `tracking`, `lineIds`, `actions` (which buttons apply) and `cancelRequested`. Its chronological record adds fulfilment events, every refund (ours and the dashboard's) and every credit note.
+- The list filter `status=to_ship` shows paid live orders with no fulfilment. Status filters now include shipped, cancelled and returned.
+
+**Emails (`order-emails.ts`, `notifications.ts`).**
+- Owner: `notify()` kinds `new_order` (on paid, sent once: items, amount, buyer, ship-to) and `cancellation_requested`. Both go to the owner and live delegates (`teamOf`) and are **exempt from, and not counted toward, the 5-per-hour limit**. A `facts` list (escaped label and value pairs) carries the order details.
+  - The link is an auto sign-in into `/b/<biz>/?show=order&order=<id>`. The builder's `show=order` target opens the Shop tab's Orders mode at that order.
+- Buyer: `confirmation` (always on paid, with the dispatch note and delivery address), `shipped`, `cancelled`, `cancel_declined` and `return_refund`.
+  - Each is recorded in the business's store, with the order id as contact and address id and fields `order_id`, `order_email` and `reply_to`.
+  - Sent in the business's name: from its verified domain, otherwise the platform address under the business's name. `reply_to` is the owner's verified address. A test order's subject starts `[Test]`. No unsubscribe link.
+  - Each email mints a fresh 32-byte token, and its link is `<site>/order-status#t=<token>`.
+  - Synthetic orders, and orders with no buyer email, send nothing. A failed send is recorded or logged, and never fails the webhook or the button.
+- `Message` and `OutgoingMessage` gain `replyTo`; Resend is sent `reply_to`.
+
+**Buyer status page.** The `checkout` module gains a `status` mode, with a `request-cancel` control and a `requestCancelLabel` config. The L1 text bind fields gain `state`, `lines`, `subtotal`, `address`, `history` and `requested`.
+- A default L2 page is drawn at `/order-status` inside the site's own header and footer. A site's own `checkout` page in `status` mode replaces it.
+- Its script reads the token from the URL fragment and posts `api/checkout/order`. It writes every value with `textContent` (line breaks kept) and shows Request cancellation only when the answer allows it.
+- Pressing Request cancellation posts `api/checkout/request-cancel` and then says the request was sent. It never says the order is cancelled.
+- A token works only on its own shop's site, and only for a paid order; anything else answers 404.
+- The buyer-safe history contains: Order placed, Shipped (with tracking), Cancellation requested, the declined request with the owner's note, Cancelled, Return received, and Refunded (successful refunds only).
+- A request answers 409 when the setting is off or the order is shipped, cancelled or returned.
+
+**Builder.**
+- The Orders list opens on **To ship**. A row is badged "Cancellation requested" when one is pending.
+- The detail has action forms: Mark shipped (tracking number and carrier fields); Cancel and refund, with a confirmation step; Decline, with a note; Record return (per line: came back, put back in stock; refund pre-filled with the chosen lines' total, checked against what is refundable before sending); Refund.
+- **Settings → Shop** has the two switches, each saving when changed.
+
+## Test plan as built
+- `tests/test_UAT_FC_REQ-644_fulfilment.workers.test.ts` (real router, public-site Worker, D1 and R2; Stripe faked at fetch, including `/v1/refunds`; webhooks signed): To ship and shipped email with tracking, plus the setting off; new-order notification and confirmation with a working link; owner Cancel; Record return; goodwill and dashboard refunds, then Cancel refunding the rest; request, decline and cancel; button rules and links never crossing shops; status page published.
+- `tests/test_UAT_FC_REQ-644_order_status_page.test.ts` (generator plus client script in jsdom): the default page through L1; the site's own page validates and replaces it; the script draws the order, with injected markup in a line name staying inert; the request never says cancelled; a missing or unknown token.
+- `tests/test_UAT_FC_REQ-644_orders_actions.test.ts` (builder in jsdom): opens on To ship; Mark shipped; Cancel's confirmation; Record return's proposed and edited amount; a request flagged and declined; Settings → Shop.
+- Not yet done: the BUG-333 real-Chromium Shop suite run, and the definition-of-done walk-through on dev (needs the test inbox and the Stripe test connection, decision 9).

@@ -6,8 +6,8 @@ title: 'Consume auth-passwordless: sessions, sign-in routes, and the invite link
   a token'
 created_by: CHAT-39
 created_at: '2026-09-06T23:18:52.431716+00:00'
-updated_at: '2026-11-08T00:26:11.079234+00:00'
-completed_at: '2026-11-08T00:25:27.073143+00:00'
+updated_at: '2026-11-08T01:07:13.664250+00:00'
+completed_at: '2026-11-08T01:07:13.664250+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,15 +19,16 @@ fields:
   commits:
   - working_sha: fc5c78dbe58c66501a8238e1350fd20c7767b2ad
     reconcile_sha: null
-    main_sha: null
+    main_sha: 47b44f2c1833a96a060ee3495ec2d629cf837fef
     working_sha_history: []
   - working_sha: 170dce5d581a50a870945a59ff9f83c347684d62
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 0352af519eaf45ff51d23c143c7b2fbe77aad4ae
+    main_sha: 0352af519eaf45ff51d23c143c7b2fbe77aad4ae
     working_sha_history: []
   - working_sha: c35972e365e22f5e7223d9b2fb19437b4868ece4
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: 1b30dce7b55e1c07e1bf2281db530970e8789c05
+    main_sha: 1b30dce7b55e1c07e1bf2281db530970e8789c05
+    working_sha_history: []
   version: 0.2.125
   bundled_in: bundle-7988e925
 ---

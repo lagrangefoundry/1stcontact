@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-31
 created_by: xgd
 created_at: '2026-11-02T17:24:17.509637+00:00'
-updated_at: '2026-11-05T00:14:14.244584+00:00'
+updated_at: '2026-11-08T00:50:44.740823+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1837,5 +1837,168 @@ Each change has its own test. It's done once a re-import on dev shows a product 
 I've also changed EPIC-31's rule in place to "any number of collections, the owner's decision", so the epic no longer contradicts REQ-651, and added REQ-651 to its children list.
 
 Once it's built and deployed, re-run the import with your current mapping and all four Reworked pieces should land in Reworked.
+
+<!-- xgd-turn id="7294ec32-874e-492f-85fb-a5be06468cae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T21:15:52.412070+00:00" -->
+#### You
+I have not had time to test the second round of shop functionality yet. In your view should I test what we have before implementing the last ticket 644? Or does it matter?
+
+<!-- xgd-turn id="7294ec32-874e-492f-85fb-a5be06468cae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T21:18:33.785766+00:00" -->
+#### Claude
+I'd test first, and mainly REQ-643.
+
+**Why it matters:** REQ-644 is built directly on REQ-643. Mark shipped, cancel with a refund, returns, the buyer's order status page and the order emails all act on the orders that REQ-643's Checkout creates. So if REQ-643's orders, shipping zones, Checkout or Orders mode need changing after you try them, REQ-644 would need reworking too. It's also REQ-643's biggest risk: it's 20 points, the size limit for one ticket, and it's untested.
+
+**What doesn't need to wait:** REQ-651 (several collections) and REQ-648 (the product grid standard) are separate from REQ-644. Problems you find there won't affect it.
+
+**A suggested order:**
+1. **Deploy to dev first**, if nobody has since these landed. Dev keeps serving the old build until `bin/deploy --env dev` runs.
+2. **Re-import the source shop and check the four Reworked pieces show in Reworked.** That tests REQ-651 and the import together.
+3. **Check the shop grid on desktop, tablet and phone** (REQ-648).
+4. **Buy an item in test mode from start to finish:** add to cart, Checkout, choose a shipping zone, pay, then see the order in Orders mode. Of everything, this is what REQ-644 relies on.
+
+**One thing worth knowing before you start REQ-644:** it also depends on refunds made from our own buttons (EPIC-9) and on emails to the buyer (EPIC-30). If either isn't ready, building REQ-644 now would mean stubbing them out. If you want, I can check where those two stand while you test.
+
+<!-- xgd-turn id="473a9b4f-46b2-4c20-981a-702da58d98ee-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T18:28:07.898933+00:00" -->
+#### You
+You got some more children from EPIC 9 please review them
+
+Also -> do we understand the behavior of the flow if the user uses the browser Back button during any of the checkout stages. Ideally this would work seamlessly and "as expected"?
+
+<!-- xgd-turn id="473a9b4f-46b2-4c20-981a-702da58d98ee-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T18:30:13.274979+00:00" -->
+#### Claude
+Reviewing the two new EPIC-9 children (BUG-375, REQ-659) and reading the checkout client code to answer the Back-button question.
+
+EPIC-9 filed two new Shop children, **BUG-375** (built, waiting at `ready_to_reconcile`) and **REQ-659** (`draft`). I've added both to EPIC-31's children list. On the Back button: I traced it through the checkout code, and it doesn't behave as expected. I haven't run a browser test of it.
+
+## The Back button
+
+Since BUG-375, **just opening the checkout page starts a new order**: it reserves the stock and opens a Stripe session as soon as a region is known, or straight away when there's only one shipping rate. Nothing reuses a session the buyer already has open, and nothing cleans up when they leave the page. The reservation lasts about 31 minutes. So:
+
+| What the buyer does | What happens |
+|---|---|
+| Goes Back from checkout to the product page | Their reservation stays for ~31 minutes. Nobody else can buy the piece in that time, although the product page still shows Buy. |
+| Then clicks Buy again, or reloads the checkout page | For a one-off piece, **their own earlier reservation blocks them**: "Sorry — someone else is buying this right now". It stays blocked until the reservation runs out. |
+| Goes Forward to checkout again | Depends on the browser. If it keeps the page in memory, the old form comes back and works. If it reloads, they get the same block as above. |
+| Goes Back from the thank-you page after paying | Checkout reloads. A one-off shows "Sorry — this has sold since the page was published", which is confusing for someone who just bought it. If there's more than one in stock, a second order quietly starts. |
+| Goes Back from the cancelled page | Works: that page already released the reservation, and checkout starts again cleanly. |
+| Leaves while the card is being confirmed | The payment still settles through the webhook or BUG-375's self-correction, and the confirmation email goes out. They just never see the thank-you page. |
+
+Every abandoned visit also uses up an order number, so the owner will see gaps.
+
+In the builder preview, links clicked inside the preview may also add steps to the builder tab's own history, so Back would move the preview rather than leave the builder. I haven't checked this.
+
+**Suggested fix (small, mostly in the checkout script):**
+- The checkout page remembers its open session in the browser tab, for that item and region. On a reload, Back or Forward, it shows the same Stripe form again instead of starting a new order. It starts a new one only once that session has ended.
+- If the remembered order turns out to be paid, the page says "You've bought this — view your order" instead of "sold".
+- When the browser restores the page from memory, it re-checks the order with the server.
+- We still don't cancel when the buyer leaves the page. That event also fires during the normal return from Stripe after paying, so cancelling there could end a session that is completing.
+
+UATs in real Chromium would cover Back, Forward and reload at each step. Since this fixes work that has already landed, it would be a bug ticket. Do you want me to file it?
+
+## BUG-375 review
+
+The scope is good, and it's the right fix for what your first sale turned up. Three things:
+- **Done isn't checked yet.** It needs `STRIPE_PUBLISHABLE_KEY_TEST=pk_test_…` in the dev secrets file, then `bin/deploy --env dev` and a real test purchase.
+- **Starting an order on page load** causes the Back problems above. It also means any visitor or crawler that runs scripts on the checkout page reserves stock. I found no `noindex` on that page; it's worth adding.
+- **The checkout still sends a single item.** The multi-item cart is still the planned fast follow. I'm noting this so nobody assumes it's in.
+
+## REQ-659 review
+
+The design is sound: the address stays on the order, a paid order never implies marketing consent, and a replayed webhook adds no second contact. One change I'd make:
+- **Test purchases create real contacts.** Behaviour 7 makes test orders do everything. When an owner rehearses with their own email, they become a "customer" of their own business, and test buyers pile up in People. I'd add one line: contacts created from a test order carry the Test mark and can be filtered out. Better still, they don't count as customers.
+
+It's built on BUG-375's settle path, so it should come after BUG-375 is verified on dev.
+
+<!-- xgd-turn id="cb9af7d8-5d74-441e-abab-79a6dcdde181-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T18:55:32.478749+00:00" -->
+#### You
+Test purchases can only occur in test sites - all the users in such a site are test users
+
+<!-- xgd-turn id="cb9af7d8-5d74-441e-abab-79a6dcdde181-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T18:55:48.468647+00:00" -->
+#### Claude
+You're right, and the code agrees, so I withdraw that point. The payment mode is set for the whole deployment, not per business: `configuredMode` reads `STRIPE_MODE`, and anything other than `live` means test. A test order can only come from the dev deployment, where every business and contact is test data anyway. Behaviour 7 in REQ-659 is fine as written, so I'd leave REQ-659 alone.
+
+Still open is the Back-button bug from my last message. The checkout page starts a new order on every load, so a buyer who goes Back and then comes back can be blocked by their own reservation for about 30 minutes. Do you want me to file that as a bug?
+
+<!-- xgd-turn id="6534218d-e575-4f4c-bef5-d389e3ff1c7e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:43:52.916078+00:00" -->
+#### You
+ok can you take a look at production. I started an import from WooCommerce and it sees to have stalled
+
+<!-- xgd-turn id="6534218d-e575-4f4c-bef5-d389e3ff1c7e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:47:49.623633+00:00" -->
+#### Claude
+Checking how the import runs, then reading production's import records and logs.
+
+Now reading production's import rows (read-only queries against the production D1).
+
+The import job was cancelled at 00:40 UTC, after 42 of about 1,943 photos. Reading the two errors just before that, then the Workflow instance's state.
+
+Found the cause of the stall. Checking one side effect (the business's Library search index) before reporting.
+
+The import has stopped for good and won't recover by itself. **Don't start it again yet**: a rerun would stop at the same point, after about 40 photos.
+
+## What happened
+Times are Pacific.
+
+- **4:34 PM:** the import started.
+- **Products:** all 367 were imported, 37 pages, with no errors.
+- **Photos:** 42 of 1,943 were stored. 1,901 are still waiting.
+- **4:40 PM:** the job stopped, because the background job ran all its steps in one Worker run and hit Cloudflare's cap on how many storage and database calls one run may make ("Too many API requests by single Worker invocation"). The photo step retried 3 times and failed straight away each time, because a retry in the same run doesn't reset the count.
+- **Why it still says running:** the step that should mark the import failed hit the same cap. So Shop still shows it running and nothing is moving. Cloudflare reports the job itself as Completed.
+- **When a new import can start:** the stuck row stops blocking one after 30 minutes, at 5:09 PM. Until then, starting an import is refused.
+
+This never showed up on dev because the local dev runtime doesn't enforce that cap.
+
+## A second problem: the business's Library search is now broken
+Each stored photo also updates the business's Library search index. Several photos were stored at once, and their index updates overwrote each other part-way. The four index files are saved one after another, not together.
+
+The index now in production is inconsistent: 86 entries but 33,792 numbers, which isn't a whole number per entry. Each later update loads it, refuses it as corrupt, and gives up. So photos added from now on won't be findable by search until the index is rebuilt. The photos themselves are stored safely.
+
+## What needs fixing
+1. **The photos need to run outside a single Worker run.** Our Architecture Policy (item 31) already says media processing for a whole catalogue belongs in a job container. The smaller alternative is to start each batch of photos as its own run.
+2. **A failed import must be recorded as failed** even when the run that failed can't make any more calls, so it never sits at "running".
+3. **Library index updates for one business must happen one at a time.** A corrupt index must be rebuilt, not refused forever. This business's index needs a rebuild now.
+
+Since this breaks work that has already landed (REQ-631, BUG-333), it would be a bug ticket under EPIC-31. Do you want me to file it?
+
+I made no changes to production. I could mark the stuck import as failed now so the Shop tab stops showing it running, but that's a production database write, so I'll only do it if you say so.
+
+<!-- xgd-turn id="ae664eba-9301-4f23-a1f6-83b1b95344a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:49:32.562207+00:00" -->
+#### You
+Please make a ticket
+
+<!-- xgd-turn id="ae664eba-9301-4f23-a1f6-83b1b95344a6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:50:42.938612+00:00" -->
+#### Claude
+Fix the test-plan placeholder name, and add it to EPIC-31's children.
+
+I've filed **BUG-380, "Shop import: photo phase stalls at the per-invocation request cap, stays 'running', and corrupts the Library index"**. It's under EPIC-31 at `draft`, with high severity, and I've added it to the epic's children.
+
+It covers four fixes:
+1. **Photos are processed in the job container**, as Architecture Policy 31 requires, so an import of any size finishes. A retry picks up from the photos still waiting, and nothing already stored is downloaded again.
+2. **A failed import always shows as failed.** If the background job has ended but the import still says running, the next status check marks it failed. A new import can then start straight away, with no 30-minute wait.
+3. **A business's Library index is updated by one writer at a time**, so storing many photos at once can't corrupt it. An index that is already corrupt gets rebuilt rather than refused forever. If this needs a change inside the `@lagrangefoundry/knowledge` package, that part becomes a ticket in that package's repository.
+4. **Repairing the affected business after deploy:** the stuck import shows failed, its Library index is rebuilt, and a rerun stores all of about 1,943 photos without duplicates.
+
+It also has the test plan. Its done check is that rerun on production, with no "Too many API requests" errors in the logs.
+
+The import is still showing "running" in the Shop tab. If you'd rather not wait for the fix to clear it, I can mark it failed in production now, but only if you say so.
 
 <!-- xgd-chat-end -->

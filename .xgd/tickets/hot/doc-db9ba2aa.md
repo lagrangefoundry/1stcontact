@@ -5,9 +5,9 @@ type: doc
 title: Security Policy
 created_by: xgd
 created_at: '2026-06-30T00:54:42.938102+00:00'
-updated_at: '2026-08-31T19:43:03.306481+00:00'
+updated_at: '2026-11-07T18:13:48.594630+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: null
 fields:
   doc_kind: security_policy
@@ -76,7 +76,32 @@ The invariant is proven by executable UATs, not asserted:
   dimension (content-injection inert + no off-allowlist egress) at the L1 /
   capability-module layer.
 
-## 5. Scope of this document
+## 5. The one third-party script: Stripe's embedded Checkout ([[BUG-375]])
+
+A published site ships no third-party script, with **one explicit, narrow
+exception**: Stripe.js, so a buyer pays on the business's own checkout page
+(Stripe's embedded Checkout form) instead of being sent to another site, and
+so the checkout works inside the builder's preview frame.
+
+- **From `https://js.stripe.com` only** (`STRIPE_JS` in the checkout module's
+  client), never a copy and never another host.
+- **On the checkout page only**, and only once the Worker has opened a Checkout
+  session, which it does only for a business that can take payments. No other
+  page loads it.
+- **It renders in Stripe's own frames** (`js.stripe.com`, `checkout.stripe.com`).
+  Card data never touches our pages or our Worker (DOC-5 rule 18).
+- **The site's CSP admits exactly that**: `script-src https://js.stripe.com`,
+  `frame-src` for Stripe's frames, `connect-src` for Stripe's API
+  (`security-headers.ts`, the preview's site policy). Nothing else is widened.
+- What the page hands Stripe.js is the session's client secret, the platform's
+  publishable key and the business's connected account id — none of them secret
+  from the buyer. No value from the site definition reaches it.
+
+Why: the operator's call that fewer checkout pages convert better, and hosted
+Checkout cannot run framed. The exception is pinned by
+`test_UAT_FC_BUG-375_stripe_js_loads_only_on_the_checkout_page_and_only_from_js_stripe_com`.
+
+## 6. Scope of this document
 
 This policy covers the **site-definition → render** security boundary. Platform
 concerns — SSRF guards on web-fetch ([[REQ-20]]), magic-link auth, PII handling,

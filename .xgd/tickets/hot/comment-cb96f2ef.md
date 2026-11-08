@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-9
 created_by: xgd
 created_at: '2026-11-02T17:58:46.497874+00:00'
-updated_at: '2026-11-04T16:09:21.797742+00:00'
+updated_at: '2026-11-08T00:30:44.551085+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1045,5 +1045,483 @@ I've filed **REQ-642, "Payments: Stripe webhooks, payment cache and Checkout ses
 - **Production:** register both endpoints in Stripe as **events on connected accounts**, and set the two signing secrets. I've put this on TODO-20.
 
 **Not filed yet:** the other two tickets from that GOAL-55 turn belong to EPIC-31: orders, shipping zones, the Checkout endpoint and Buy; then fulfilment, emails and returns. Ask the EPIC-31 session to file them.
+
+<!-- xgd-turn id="f21da50b-250d-494a-81ff-23db689ab0b1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-05T22:45:28.709745+00:00" -->
+#### You
+Do I need these for dev testing?
+
+<!-- xgd-turn id="f21da50b-250d-494a-81ff-23db689ab0b1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-05T22:47:11.388553+00:00" -->
+#### Claude
+Checking what the REQ-642 build expects for dev; it has already landed.
+
+You don't need the production half for dev testing. You need the Stripe command-line tool only if you want to watch real events reach your dev server.
+
+**Not needed for dev:** registering the endpoints in Stripe's live settings and setting the live signing secret. That's TODO-20 work, for production only.
+
+**Not needed for the automated tests:** they use a stand-in for Stripe, so they run without the command-line tool or any signing secret.
+
+**Needed to try it by hand:** to see a test payment or a change to a connected account actually reach your dev server, Stripe has to be able to send it events. It can't reach `127.0.0.1` directly, so the command-line tool listens to your sandbox and forwards the events. Without it, the webhook endpoint just never receives anything. REQ-642 has already landed, so this works now:
+
+1. Install it with `brew install stripe/stripe-cli/stripe`, then run `stripe login` and pick the sandbox.
+2. Start forwarding. The events come from the businesses' own Stripe accounts, so you need the connected-account flag:
+   ```
+   stripe listen --forward-connect-to https://127.0.0.1:8789/api/stripe/webhook/test --skip-verify
+   ```
+   (`--skip-verify` because the dev server's certificate is self-signed.)
+3. It prints a `whsec_…` signing secret. Put it in the dev secrets as `STRIPE_WEBHOOK_SECRET_TEST` and restart the dev worker. The test endpoint refuses every event while that secret is missing. The secret stays the same each time you run `stripe listen` on that login, so you only set it once.
+4. Then connect a business in Settings → Payments, or run `stripe trigger account.updated`, and the events will show up.
+
+You also don't need a webhook endpoint registered in the sandbox dashboard. The command-line tool takes its place.
+
+One other change: the dev Connect return address in `wrangler.toml` is now `https://127.0.0.1:8789/api/stripe/connect/return`, not the `localhost` one I gave you earlier. A dev sign-in lands on `127.0.0.1`, so returning to `localhost` would leave you signed out. If you registered the `localhost` address in the sandbox, add the `127.0.0.1` one too.
+
+<!-- xgd-turn id="17dd1e7b-2318-45e3-824f-c5b66e4b55bc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-06T18:48:46.850215+00:00" -->
+#### You
+Please review the last few turns for EPIC-19. I am having difficulty completing a payment in dev - please can you review the symptoms and help me work through it.
+
+I need help understanding the Shipping config it feels confusion to me. Can you explain each field and what are legal values please.
+
+There were several bugs landed since I last tried so I am going to redeploy and try again
+
+<!-- xgd-turn id="17dd1e7b-2318-45e3-824f-c5b66e4b55bc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-06T18:50:10.085470+00:00" -->
+#### Claude
+Reviewed EPIC-19's thread. BUG-372 (the critical Stripe fix) has since landed, so now I'm reading the current Shipping settings code to explain each field accurately.
+
+I've caught up on EPIC-19's thread, checked what has landed since, and looked at your dev shop's data. **The fix that was blocking every payment (BUG-372) has landed**, so your redeploy should pick it up.
+
+## Where the payment problem stands
+
+The thread found two separate causes for "Payment could not be started":
+
+1. **The EU zone held `EZ` ("Eurozone"), which isn't a country.** Stripe refused it. You've since replaced it: your dev shop now has **UK** (GB, €10.00), **Ireland** (IE, €10.00) and **USA** (US, €20.00). All three are valid.
+2. **Our code sent a setting Stripe has retired (`payment_method_types`).** Stripe refused every checkout, whatever the country; this is why Ireland failed too. BUG-372 fixed it on 6 November. We no longer send that setting, and every Stripe request now names one fixed version of Stripe's interface, so a change on Stripe's side can't silently break us again.
+
+There have been no checkout attempts since those two failures at 02:36 and 02:42 UTC, so nothing has been tried against the fixed code yet.
+
+**After you redeploy:**
+1. Hard-reload the builder.
+2. On the checkout page, pick Ireland, the UK or the USA, then press Continue to payment. Since BUG-368 this works in the draft too; you don't need to publish.
+3. Pay with test card `4242 4242 4242 4242`, any future expiry date and any CVC.
+4. **If you want the order to show as paid,** keep `stripe listen --forward-connect-to https://127.0.0.1:8789/api/stripe/webhook/test --skip-verify` running, with its `whsec_…` secret set as `STRIPE_WEBHOOK_SECRET_TEST`. Without it Stripe takes the payment, but the confirmation never reaches your dev server, so the order never changes to paid.
+
+**If it still fails:** in the draft, the error now adds "(Owner only: …)" with Stripe's exact reason. Visitors still see only the neutral sentence. You can also run `node tools/generate/bin/1c.mjs stripe smoke --business biz_dbe75328e63c90ffa777b0fa0ba9e1d1`. It opens a real test-mode checkout from your settings, prints Stripe's answer word for word, and then closes it. Send me whichever one you get.
+
+## Shipping settings, field by field
+
+The model: **a zone is a group of countries that all cost the same to ship to.** Each country can be in only one zone.
+
+| Field | What it is | Allowed values |
+|---|---|---|
+| **Zone name** | Your label for the group, e.g. "Ireland", "Rest of EU", "Worldwide". | Required. No two zones can have the same name, even with different capitals. Any text. |
+| **Rate per order (EUR)** | A flat shipping charge for one order to any country in the zone. It's the same for one item or ten. | A plain number as on a price label: `10`, `10.00`, `4.5`. No currency symbol, no commas, nothing negative. At most 2 decimal places (0 for currencies without cents, such as JPY). `0` means free shipping. It's in the business's **Default currency**, which must be set before you can add any zone. |
+| **Countries** | Where this rate applies. The buyer's choice of country decides the zone, and Stripe's address form then accepts only that country. | Chosen from a list only; you can't type a code. The list is exactly the countries Stripe will ship to, so regions like "Eurozone" or "EU" can't be picked. **Whole EU** adds every EU member country that isn't already in another zone, each as its own entry you can remove. A zone needs at least one country. |
+| **Dispatch note** (one per shop) | A line shown to buyers at checkout, e.g. "Ships within 3 working days". | Optional, up to 500 characters. |
+
+**Two behaviours that aren't obvious:**
+- **With no zones, your site shows no Buy button.** Shipping is what makes a product buyable.
+- **If every zone has the same rate, checkout doesn't ask for a country.** There's nothing to choose between, so the "Please select a region for delivery" step is skipped and Stripe's address form offers every country you ship to. Your zones are €10 / €10 / €20, so your checkout does ask.
+
+**One correction to the help text:** under Zone name it says "Buyers don't see it". That's wrong. The name appears on Stripe's payment page and on the invoice, as "Shipping — Ireland". Name zones with that in mind. I can file a small bug to fix the wording if you want.
+
+<!-- xgd-turn id="fa1ea94c-0a62-4053-a268-9d43f42379e1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-06T19:40:33.878963+00:00" -->
+#### You
+Ok please correct that text.
+
+Please remove anything from the coutry list that will create an entry Stripe will reject (like EZ).
+
+Then can you take a look at the payments page - I have done this twice now: I get to the region choice and click on the CTA to move forward and I get a blank page with gray boxes that shimmer as if they are loading but nothing happens
+
+<!-- xgd-turn id="fa1ea94c-0a62-4053-a268-9d43f42379e1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-06T19:42:05.911599+00:00" -->
+#### Claude
+I've found what's causing the grey shimmering page and filed the fix as **BUG-374** (high, draft, under EPIC-9). It also carries the help-text correction. Nothing has been built yet, since this session only scopes tickets; BUG-374 needs its own session to build it.
+
+**The grey boxes are Stripe's own loading screen, opened inside the builder's preview.** Our side is now working:
+- Both of today's attempts, at 19:04 and 19:35 UTC to Ireland, created a test-mode order, and Stripe accepted the checkout session both times. So the BUG-372 fix works.
+- The problem is what happens next. To send you to Stripe, the checkout page replaces itself with Stripe's payment page. In the builder that page is inside the preview frame, and Stripe's payment page won't run inside a frame: it draws its grey placeholder boxes and stops.
+- An earlier fix (BUG-283) sends clicked links to other sites into a new tab, but this jump comes from the page's own code, not a click, so it isn't caught.
+- On the published site the page isn't in a frame, so it works.
+- I'm fairly confident of this but haven't seen it in your browser's console. The fix will confirm it with a real browser test.
+
+**What BUG-374 changes:**
+1. **In the builder, Continue to payment opens Stripe in a new tab** and the builder stays where it is.
+   - The preview says "Payment opened in a new tab."
+   - Stripe's "order complete" and "cancelled" pages come back in that tab.
+   - If Stripe refuses the payment, no tab is left open and you get the usual error.
+2. **The published site is unchanged.** Visitors go to Stripe in the same tab.
+3. **More generally, nothing a site's own code sends to another website opens inside the preview.** It goes to a new tab, the same rule clicked links already follow.
+4. **The Zone name help text is corrected** to: "Your own label for a group of destinations, e.g. 'Ireland', 'Rest of EU'. Buyers see it: it names the shipping line on the payment page and the invoice ('Shipping — Ireland')."
+
+**The country list needs no change.** Since BUG-372 (deployed in your redeploy) it is exactly Stripe's own list of countries it can ship to. You can't type a code, so "Eurozone", "EU" and the like can no longer be added. If you still see "Eurozone" anywhere after the redeploy, tell me.
+
+**To test a payment before BUG-374 lands, use the published site.** Stripe's page opens normally there. Pay with `4242 4242 4242 4242`, any future expiry date and any CVC. Your two attempts are still marked pending and are holding the piece; each expires on its own 30 minutes after it was created.
+
+<!-- xgd-turn id="8dd62ec6-078a-4388-8ca1-08d85608f13e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-06T21:53:07.712693+00:00" -->
+#### You
+ok good the checlout flow completed. I have not seen an email yet?
+
+<!-- xgd-turn id="26c2ceec-7f10-477c-a315-f83ea330a785-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-06T21:53:37.111038+00:00" -->
+#### You
+ok good the checlout flow completed. I have not seen an email yet?
+
+and I do not see my email address captured on the site as a contact?
+
+<!-- xgd-turn id="26c2ceec-7f10-477c-a315-f83ea330a785-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-06T21:54:36.766585+00:00" -->
+#### Claude
+Your order is still `pending` in dev, so the payment confirmation never got back to the dev server. Checking now whether the email and the contact would be sent even once it does.
+
+<!-- xgd-turn id="011b3805-ce0e-4a43-b995-32429769910f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-06T21:54:39.717295+00:00" -->
+#### You
+Ah I have not set up stripe webhooks
+
+<!-- xgd-turn id="011b3805-ce0e-4a43-b995-32429769910f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-06T21:54:58.518508+00:00" -->
+#### Claude
+Yes, that's the cause. Without webhooks Stripe takes the payment but never tells the dev server, so your order is still `pending`. I checked: no Stripe events have reached the dev server, `STRIPE_WEBHOOK_SECRET_TEST` isn't in your dev secrets, and the Stripe command-line tool isn't installed.
+
+**To set it up in dev:**
+1. Install the tool and sign in to your sandbox:
+   ```
+   brew install stripe/stripe-cli/stripe
+   stripe login
+   ```
+2. Start forwarding, and leave it running while you test:
+   ```
+   stripe listen --forward-connect-to https://127.0.0.1:8789/api/stripe/webhook/test --skip-verify
+   ```
+3. It prints a `whsec_…` secret. Add it to `~/Documents/secrets/1c.dev.env` as `STRIPE_WEBHOOK_SECRET_TEST=whsec_…`, then restart the dev worker (or redeploy dev). The secret stays the same each time you run `stripe listen`, so you only add it once.
+4. Place another test order. It should change to **paid** within a few seconds. Your earlier orders won't catch up: their events happened before anything was listening.
+
+**Even with webhooks working, you won't get an email or see yourself as a contact yet.** Neither is built:
+- **No email:** the order confirmation email, and the shipped, cancellation and refund emails, are in **REQ-644** (EPIC-31's after-sale ticket). It's still at `draft`, and nothing in today's code sends an email when an order is paid. Stripe can send its own test receipt, but only if receipts are switched on in that account's Stripe settings, so you may not see that either.
+- **No contact:** a paid order records the buyer's name, email, phone and address on the order itself. It never adds them to the business's contacts. No ticket covers this yet, REQ-644 included.
+
+I'd add "a paid order adds the buyer to the business's contacts, or updates them if already there" to REQ-644, rather than file another ticket, since it happens at the same moment as the confirmation email. REQ-644 belongs to EPIC-31, so shall I add it there, or would you rather raise it in the EPIC-31 session?
+
+<!-- xgd-turn id="1d99b4fb-720b-4428-bb2f-fecb44307c2b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T01:47:46.915713+00:00" -->
+#### You
+ok so progress I see "payment received" messages now, but there are no emails it seems in the test environment? I would like to test the email functionality...
+
+Its probably time I set up a staging environment anyway - would I get emails from staging? Would we run real payments from staging?
+
+<!-- xgd-turn id="1d99b4fb-720b-4428-bb2f-fecb44307c2b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T01:48:32.521453+00:00" -->
+#### Claude
+Good, the "payment received" messages mean webhooks are working and orders are being marked paid.
+
+**The missing emails aren't caused by the test environment.** The dev worker has the Resend key, so it can send real email. Nothing sends an email when an order is paid because those emails haven't been built. The order confirmation, shipped, cancellation and refund emails are all in **REQ-644**, EPIC-31's after-sale ticket, which is still at `draft`. Once it's built, you'll be able to test the emails in dev with test payments.
+
+**On staging:** there isn't one today, only local dev and production. A staging environment would be well worth having, and it would fix the awkward parts of dev testing:
+- **Emails: yes.** Staging would send real email through Resend, exactly as production does, so you'd receive order emails in your own inbox.
+- **Payments: test mode only, I'd recommend.** Staging would use the Stripe sandbox, so you pay with `4242…` cards and no real money moves. Unlike dev, Stripe can reach staging directly, so you'd register its webhook endpoint in the sandbox once and wouldn't need `stripe listen` running.
+- **Real money only on production.** Live Stripe keys can move money, so I'd keep them in exactly one place. A staging copy would also be easy to mistake for production. To check a real payment end to end, make one small purchase on production from our own business and refund it.
+- **What staging needs:**
+  - its own Worker, database, storage and address (for example `staging.1stcontact.io`)
+  - its own secrets, which reuse the test Stripe key and the Resend key
+  - a `bin/deploy --env staging` target
+  - a way to copy a site into it (the copy tools already handle dev ↔ cloud)
+
+Do you want me to file staging as a ticket? I'd put it under EPIC-16, the environments epic, if that's still the right home.
+
+Also still open from before: shall I add "a paid order adds the buyer to the business's contacts" to REQ-644?
+
+<!-- xgd-turn id="4b0891ca-84be-4dc2-b880-81c7aa735a40-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T16:26:44.327719+00:00" -->
+#### You
+Ok great - we have end-to-end functionality on ecom - not bad for 6 days work!
+
+There are a few tweaks needed:
+1. The default screen for Shop should be Orders (if there are any) the screen should always go back to where it was last put
+2. Can we talk through the states an order goes through? 
+ - The order I just put through was set to Paid (good - it was) but the default filter was To Ship and it did not show - how does an Order get from Paid -> ToShip - should they be the same state?
+ - There are 3 orders that are in "Awaiting payments" because the stripe callbacks were not set up. The payments did go through tho - how are those orders corrected? This could happen in prod if notifications are missed. One approach would be a manual "Refresh state" button on the order. Another approach would be to auto refresh when they are loaded or on some cadence - lets talk this through. I don't want to add arbitrary poll loops but I also want to avoid things going wrong for our customers
+3. On Lauren's site the fonts used for the delivery region selection are many multiples in size of the text size. Can you check that our default is fixed and this is a specific issue with this site built after we fixed the default
+4. There are some "special" (on demand) pages in this flow a. the product detail page b. the order confirmation page - how are these styled, does the consultant have control - can the owner see the pages? I see a Piece page that previews the product detail page? Can the order confirmation page include an image of the products? Could it link to the product detail pages? (actually there are two order pages - the one at the end of the purchase flow, Thank you page, and the one linked to by email  - should they be the same page? Either way how can the user see these and style them)
+5. The flow breaks out of the preview panel when we go to stripe and pops into a new tab - not a big deal but untidy
+
+<!-- xgd-turn id="4b0891ca-84be-4dc2-b880-81c7aa735a40-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T16:34:05.351185+00:00" -->
+#### Claude
+Working through your five points. Order states and Shop defaults are checked; now looking at the delivery-region font on Lauren's site.
+
+Waiting on two lookups, one on the delivery-region font and one on the shop's special pages; I've got everything I need for the other three points.
+
+Short answers on 1, 2 and 5. Two lookups are still running for 3 (the font) and 4 (the special pages); I'll answer those when they finish. If they don't come back, ask again and I'll redo them.
+
+**Not 6 days well spent so much as 6 days well aimed — it's a real milestone.** Also note: REQ-644 landed this morning (07:54), so after your next deploy a paid order sends the confirmation email, and the shipped/cancel/refund emails exist too.
+
+## 1. Shop should open on Orders and remember where you were
+
+Today Shop always opens on Inventory, and Orders always opens on the "To ship" filter (`builder/shop.js:213`, `builder/orders.js:121`). I'd make it:
+- **First visit:** Orders when the business has any orders, else Inventory.
+- **After that:** whatever you last had: the mode, the Orders filter and search, and the open item or order, remembered per business on that browser.
+
+## 2. Order states
+
+**What exists:** an order is **Awaiting payment** → **Paid** or **Expired** (checkout abandoned, stock released). A paid order can then become **Shipped**, **Cancelled** or **Returned**.
+
+**Why your order didn't show under To ship:** "To ship" isn't a state. It's a filter for *paid, not yet shipped, and live mode only* (`orders.ts:778`). Your order was a test payment, so it's deliberately left out. And you're right that it overlaps: the "Paid" filter already means "paid and not yet shipped/cancelled/returned", so **Paid and To ship are the same list except for test orders**. I'd merge them:
+- One state, shown as **"Paid — to ship"**, and it's the default filter.
+- **Test orders appear in it, tagged "Test"**, so you can rehearse shipping with them. (The "Test or live" filter is still there to hide them.)
+
+**Stuck "Awaiting payment" orders.** You've found a real gap that would hit production: if Stripe's notification is missed, nothing ever corrects the order. It stays awaiting payment forever, holds the stock forever, the buyer's thank-you page says "confirming…" forever, and no confirmation email goes out. There's no sweep for these today.
+
+The useful fact: a Stripe checkout lasts 30 minutes, and after that Stripe's answer is final (paid or expired). So we never need to poll *open* checkouts. Asking Stripe once about an order **past its 30 minutes** settles it for good. My proposal, with no new poll loop:
+- **When the buyer lands on the thank-you page and the order is still awaiting payment,** ask Stripe about that session directly. This is the common case, and it fixes it within seconds, while the buyer is still looking.
+- **When an owner opens Orders,** any order still awaiting payment past its 30 minutes is checked with Stripe once and corrected (marked paid with the buyer's details and the email sent, or expired with the stock released).
+- **The existing 10-minute platform tick** does the same for a small batch of such orders, so stock is released even if nobody opens Orders. That tick already runs today for other housekeeping; this adds one bounded query to it.
+- **A "Check with Stripe" button** on an awaiting-payment order as the manual fallback. With the three above it should rarely be needed, so I'd include it only if you want it.
+
+A late correction runs the same code as the webhook would, so the order is never processed twice. Your three stuck dev orders would correct themselves the first time you open Orders.
+
+## 5. Stripe opening in a new tab
+
+That's BUG-374, on purpose: Stripe's hosted payment page refuses to run inside a frame, which is what caused the grey boxes. The tidy alternative is **Stripe's embedded checkout**, where Stripe's payment form sits inside our own checkout page. That works in the preview frame too, and on the published site the buyer never leaves the business's site, which is arguably better for buyers as well.
+
+The cost: the checkout page loads Stripe's script from `js.stripe.com`. That's the first third-party script on a customer site, so it has to go through our security rules as an approved exception. It also needs the platform's publishable Stripe key. I'd call it worth doing, but not urgent.
+
+**Once 3 and 4 are back, I'll propose how to ticket all of this.** Items 1, 2 and 5 are fixes to landed Shop work, so they'd be bug tickets. Most of it is EPIC-31's (Shop); the stuck-order correction is payments, so EPIC-9. Do you agree with the merged "Paid — to ship" state and the no-button correction plan?
+
+The special-pages lookup is back, so here's **item 4**. The font lookup for item 3 is still running.
+
+## 4. The special pages
+
+There are four of these pages. All of them are ordinary site pages, drawn in the site's own fonts, colours, header and footer.
+
+| Page | How it's made | Can the consultant style it? | Can the owner see it? |
+|---|---|---|---|
+| **Product detail** (your "Piece" page) | One template page; the site creates a copy for each item at `/shop/<item>` | Yes. It builds the template along with the shop grid | Yes. It's in the Page menu and previews with the first item |
+| **Order complete** (Thank you) | The site's own page if the consultant made one, otherwise a built-in default | In principle, but its guidance doesn't describe this page, so in practice it won't | Not really. The default isn't in the Page menu; you only reach it by typing `/order-complete` or doing a real checkout |
+| **Order cancelled** | Same as order complete | Same | Same. Its "Back to the shop" also goes to the home page, not the shop or the piece |
+| **Order status** (linked from the emails, new in REQ-644) | A separate page reached by a private link, with no sign-in | Same as order complete | No. It needs the private link from a real order email, so you can't preview it without placing an order |
+
+**Should the thank-you page and the email's status page be one page?** I'd say yes, as one page with two ways in:
+- Straight after payment, it shows "Thank you, your order is confirmed" above the order details.
+- From the email, the same page shows the order's progress: placed, shipped with tracking, refunded.
+
+That means one page to style, and the buyer sees the same thing in both places. Today they're two separate pages that read different data. I'd keep order cancelled as its own small page.
+
+**Product photos and links:** neither page has them today, but the data is there. Each order line already records which item it was. So both pages can show each item's photo and link its name to the item's product page. The order emails could show the photo too.
+
+**So the owner can see and style these pages:**
+- Order complete, order cancelled and order status appear in the Page menu as **shop pages**, marked as shown only during a purchase. They're not flagged as unlinked, and the Piece template isn't either.
+- In the preview, each one shows with a sample order: your most recent test order, or made-up lines if there are none. You don't need a real purchase or email link.
+- The consultant's guidance covers these pages, so it styles them with the rest of the shop and can change them when you ask.
+
+I'll fold this, plus items 1, 2 and 5, into the ticket proposal once the font answer for item 3 is back.
+
+Item 3's lookup is back too, so here's that, then how I'd ticket everything.
+
+## 3. Delivery-region font on Lauren's site
+
+I couldn't reproduce it. I checked the checkout page of the dev site that took your test orders, which I'm assuming is Lauren's:
+- **The default is correct.** Since BUG-373 (landed 6 November, 20:27 UTC), a form control ignores the type set on the boxes around it. It uses its own text style, or else body text.
+- **This site's stored page is fine too.** Its region list is set to body text, which is 17px on this site, and nothing around it overrides that. Drawn offline, it comes out at 17px, with today's framework and with the framework from before the fix.
+
+**Something doesn't match, though.** You quoted "Please select a region for delivery", but this site's stored page says "Select region for delivery". So what you saw may not have been this page as stored. It could be a different site, production rather than dev, or a preview tab drawn before the fix.
+
+**To settle it:**
+1. Reload the preview.
+2. If the text is still huge, send me a screenshot, plus the site's address if it's on production. Or right-click the list, choose **Inspect**, and tell me the font size shown under **Computed**.
+
+## How I'd ticket it
+
+I'd use **one bug** for the Shop work you've just tested, since it's all one branch and one area:
+- **Item 1:** Shop opens on Orders when there are orders, and remembers its mode, filter and open order.
+- **Item 2:** "Paid" and "To ship" merge into **"Paid — to ship"**, which includes test orders tagged "Test" and is the default filter.
+- **Stuck orders:** an order still awaiting payment after its 30 minutes is checked with Stripe once and corrected. That happens on the thank-you page, when Orders is opened, and on the existing 10-minute tick, with no button unless you want one.
+- **Item 4:**
+  - One order page with two ways in, after payment and from the email.
+  - Product photos and links to the product pages, on that page and in the emails.
+  - Order complete, order cancelled and order status are listed in the Page menu and preview with a sample order.
+  - The consultant's guidance covers these pages.
+  - "Back to the shop" goes to the shop.
+
+It would go under EPIC-31, since it's mostly Shop, or under EPIC-9 if you'd rather keep it here.
+
+**Item 5 (embedded checkout)** I'd keep out of it for now, unless you decide to allow Stripe's script on customer sites. That's a security-policy decision rather than a fix. If you say yes, it can be folded into the same bug.
+
+Shall I file it like that? And should the stuck-order "Check with Stripe" button be in it or not?
+
+No response requested.
+
+No response requested.
+
+No response requested.
+
+No response requested.
+
+<!-- xgd-turn id="c4e1c2de-86fa-4765-be60-ae47b35211a9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T16:49:27.523166+00:00" -->
+#### You
+On 5 - it is actually desirable to have the checkout occur on a single page - delivery region happens at the top and once it does the rest of the page can populate. Fewer checkout pages generally lead to more conversion. We could put this into the same ticket.
+
+Please create the tickets - yes shop work should go under 31
+
+<!-- xgd-turn id="c4e1c2de-86fa-4765-be60-ae47b35211a9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T16:50:35.023464+00:00" -->
+#### Claude
+I've filed one ticket for all of it: **BUG-375**, "Shop after the first sale…", under EPIC-31 at `draft`, high priority. Everything is in one area of the code, so splitting it would only add tickets. It needs a session of its own to build it.
+
+**What it covers:**
+1. **Shop opens on Orders** when there are any, and after that it reopens where you left it: Inventory or Orders, the filter, and the open item or order.
+2. **One "Paid — to ship" state** replaces the separate Paid and To ship filters. It's the default, and it includes test orders, tagged "Test".
+3. **Missed Stripe notifications fix themselves.** An order still awaiting payment is checked with Stripe:
+   - on the thank-you page, as soon as the buyer comes back from paying;
+   - and once it's more than 30 minutes old, whenever you open Orders, and on the platform's existing 10-minute check (a few orders at a time).
+
+   Each order is settled once: marked paid and the confirmation email sent, or expired and the piece released. No new polling and no button. Your three stuck dev orders will correct themselves the first time you open Orders after it lands.
+4. **The order pages:**
+   - The thank-you page and the email's order page become one page, with each line showing the piece's photo and linking to its product page.
+   - The order emails show the photos too.
+   - "Back to the shop" goes to the piece or the shop, not the home page.
+   - The order pages appear in the Page menu as shop pages and preview with a sample order.
+   - The consultant's guidance covers them.
+5. **Single-page checkout:**
+   - You choose the delivery region at the top, then Stripe's payment form appears below it on the same page.
+   - If every zone has the same rate, there's no question and the form appears straight away.
+   - It works inside the builder preview, so the new-tab workaround is removed.
+
+**Two things you'll need to know when it's built:**
+- **It needs Stripe's publishable test key.** That's the `pk_test_…` key in your Stripe sandbox's API keys page; it's not a secret. The session will tell you the exact name to add to your dev secrets file. The live one joins TODO-20.
+- **This is the first outside script on customer sites.** Stripe's script will load only on the checkout page, only from Stripe's own address, and only when the business can take payments. The ticket records this exception in the security policy, with the reason.
+
+The oversized region font isn't in the ticket, because I couldn't reproduce it. If it shows up again, send a screenshot.
+
+One thing still open from yesterday: should a paid order add the buyer to the business's contacts? REQ-644 didn't include it. If you want it, I'll add it to BUG-375.
+
+<!-- xgd-turn id="a1cb3ced-44a9-42a3-84e1-63105c50a8a4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T17:45:50.447742+00:00" -->
+#### You
+oh I have started 375. Please create another ticket for that an REQ...
+
+yes this is really important a purchaser is a contact absolutely and any emails that we send them should be tracked in the contact system. If they successfully make a purchase they should graduate to customer (not just contact).
+
+I don't remember seeing a T&C on the purchase flow - I assume we need one? What about privacy?
+
+<!-- xgd-turn id="a1cb3ced-44a9-42a3-84e1-63105c50a8a4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T17:47:30.831649+00:00" -->
+#### Claude
+I've filed **REQ-659**, "Shop: a buyer becomes a contact, a paid order graduates them to customer, and every order email is tracked on the contact". It's under EPIC-31 at `draft`, high priority, and still needs its own session to build it. It doesn't touch BUG-375, which you've already started.
+
+**What REQ-659 does:**
+- **A paid order adds the buyer to the business's contacts.** If their email already belongs to a contact (ignoring capitals), that contact is used, and their name and phone are only filled in where empty. The delivery address stays on the order and isn't copied to the contact.
+- **A new "customer" stage**, after lead and invited, is set by their first paid order. A later refund or cancellation never moves them back; the refund just shows in their history.
+- **Their history records the order:** paid, then shipped, cancelled, refunded or returned.
+- **Every order email is recorded on the contact,** and Stripe-style delivered and bounced notices from our email provider attach to it too, as they already do for other emails.
+- **People shows a customer's orders,** each one opening in Shop → Orders, and an order links back to its buyer.
+- **Buying never signs anyone up to a mailing list.**
+- **Test-mode orders do the same,** marked Test, so you can try it out.
+
+## Terms and privacy at checkout
+
+You're right, neither is there. A business's site today has no terms of sale and no privacy notice. Our own Terms of Service and Privacy Notice (DOC-84/85) only cover the business owners who use our platform, not the business's buyers. This is my understanding rather than legal advice, but for EU/UK sales I believe the minimum is:
+
+- **Terms of sale:**
+  - who the seller is, with an address
+  - the total price including delivery
+  - delivery times
+  - the **14-day right to cancel** for distance sales, with how to return an item and any exceptions (made-to-order work, for example)
+  - how to complain
+
+  These must be available before the buyer pays, and confirmed afterwards in a lasting form; the confirmation email can do that.
+- **Privacy notice:** what the business collects, why, how long it's kept, who processes it (Stripe, us, the email provider), and how to ask for a copy or deletion. Contact forms already need this too, since they collect personal data.
+
+**What I'd propose:**
+1. **Two standard pages for every business that sells:** *Terms of sale* and *Privacy notice*.
+   - They're drafted from our templates, filled in with the business's own details (name, address, delivery note, shipping zones, returns window).
+   - The owner reviews and edits them, and they're published as site pages linked from the footer.
+2. **At checkout, one line above the payment button,** with no tick box (tick boxes cost sales): "By paying you agree to our Terms of sale. See our Privacy notice." Both are links. The version shown is recorded against the buyer's contact, using the acceptance records we already have.
+3. **The confirmation email includes the terms,** or a lasting link to that exact version.
+4. **No Buy button until both pages are published,** just as there's none without a shipping zone. The Shop tab says what's missing.
+
+One caveat: the template wording needs a proper legal review before anyone sells for real. I'd treat that as a launch item for you rather than something the code can settle.
+
+Shall I file this as a third ticket under EPIC-31? It's a separate concern from contacts, so I'd keep it apart from REQ-659.
+
+<!-- xgd-turn id="787bf0f1-931f-4836-a5a4-2896037ccf33-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-07T17:49:15.877277+00:00" -->
+#### You
+This is a job for EPIC-29 I will pick it up there.
+
+<!-- xgd-turn id="787bf0f1-931f-4836-a5a4-2896037ccf33-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-07T17:49:24.234906+00:00" -->
+#### Claude
+Understood, I'll leave terms of sale and privacy to EPIC-29 and won't file anything for them here. Whenever you raise it there, the proposal from my last message is ready to paste in.
+
+Where things stand from this session:
+- **BUG-375 (Shop changes):** under EPIC-31 and already started.
+- **REQ-659 (buyers become contacts and customers):** under EPIC-31, at `draft` and waiting for its own session.
+- **Region-font issue:** I couldn't reproduce it, so I haven't filed anything. Send a screenshot if you see it again.
+- **Staging environment:** not filed yet. Tell me if you want a ticket for it.
+
+<!-- xgd-turn id="b5112742-8ed0-472e-89cd-911316c7656e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T00:28:59.630696+00:00" -->
+#### You
+Thes messag in Settings is pretty opque: **1st Contact Business**
+
+Stripe is waiting for:
+
+- person 1UXnqE4GZw3Z6WOcfLgJJuXi verification document live capture
+  
+  What's needed?
+
+<!-- xgd-turn id="b5112742-8ed0-472e-89cd-911316c7656e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T00:30:39.594070+00:00" -->
+#### Claude
+**What Stripe wants:** a photo ID for one of the people on the "1st Contact Business" Stripe account, normally you as owner or representative. "Live capture" means Stripe wants the photo taken live with a phone camera, not uploaded from a file. The code `1UXnqE4G…` is just Stripe's internal label for that person.
+
+**What to do:**
+1. Sign in to that account's Stripe dashboard.
+2. Look for the banner at the top asking you to verify your identity, or go to **Settings → Business → Team / Personal details**.
+3. Follow the prompt. It gives you a QR code or link to finish on your phone: you photograph your ID and usually take a selfie too.
+
+**Payments aren't blocked yet.** Your test checkouts went through while this message was showing. Stripe has asked but not yet paused the account. If it isn't done by Stripe's deadline, payments can be paused.
+
+**This is your dev sandbox,** which is in test mode. There Stripe usually lets you finish this step with test data instead of a real ID (a "use test document" option appears during the step). The real ID check will come when you verify the live account on TODO-20.
+
+**I've filed BUG-379** (medium, under EPIC-9) to make this message understandable:
+- **Plain words for each request,** for example "Photo ID for one of the people on the account, taken live with a phone camera". Stripe's codes are never shown.
+- **Whether payments are affected:**
+  - "Payments work, but Stripe needs this by [date]"
+  - "Overdue — Stripe may pause payments"
+  - "Payments are paused until …"
+- **Where to go:** sign in to the Stripe dashboard and look for the banner at the top.
+- **The assistants use the same wording** when they report whether payments are ready.
+
+It's at `draft` and needs its own session to build it.
 
 <!-- xgd-chat-end -->
