@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-49607926'
 created_by: xgd
 created_at: '2026-11-08T18:00:08.051320+00:00'
-updated_at: '2026-11-08T18:00:08.051320+00:00'
+updated_at: '2026-11-08T18:45:47.535236+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -72,6 +72,7 @@ fields:
       rung3: AC-1400's test stands unchanged; the shared test infrastructure must
         serialize builders and AC-1400's reads of dist-assets.
   fix_iteration: 6
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 6
