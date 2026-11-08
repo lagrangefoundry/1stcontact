@@ -6,10 +6,10 @@ title: The overlay role is accepted only on box/container and the action verb on
   on box/container/text
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:08:16.477873+00:00'
-updated_at: '2026-11-08T13:08:16.477873+00:00'
+updated_at: '2026-11-08T13:25:18.484869+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e214a00d
   kind: behavior
