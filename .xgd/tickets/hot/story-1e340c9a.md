@@ -5,10 +5,10 @@ type: story
 title: 'Multi-variate text runs: one string of L1 page text can vary within itself'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:27:19.176018+00:00'
-updated_at: '2026-11-08T13:27:19.176018+00:00'
+updated_at: '2026-11-08T13:51:38.281230+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-0d00566a
   capability_uid: capability-ae9d65d6
