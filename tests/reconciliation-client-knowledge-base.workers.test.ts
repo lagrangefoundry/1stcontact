@@ -10,6 +10,7 @@ import {
 } from '../apps/control-app/src/knowledge'
 import type { ProjectKnowledge, ProjectKnowledgeEnv } from '../apps/control-app/src/knowledge'
 import type { Ticket, TicketStore } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import * as component from '../apps/control-app/src/generated/knowledge'
 import DECLARATION from '../kb/knowledge_bases.json'
 import WRANGLER from '../apps/control-app/wrangler.toml?raw'
@@ -69,12 +70,19 @@ const REACHED_FOR = [
 /** The filesystem-bound entry point the runtime must never reach, even indirectly. */
 const FILESYSTEM_BOUND = ['nodeIndexSource', 'nodeDocReader', 'loadKbConfig']
 
-function knowledgeEnv(accountId: string): ProjectKnowledgeEnv {
+function knowledgeEnv(): ProjectKnowledgeEnv {
   return {
     DB: env.DB as D1Database,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: accountId,
   }
+}
+
+/**
+ * The resolved scope for one account. The business is named here and only here:
+ * `projectKnowledgeFor` takes the account from the scope, never from the env.
+ */
+function scopeFor(accountId: string): Scope {
+  return { businessId: accountId }
 }
 
 /** The client's knowledge base for one account, with the model seam counted. */
@@ -82,7 +90,7 @@ async function openKb(
   accountId: string,
 ): Promise<{ kb: ProjectKnowledge; embedder: ReturnType<typeof stubEmbedder> }> {
   const embedder = stubEmbedder()
-  const kb = await projectKnowledgeFor(knowledgeEnv(accountId), { embedder })
+  const kb = await projectKnowledgeFor(knowledgeEnv(), scopeFor(accountId), { embedder })
   return { kb, embedder }
 }
 
@@ -376,8 +384,8 @@ describe('story-5281f009 — the model, and the runtime it runs in', () => {
     // every place it must be declared. It does not proceed to report a knowledge
     // base that is searchable and returns nothing — which is indistinguishable,
     // to the client, from never having been told anything.
-    const withoutModel = { ...knowledgeEnv('ac1664-account'), AI: undefined }
-    const refusal = await projectKnowledgeFor(withoutModel).then(
+    const withoutModel = { ...knowledgeEnv(), AI: undefined }
+    const refusal = await projectKnowledgeFor(withoutModel, scopeFor('ac1664-account')).then(
       (kb) => kb,
       (error: Error) => error,
     )
@@ -389,6 +397,9 @@ describe('story-5281f009 — the model, and the runtime it runs in', () => {
     expect(message).toContain('wrangler.toml')
     expect(message).toContain('[ai]')
     expect(message).toContain('[env.production.ai]')
+    // And the second remedy: the same model over REST, with both credentials.
+    expect(message).toContain('CLOUDFLARE_ACCOUNT_ID')
+    expect(message).toContain('CLOUDFLARE_API_TOKEN')
   })
 
   it('test_UAT_AC1665_the_clients_knowledge_base_opens_indexes_and_searches_inside_the_deployed_runtime', async () => {
