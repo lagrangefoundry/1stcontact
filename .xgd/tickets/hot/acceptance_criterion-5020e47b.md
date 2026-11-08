@@ -6,10 +6,10 @@ title: A body from which no text can be derived is refused by both adapters befo
   any network call or recording
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T04:11:56.636851+00:00'
-updated_at: '2026-11-08T04:11:56.636851+00:00'
+updated_at: '2026-11-08T04:34:13.201942+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
