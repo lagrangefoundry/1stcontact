@@ -377,8 +377,15 @@ describe('story-e214a00d — what the renderer emits', () => {
     // No pre-state rule and no transition for the panel…
     expect(css).not.toContain(`.${own(p)}:not(.l1-in)`)
     expect(css.split('\n').filter((r) => r.startsWith(`.${own(p)} {`)).join('\n')).not.toContain('transition')
-    // …and no reveal marker on it either, so the observer never touches it.
-    expect(p.classList.contains('l1-rv')).toBe(false)
+    // …and no reveal behaviour of any kind for it. The panel may still carry the
+    // observer's handle class, but that handle is inert: no rule anywhere keys
+    // the panel's class on the motion marker or the revealed state, so whatever
+    // the observer does to it, the panel never sits at a pre-state opacity.
+    const pCls = own(p)
+    const panelRevealRules = css
+      .split('\n')
+      .filter((r) => r.includes(`.${pCls}`) && (r.includes('data-l1-motion') || r.includes('l1-in')))
+    expect(panelRevealRules).toEqual([])
     const innerCls = own(inner)
     expect(inner.classList.contains('l1-rv')).toBe(true)
     expect(css).toContain(`html[data-l1-motion] .${innerCls}:not(.l1-in) { opacity: 0`)
