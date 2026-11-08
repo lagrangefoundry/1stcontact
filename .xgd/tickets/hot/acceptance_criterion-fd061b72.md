@@ -6,10 +6,10 @@ title: Deploying the control app never fails because the image credential is abs
   and says what it did
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:42:34.367988+00:00'
-updated_at: '2026-11-08T06:42:34.367988+00:00'
+updated_at: '2026-11-08T07:13:44.294906+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-39c992d3
   kind: behavior
