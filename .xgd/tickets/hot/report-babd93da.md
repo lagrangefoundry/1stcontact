@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-41: REQ-210, REQ-211, REQ-212, R
   BUG-67, BUG-69, BUG-70, BUG-71, BUG-72)'
 created_by: xgd
 created_at: '2026-11-08T12:42:54.689461+00:00'
-updated_at: '2026-11-08T14:17:36.107679+00:00'
+updated_at: '2026-11-08T14:25:50.258789+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -174,7 +174,7 @@ fields:
       and its served build artifacts (AC-1400 framework bridges as build artifacts).
       Both fixes tighten existing ACs and introduce no new bucket. Evidence: tests/test_UAT_FC_BUG-70_builder_text_is_styled.test.ts,
       tests/test_UAT_FC_BUG-71_framework_import_graph.test.ts.'
-    story_uid: null
+    story_uid: STORY-99
     target_story_ids:
     - STORY-99
     acceptance_criteria_changes:
