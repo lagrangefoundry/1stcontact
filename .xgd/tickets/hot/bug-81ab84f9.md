@@ -17,11 +17,13 @@ fields:
   severity: medium
   commits:
   - working_sha: 851c01fa174f36b3b6bc141fb4d4275ea408c14d
-    reconcile_sha: null
+    reconcile_sha: 093817f89fc71517c5129362e10743ba69106817
     main_sha: null
+    working_sha_history: []
   - working_sha: b685f54e2aa03a97dd1e14004a141df9dfd5f0c1
-    reconcile_sha: null
+    reconcile_sha: 91f0e899b172f94d36fe23e59fb7904a5c5743de
     main_sha: null
+    working_sha_history: []
   version: 0.2.129
   story_points: 2
 ---
