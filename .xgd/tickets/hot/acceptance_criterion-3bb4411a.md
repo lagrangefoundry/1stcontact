@@ -6,10 +6,10 @@ title: A generated picture carries the same material fields an uploaded image do
   from its first visible moment
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:42:27.813532+00:00'
-updated_at: '2026-11-08T06:42:27.813532+00:00'
+updated_at: '2026-11-08T07:13:47.208776+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-39c992d3
   kind: behavior
