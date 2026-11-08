@@ -6,10 +6,10 @@ title: Only points the draft refers to are expanded; typed 'Point X' resolves le
   and unknown labels stay literal
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:46:38.015357+00:00'
-updated_at: '2026-11-08T12:46:38.015357+00:00'
+updated_at: '2026-11-08T13:05:17.572075+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-44d0a572
   kind: behavior
