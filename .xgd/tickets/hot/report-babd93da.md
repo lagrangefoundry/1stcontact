@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-41: REQ-210, REQ-211, REQ-212, R
   BUG-67, BUG-69, BUG-70, BUG-71, BUG-72)'
 created_by: xgd
 created_at: '2026-11-08T12:42:54.689461+00:00'
-updated_at: '2026-11-08T14:25:50.258789+00:00'
+updated_at: '2026-11-08T15:30:38.177915+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -206,7 +206,7 @@ fields:
     justification: 'STORY-159 owns capture_site and its egress guard (AC-2047, AC-2048).
       This refines retry and host behaviour within that capability and introduces
       no new bucket. Evidence: tests/test_UAT_FC_BUG-67_capture_host_candidates.test.ts.'
-    story_uid: null
+    story_uid: STORY-159
     target_story_ids:
     - STORY-159
     acceptance_criteria_changes:
