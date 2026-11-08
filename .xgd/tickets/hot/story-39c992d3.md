@@ -6,9 +6,9 @@ title: The consultant can generate a raster picture that lands as an ordinary, l
   piece of the client's material
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:41:24.865738+00:00'
-updated_at: '2026-11-08T06:41:24.865738+00:00'
+updated_at: '2026-11-08T06:42:39.902069+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-c0301347
@@ -42,9 +42,9 @@ The image credential (`OPENAI_API_KEY`) is optional. Without it there is no imag
 - Related: CAP-112/CAP-113 (material ingestion and Library, which render `origin` under "Where it came from"); CAP-106 (material store); promote-to-site is unchanged.
 
 ## Reconciliation Decisions
-- **Deploy hook outcomes when the key is absent** (decided at reconciliation, 2026-11-07): REQ-208 says only that the deploy must not fail. The code also tells apart push (key in environment), keep (already stored in Cloudflare) and skip (absent, or the store could not be read), and reports each one, including under a dry run. Formalized as the deploy-hook AC because the operator relies on that output to know whether image generation is live.
-- **`rights` / `republishable` / `exportable` / `role` values** (decided at reconciliation, 2026-11-07): set in the ticket's implementation-decisions section, not in its "What changes" spec. Formalized in the ordinary-material AC because without `republishable: true` a generated picture could never be promoted to a site.
-- **Attach scope** (decided at reconciliation, 2026-11-07): intent says the plugin "cannot write arbitrary tickets". The code also refuses an attach to any ticket it did not create in that session. Formalized in the scope AC as part of the same guarantee.
+- **Deploy hook outcomes when the key is absent** (decided at reconciliation, 2026-11-07): REQ-208 says only that the deploy must not fail. The code also tells apart push (key in environment), keep (already stored in Cloudflare) and skip (absent, or the store could not be read), and reports each one, including under a dry run. Formalized as AC-2392 because the operator relies on that output to know whether image generation is live.
+- **`rights` / `republishable` / `exportable` / `role` values** (decided at reconciliation, 2026-11-07): set in the ticket's implementation-decisions section, not in its "What changes" spec. Formalized in AC-2383 because without `republishable: true` a generated picture could never be promoted to a site.
+- **Attach scope** (decided at reconciliation, 2026-11-07): intent says the plugin "cannot write arbitrary tickets". The code also refuses an attach to any ticket it did not create in that session. Formalized in AC-2390 as part of the same guarantee.
 
 No contradictions between intent and code were found.
 
