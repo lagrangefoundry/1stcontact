@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for STORY-170'
 created_by: xgd
 created_at: '2026-11-08T02:12:27.549246+00:00'
-updated_at: '2026-11-08T02:12:27.549246+00:00'
+updated_at: '2026-11-08T02:18:42.558832+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: STORY-170
@@ -18,6 +18,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: test_UAT_AC2317
+  batches_pending: false
 ---
 
 {
