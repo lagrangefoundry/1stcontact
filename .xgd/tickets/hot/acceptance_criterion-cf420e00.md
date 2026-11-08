@@ -6,10 +6,10 @@ title: The mark's cross is two bars centred on the disc, with a 22px hit area an
   no font glyph
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:46:03.491565+00:00'
-updated_at: '2026-11-08T12:46:03.491565+00:00'
+updated_at: '2026-11-08T13:05:18.884905+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-44d0a572
   kind: behavior
