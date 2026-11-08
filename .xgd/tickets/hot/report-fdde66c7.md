@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-42: BUG-73, BUG-75, REQ-216, REQ
   REQ-223, REQ-218)'
 created_by: xgd
 created_at: '2026-11-08T21:02:09.509063+00:00'
-updated_at: '2026-11-08T21:44:21.533093+00:00'
+updated_at: '2026-11-08T23:04:14.508226+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -184,7 +184,7 @@ fields:
     intent_delta_summary: The one picture vocabulary grows from five kinds of page
       to six by adding a stored image, normalised to PNG so every downstream verb
       accepts it untold.
-    story_uid: null
+    story_uid: story-58b2cec4
   - index: 5
     component: L1 Modals — edit render carries the dialog apparatus; page state read/apply
       (REQ-215 framework half)
