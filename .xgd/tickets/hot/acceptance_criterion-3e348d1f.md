@@ -6,10 +6,10 @@ title: 'The run form is closed: nesting, links and axes outside the run subset a
   refused'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:28:25.671439+00:00'
-updated_at: '2026-11-08T13:28:25.671439+00:00'
+updated_at: '2026-11-08T13:51:41.218731+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1e340c9a
   kind: behavior
