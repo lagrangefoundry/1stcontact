@@ -6,9 +6,9 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-11-04T20:11:42.715973+00:00'
+updated_at: '2026-11-08T02:33:45.452151+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-8e1807f6
@@ -43,12 +43,21 @@ could reach.
 
 In scope:
 
-- **One landscape, both maps.** A conversation is primed with a single
-  description of what exists, carrying the client's map and the system's map
-  together, the client's first, followed by what this assistant is for and then
-  by how to search and what it may do. The two are deliberately *not* presented
-  as separate territories: a question half-answered by a design document and
-  half by the client's own paper must return both.
+- **One landscape, both maps.** A conversation is primed with the consultant
+  system prompt, then a single description of what exists, carrying the client's
+  map and the system's map together, the client's first, followed by what this
+  assistant is for and then by how to search and what it may do. How to search
+  comes last because the last thing read is the first thing done. The two maps
+  are deliberately *not* presented as separate territories: a question
+  half-answered by a design document and half by the client's own paper must
+  return both.
+- **The priming actually reaches the model, on every host.** The Node CLI host
+  and both Worker paths share one priming configuration, and on each of them the
+  model is really sent the system prompt, the landscape, the purpose, how to
+  search and the turn's site-change reminder. That holds whether the system
+  prompt goes out as one string or as cache-split text blocks. A host whose
+  knowledge base has not been built is sent the system prompt and the tool manual
+  alone, with no landscape or how-to-search section, and still runs.
 - **One search over two independent bodies.** The two knowledge bases keep their
   own material, their own index and their own rebuild rhythm; they meet only at
   the point where results are shown. A search reaches both and comes back as one
@@ -123,6 +132,20 @@ so the first upload of a conversation would be announced again, and again.
 
 Each side's runtime reads its index through a map keyed by source name (upstream knowledge REQ-112, repaired here by BUG-55). This matters twice over: the search resolves its index through that key, and the runtime seeds the snapshot that decides which documents are readable *from* the same map. A runtime opened with the old singular key searched nothing and placed no document in its snapshot, so every read was refused as "not in the corpus" — an answer, not an error, and exactly how the assistant came to report shipped capabilities as missing. The client's knowledge base declares no source and must be keyed under the component's default source explicitly, because index lookup (unlike store lookup) has no fallback for an unnamed index. The composite runtime that merges the two searches holds no index of its own; it forwards each side's maps.
 
+Priming follows the framework's DOC-22 configuration (BUG-63). It is an ordered
+list of named entries: the consultant system text, the knowledge component's
+landscape provider, the purpose text, and the knowledge component's mechanism
+provider, which carries this session's projected manual. The per-turn reminder is
+a registered reminder provider resolved at assembly time, because the role object
+is frozen and must never be assigned to. Entry names are configuration and are
+never rendered into the prompt. The knowledge component still prints its own two
+section headings ("What exists", "How to search"), but the old "Your purpose"
+heading and the closing "prime yourself now" sentence were deleted along with the
+retired assembler. Before this migration, a framework change made the role
+constructor silently drop the old system/source/reminder keys while the Worker
+still built. That is why the criterion is stated against what the model is sent,
+not against what the host constructed.
+
 ## Reconciliation Decisions
 
 - **The arrival notice covers the client's own knowledge alone** (decided at
@@ -159,6 +182,27 @@ Each side's runtime reads its index through a map keyed by source name (upstream
 - **Search-then-read across both bodies is formalised as a criterion of this story** (decided at reconciliation, 2026-11-01, BUNDLE-37 / BUG-55): BUG-55 asks that "a hit that comes back from either knowledge base can be fetched" and that "the co-ranked surface searches both knowledge bases on both hosts". AC-1797 pins the merged search but not that its hits are readable, and the read failure was silent, so it is pinned separately as AC-2237. The client knowledge base's key (the default source) is stated in the criterion because it is the one asymmetry a search-only test would miss. The Worker runtimes, the Node system-KB runtime and both merged-search overrides pass source-keyed maps as the intent asks.
 
 - **BUG-55's "both knowledge bases on both hosts" clause is retired as a wrong premise** (decided at reconciliation, 2026-11-04, BUNDLE-37 pass 2, report-ed9f3f94 N1). BUG-55's acceptance says "the co-ranked surface searches both knowledge bases on both hosts: the Worker through `session-knowledge.ts`, the Node CLI through `openKnowledgeRuntime`". The Node CLI has never hosted a client (project) knowledge base. `openKnowledgeRuntime` (tools/generate/src/cli/kb.ts) opens the system knowledge base alone, keyed `shipped`. The Node host (tools/generate/src/cli/ai/host.ts) grants only the system KB, and has done so since the system-KB session wiring landed (commit 40cc0c4f53). It caches one runtime per process because that KB is a release artefact shared by every site. The project knowledge base is a Worker construct backed by the control app's D1/R2 stores (`PROJECT_KB`, `projectKnowledgeFor` in apps/control-app/src/knowledge.ts). tools/generate only scaffolds its declaration into the shared KB config file, and its own doc comment (kb.ts, `PROJECT_KB`) states "This command never serves it: its corpus is the tenant's D1 ticket store, which a release build does not have". So BUG-55 did not take a Node co-ranked surface away; the clause described one that never existed. BUG-55's actual defect was the singular index key, which left every read refused as `not_in_corpus`. It is repaired on both hosts for every knowledge base each host opens, and AC-2237 pins exactly that: either KB on the Worker, the system KB on the Node CLI. This is not a CODE-ISSUE. Giving the Node CLI a client knowledge base would be new scope for a future intent, not a gap in BUG-55's fix.
+
+- **Priming delivery is pinned at the wire, on every host** (decided at
+  reconciliation, 2026-11-07, BUNDLE-39 / BUG-63). BUG-63's test plan says the
+  regression that matters is "that a constructed session's assembled priming
+  actually contains what it is supposed to", asserted on "what the model was
+  sent". It names the order: system text, landscape, purpose, mechanism. It also
+  names the no-knowledge-base fallback ("primes with the system text and the
+  manual, and names no KM section") and the reminder reaching the model on every
+  turn. These are formalized as AC-2364. AC-1795 is amended to put the system
+  prompt first and to drop its closing "instruction to begin", which BUG-63 says
+  was deleted along with `KnowledgeDocs`. The code agrees: one entry list in the
+  consultant host assembly serves the Node host and the Worker. The commit message
+  names the entries `consultant-system`, `km-landscape`, `purpose` and
+  `km-mechanism`, defined in a `kmPrimingEntries` helper in roles.ts. The code on
+  this branch builds the same four-entry order inline in host-core.ts under
+  `consultant-*` names. Entry names are never rendered into the prompt, so the
+  difference cannot be observed and is not a code issue. Out of scope for this
+  story, and left to the matrix entries that own them: the describer role's
+  digest-only priming, the generated bridge-shim export list, and the
+  change-signal and corpus-delta conditionality, which belong to the reminder's
+  own stories (REQ-131 / AC-1799).
 
 ## Dependencies
 
