@@ -6,10 +6,10 @@ title: Drawing anchors are a closed set of 17 names in four families, each with 
   inferred axis
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T07:16:45.667734+00:00'
-updated_at: '2026-11-08T07:16:45.667734+00:00'
+updated_at: '2026-11-08T07:26:22.605809+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d2bee21c
   kind: behavior
