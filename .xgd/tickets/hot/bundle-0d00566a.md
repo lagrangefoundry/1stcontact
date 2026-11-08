@@ -5,9 +5,9 @@ type: bundle
 title: REQ-210 + REQ-212 + REQ-213 + REQ-211 + BUG-69 + 4 more
 created_by: xgd
 created_at: '2026-11-08T12:30:04.545337+00:00'
-updated_at: '2026-11-08T17:19:28.605996+00:00'
+updated_at: '2026-11-08T17:34:05.783538+00:00'
 completed_at: null
-last_field_updated: session_builder
+last_field_updated: regression_anchor_uid
 status: reconciling
 fields:
   bundle_type: reconcile
