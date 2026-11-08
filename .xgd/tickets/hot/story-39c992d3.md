@@ -6,10 +6,10 @@ title: The consultant can generate a raster picture that lands as an ordinary, l
   piece of the client's material
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:41:24.865738+00:00'
-updated_at: '2026-11-08T06:42:39.902069+00:00'
+updated_at: '2026-11-08T07:13:43.862479+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-c0301347
   capability_uid: capability-2d32662d
