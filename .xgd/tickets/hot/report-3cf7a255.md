@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-a58a0974'
 created_by: xgd
 created_at: '2026-11-08T05:25:55.990536+00:00'
-updated_at: '2026-11-08T05:25:55.990536+00:00'
+updated_at: '2026-11-08T05:36:54.228072+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -72,6 +72,7 @@ fields:
       rung3: 'AC1409 stands: its failing assertion is unobserved and the AC matches
         the working-tree storage design, so the builder runs it and fixes test drift
         or reports blocked_by with evidence.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 4
