@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: An aspect ratio the provider cannot make is reported as an unsupported shape
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:42:31.442352+00:00'
-updated_at: '2026-11-08T06:42:31.442352+00:00'
+updated_at: '2026-11-08T07:13:45.637621+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-39c992d3
   kind: behavior
