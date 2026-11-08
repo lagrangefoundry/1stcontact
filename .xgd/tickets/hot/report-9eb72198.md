@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-49607926'
 created_by: xgd
 created_at: '2026-11-08T19:39:07.602917+00:00'
-updated_at: '2026-11-08T19:39:07.602917+00:00'
+updated_at: '2026-11-08T20:06:22.066532+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -79,6 +79,7 @@ fields:
       rung3: 'Decided here: the tests and ACs stand, production is unchanged, and
         the fix belongs to the test harness whose iteration-7 change began the cross-suite
         stall.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 8
