@@ -9,6 +9,7 @@ import {
   type TicketStoreEnv,
 } from '../apps/control-app/src/tickets'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -55,18 +56,25 @@ const ROLES = ['site', 'reference']
  */
 const DESCRIBE_OUTCOMES = ['ok', 'no_describer', 'no_text', 'unsupported', 'too_large', 'failed']
 
-/** The Worker's own bindings, scoped to one account. */
-function ticketEnv(account: string): TicketStoreEnv {
+/** The Worker's own bindings. */
+function ticketEnv(): TicketStoreEnv {
   return {
     DB: env.DB as D1Database,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: account,
   }
 }
 
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (account: string): Scope => ({ businessId: account })
+
 /** An account-scoped store, through the single wiring point the Worker uses. */
 function storeFor(account: string): Promise<TicketStore> {
-  return ticketStoreFor(ticketEnv(account))
+  return ticketStoreFor(ticketEnv(), scopeOf(account))
 }
 
 /**
@@ -80,12 +88,11 @@ function storeFor(account: string): Promise<TicketStore> {
  * asserting them against a hand-made ticket would prove the schema accepts a
  * field rather than that anything writes or reads it.
  */
-function routerEnv(account: string): RouterEnv {
+function routerEnv(): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: account,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
@@ -93,7 +100,7 @@ function routerEnv(account: string): RouterEnv {
 /**
  * Router deps with the two model seams doubled and nothing else.
  *
- * `describeImage` is a stand-in because miniflare has no local Workers AI and no
+ * Both describers are stand-ins because miniflare has no local Workers AI and no
  * criterion here is about the quality of a description — only about the fact
  * that its OUTCOME and its AUTHOR are recorded. Where a claim is about material
  * nothing has described, the seam is left absent rather than stubbed, because
@@ -103,6 +110,7 @@ function deps(over: Partial<RouterDeps> = {}): RouterDeps {
   return {
     index: async () => async () => {},
     describeImage: async () => ({ text: 'A mark\n\nA wordmark on a pale ground.', model: 'stub/vision-1' }),
+    describeText: async () => ({ text: 'Kitchen notes, kept for reference.', model: 'stub/digest-1' }),
     ...over,
   }
 }
@@ -123,7 +131,8 @@ async function upload(
   if (file.role !== undefined) form.append('role', file.role)
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
-    routerEnv(account),
+    routerEnv(),
+    scopeOf(account),
     d,
   )
 }
@@ -132,7 +141,8 @@ async function upload(
 async function listing(account: string): Promise<Array<Record<string, unknown>>> {
   const response = await route(
     new Request('https://app.test/api/material', { method: 'GET' }),
-    routerEnv(account),
+    routerEnv(),
+    scopeOf(account),
     deps(),
   )
   expect(response.status, 'the account can be asked for its material').toBe(200)
@@ -819,7 +829,8 @@ describe('story-e07c589b — the one thing the client may say about a file', () 
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ url: 'https://competitor.example/positioning', role: 'site' }),
       }),
-      routerEnv(account),
+      routerEnv(),
+      scopeOf(account),
       deps({
         fetch: (async () =>
           new Response('<html><body><p>Their positioning, at length.</p></body></html>', {
@@ -881,7 +892,9 @@ describe('story-e07c589b — how a description came to be is part of the record'
     // ── EVERY MATERIAL THE PLATFORM CREATES CARRIES THE OUTCOME ─────────────
     // One file a describer read, and one it could not — the seam is left ABSENT
     // for the second, because "nothing described it" is the state that claim is
-    // about rather than something a stub can imitate.
+    // about rather than something a stub can imitate. The DOCUMENT describer
+    // stays, because a deployment with no model seam at all refuses uploads
+    // outright (REQ-173's `aiConfigured` gate) — and it never reads an image.
     const described = await envelope(
       await upload(account, {
         bytes: bytesOf('The kitchen opens at six and the bread is baked overnight.'),
