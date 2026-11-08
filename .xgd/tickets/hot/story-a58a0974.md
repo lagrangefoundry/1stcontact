@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-11-08T10:09:54.240041+00:00'
+updated_at: '2026-11-08T15:53:13.646335+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -169,6 +169,18 @@ In scope:
   rather than against anything the process that issued it happens to remember,
   so a turn runs on a process that never opened the session, and successive
   turns spread across processes stay one conversation.
+- **Which model answers, and how long a reply may be** — the project's own
+  decision, held as data. The model and the reply ceiling every request carries
+  come from one backend configuration document this project owns (as configured
+  today: `claude-opus-5`, `max_tokens` 64000), not from the assistant library's
+  defaults. Changing either is an edit to that document and nothing else — no
+  library release, no source change. The document is part of the build, not a
+  file read at run time, so the operator's-machine host and the deployed host
+  send the same model and the same ceiling. It is installed before the first
+  assistant is constructed, so the first turn of a session already carries it,
+  and a document the library does not accept (an unknown backend, an unknown
+  key, a value of the wrong shape) stops start-up with the library's error
+  naming the key rather than surfacing as a refused first request.
 - **Honest failure** — a refused operation the assistant corrects within the same
   turn with the site untouched; a missing prerequisite explained to the operator
   alongside their history rather than instead of it; a conversation identifier
@@ -444,6 +456,21 @@ Out of scope:
   that turn; DOC-21 §15.4's Durable Object junction is the route back and is not
   taken. The criteria claim survival of a reload and of a disconnect, not of an
   eviction.
+- **The backend settings are a document, installed ahead of registration
+  (BUG-67).** The host build installs the project's backend configuration
+  through the library's own configuration seam *before* the per-site backend is
+  registered, because a backend reads that configuration when it is constructed
+  and a session manager keeps its instance for its lifetime; installing after
+  the fact would leave the first session on the library defaults while the
+  document said otherwise. The settings are a document rather than constructor
+  options because the registry builds backends from zero-argument factories:
+  configuration reaches every construction site, an argument reaches one. The
+  document is imported statically, never read through the filesystem, because
+  the shared host core is what the edge runtime loads and both hosts must agree.
+  Installation is idempotent per site. The adapter sends only `model`,
+  `max_tokens`, `system`, `messages`, `tools` and `stream`, which is why the move
+  to Opus 5 (which refuses sampling parameters and prefills) needed no other
+  change.
 
 ## Reconciliation Decisions
 
@@ -923,6 +950,25 @@ they disagree, the later sections win.
   on `SessionContext.scope`, finding C); `session-summary` (lagrange-framework
   BUG-45); deleting the legacy role alias (item 9, pending the operator's answer;
   AC-2056 stands unchanged).
+
+Decisions taken on **2026-11-08** while reconciling BUNDLE-41 (BUG-67, scope
+addition and model decision of 2026-09-10):
+
+- **The settings are formalised as one criterion on the request itself.** BUG-67
+  items 9–11 ask for the model and ceiling to be project configuration, installed
+  before any backend is built, and shared by both hosts by static import. The
+  criterion asserts the observable consequence: the request on the wire carries
+  exactly the model and `max_tokens` the document declares, identically on both
+  hosts, and editing the document alone changes it. The *values*
+  (`claude-opus-5`, 64000) are recorded in scope as the current configuration,
+  not pinned by the criterion, because the point of the intent is that they
+  change by editing the document.
+- **The start-up rejection of a malformed document is scope, not a separate
+  criterion here.** Item 10 names it, and the code hands it entirely to the
+  library's validator, which is the library's own tested behaviour
+  (lagrange-framework BUG-49). This story claims only that the project's
+  document is installed through it at host build, and the request criterion
+  exercises that.
 
 ## Dependencies
 
