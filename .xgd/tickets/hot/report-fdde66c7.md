@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-42: BUG-73, BUG-75, REQ-216, REQ
   REQ-223, REQ-218)'
 created_by: xgd
 created_at: '2026-11-08T21:02:09.509063+00:00'
-updated_at: '2026-11-08T21:33:28.010516+00:00'
+updated_at: '2026-11-08T21:44:21.533093+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -133,7 +133,7 @@ fields:
     intent_delta_summary: The draft picture becomes drivable by named interactions
       before capture, with every failure a named refusal; the edit channel's inertness
       is stated on its pictures.
-    story_uid: null
+    story_uid: story-58b2cec4
   - index: 4
     component: Assistant Looking Surface — stored image as a sixth picture kind (REQ-218)
     item_type: upgrade
