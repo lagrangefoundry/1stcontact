@@ -5,10 +5,10 @@ type: request
 title: 'Legal: terms at checkout, member acceptance and change notices on client sites'
 created_by: EPIC-29
 created_at: '2026-11-07T21:24:41.986769+00:00'
-updated_at: '2026-11-08T00:28:48.442426+00:00'
+updated_at: '2026-11-08T01:32:31.699516+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: story_points
+status: free_coded
 fields:
   priority: high
   parent_uid: epic-e3db69b8
@@ -16,6 +16,20 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-b189659d
+  commits:
+  - working_sha: 5055a8c44d228e0fcc9b30ee9050feeea22d9bf1
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 27ac75c2caec5a013543e23ffbb07e2421e02a3d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2c64130b94e36038f7d74c90a5ff4c751204b2f5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6499527fa5c6d6aee524979096f649427ced75c5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.821
 ---
 
 ## Why
@@ -50,9 +64,9 @@ UATs named `test_UAT_FC_REQ-666_*`, real router and D1, mail asserted on the rec
 - A material Terms change makes signed-in customers accept again; a wording-only change does not.
 - A material Privacy change sends "We've updated our privacy notice" to contacts and the new version takes effect only after the notice period; adding a mailing list sends nothing.
 
-## Implementation (free-coded 2026-11-07; in progress — items 4–5 wait for [[REQ-668]])
+## Implementation (free-coded 2026-11-07)
 
-The operator asked for the work to stay in `free_coding` until everything is done, items 4–5 included. Items 1–3, 6 and 7 are built on branch `free-REQ-666`. The decisions below were confirmed with the operator ("go ahead") on 2026-11-07.
+All seven items are built. Items 4–5 were built once [[REQ-668]] had landed: every business's customers sign in to that business. The decisions below were confirmed with the operator ("go ahead") on 2026-11-07.
 
 **1. The checkout line.**
 - **Placement.** The checkout page draws one line just above Stripe's payment form: "By paying you agree to our Terms of sale. See our Privacy notice." There is no tick box. It is ordinary L1 text in the design's `small` role (`checkoutLegalLine` in the checkout module), so the module still ships no CSS. The edit channel does not draw it.
@@ -96,10 +110,27 @@ The operator asked for the work to stay in `free_coding` until everything is don
 - **The consultant.** The pre-publish summary (`status.legal.summary`, which the consultant must tell the owner before publishing) says when a publish is a material Privacy change: the contacts are emailed now and the new version takes effect on <date>. It also says that using existing information for a materially new purpose usually needs consent. That is flagged, not automated. The `status` description in `l1-surface.json` mentions it.
 - **The Legal assistant.** Its role prompt gains the same rules, and help deciding whether to tick "tell people about this change".
 
-**Not built here.** Items 4–5, member acceptance and re-acceptance on the client site, need [[REQ-668]]: sign-in that resolves the business the site belongs to. Versions already record `material`, which item 5 will use.
+**4. Signed-in customers accept their business's Terms; the Privacy notice is read.**
+- **Which documents.** A contact of a client business, signed in to it ([[REQ-668]]), owes the documents that business's last publish put on its site:
+  - the Terms of use and, when the site has signed-in customers, the Member terms, each *agreed to* ("I agree to the Terms of use");
+  - the Privacy notice, marked as *read* ("I have read the Privacy notice"), never agreed to.
+- **The page.** `guardTerms` serves them on [[REQ-488]]'s acceptance page (`clientTermsHtml` in `client-terms.ts`), refusing every other request until they are accepted, exactly as for 1st Contact's own documents. A page showing a version no longer in force is refused (409).
+- **The record.** Each acceptance goes to the [[REQ-240]] registry on the contact:
+  - Terms of use under `t_and_c_accepted`, Privacy notice under `privacy_policy_accepted`, Member terms under a new key, `member_terms_accepted`;
+  - each names the version record's uid and the wording drawn;
+  - `member.signed_up` is recorded on the first acceptance.
+- **Unchanged.** A business with no published documents asks for nothing. 1st Contact's own contacts still get the platform documents.
+- **Admission.** A client business's contact who has accepted and operates no business is admitted to their portal (`admit`). This is the ordinary state for a customer, not "a relationship that ended", which is the refusal 1st Contact's own contacts keep.
+
+**5. Re-acceptance only for material Terms changes.**
+- **When.** An agreed document is owed again only when a version since the one accepted is material: a material module added, removed or revised, or an owner's edit saved with "This change matters to people already signed up".
+- **Wording-only changes** get a new dated version and nobody is asked.
+- **The Privacy notice is not re-asked.** Its material changes are told by email (item 6).
+- **The pre-publish summary** says when a publish will ask signed-in customers to accept again.
 
 **Supersedes:**
 - [[REQ-643]]'s exact `/api/shop/selling` shape: its UAT now expects the three new fields.
+- [[REQ-668]]'s "every other business has published none until REQ-666 lets it, so its contacts owe nothing" in `guardTerms`: they now owe their own business's documents, as above.
 - [[REQ-665]]'s `legalPagesNow`: it now serves what the last publish put on the site (plus versions that have since taken effect), rather than the newest version. That matches REQ-665's "an owner's edit goes on the site at the next publish".
 
 **UATs.**
@@ -109,6 +140,12 @@ The operator asked for the work to stay in `free_coding` until everything is don
   - No Buy, no checkout and the missing details named until all three details are set; an edited Terms of sale warns, not blocks.
   - A material change (the business starts trading with the UK) announced in the summary with the consent flag, waiting 30 days, emailed once to each contact, then live.
   - A mailing list or an unflagged edit sending nothing; a flagged edit announced.
+- `tests/test_UAT_FC_REQ-666_member_acceptance.workers.test.ts`: the real Worker and D1, Bob signing in from Alice's site through the recorded link.
+  - First sign-in shows Terms to agree and Privacy as "I have read", from Alice's own text, never 1st Contact's.
+  - Nothing is served until he accepts; a stale version is refused.
+  - Both acceptances are recorded on his contact, with the wording; no business is built for him; he then reaches his portal.
+  - A wording-only change does not ask again. A material change (UK terms) is announced in the summary and asks again, for the Terms only.
+  - An owner edit asks again only when saved as material.
 - `tests/test_UAT_FC_REQ-666_shop_and_legal_pane.test.ts` (jsdom builder):
   - The Shop tab's missing-details prompt and edited-terms warning.
   - The Legal pane's "tell people about this change" on save, and the "takes effect on" line.

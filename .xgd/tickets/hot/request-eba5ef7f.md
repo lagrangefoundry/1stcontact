@@ -5,8 +5,8 @@ type: request
 title: 'Account dialog: sign-out control'
 created_by: martin-github@westhead.me
 created_at: '2026-09-07T21:42:25.156652+00:00'
-updated_at: '2026-11-08T03:28:34.778955+00:00'
-completed_at: '2026-11-08T03:28:32.148885+00:00'
+updated_at: '2026-11-08T03:34:07.268641+00:00'
+completed_at: '2026-11-08T03:34:07.268641+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,12 +17,12 @@ fields:
   story_points: 3
   commits:
   - working_sha: e6bbe46f22d899a4e211059d934f73ad7dbae5bf
-    reconcile_sha: 143f021fe193a5dbcd906e23a83fa164352076d1
-    main_sha: null
+    reconcile_sha: 7e5633be93a6d901d7bde94b59edd55374040d53
+    main_sha: 7e5633be93a6d901d7bde94b59edd55374040d53
     working_sha_history: []
   - working_sha: d34bbba54dffa767b6c2bdc8ac63785fee9158ff
-    reconcile_sha: 1d1c2ee5049bbeeca2f4690012e1ca70af96178c
-    main_sha: null
+    reconcile_sha: 9353e91bdc767618e4780397aae17f921900ce75
+    main_sha: 9353e91bdc767618e4780397aae17f921900ce75
     working_sha_history: []
   version: 0.2.130
   bundled_in: bundle-4164b433

@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-666
 created_by: xgd
 created_at: '2026-11-07T22:47:58.645700+00:00'
-updated_at: '2026-11-08T00:03:07.393685+00:00'
+updated_at: '2026-11-08T01:33:21.512956+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -162,5 +162,181 @@ I can start REQ-666's other items now (the checkout line, confirmation email cop
 <!-- xgd-chat role="user" ts="2026-11-08T00:03:01.132922+00:00" -->
 #### You
 Go ahead but stay in free-coding until everything is done
+
+<!-- xgd-turn id="93073262-2b08-4b8d-8f7c-2effbba4cc58-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T01:33:20.082051+00:00" -->
+#### Claude
+Going ahead with items 1–3, 6 and 7 on my recommendations. Items 4–5 wait for REQ-668. The ticket stays at `free_coding` and the work stays on the branch until everything is done. Starting with the order email and message triggers.
+
+Design is set; now checking how the existing shop tests set up a selling business. The new Buy gate will change what that setup needs.
+
+Checkout tests each build their own shop, so the seller-details gate means updating each one. Now checking how REQ-665's tests supply the legal module library.
+
+The Buy gate will cover seller details only; I'll explain why when I report back. Now reading how the checkout page's controls render, to place the legal line just above the payment form.
+
+Placing the legal line and versioned pages in the site render now. Reading the rest of REQ-665's render changes.
+
+The design is settled; starting to code. First, the database migration for the order's document versions and the privacy-notice send queue.
+
+Writing the migration (`0058_legal_notices.sql`) and registering it in the test database factory.
+
+Migration done. Next, the core change in `client-legal.ts`: material flags, notice periods and archived versions.
+
+Writing the `client-legal.ts` changes now: version material flag, upcoming versions with effective dates, archived version pages, due-date flip, and what's on the site for the checkout.
+
+Type errors are as expected. Now the render side: archived version pages, plus the links the checkout line uses.
+
+Adding the legal line to the checkout page now. Checking the available type roles first.
+
+Now wiring the router: recording notices at publish, the full legal pages on rebuilds, and the owner's "tell people" flag on edits.
+
+Writing `legal-notices.ts`. It queues privacy notices at publish, sends them in batches from the scheduled job, and puts the new version on the site when its date comes.
+
+Now the two message changes: the new "We've updated our privacy notice" message, and the Terms of sale link plus cancellation summary in the order confirmation.
+
+Now the confirmation email itself, in `order-emails.ts`.
+
+Now `orders.ts`: the seller-details gate at checkout, and the two version columns written onto the order.
+
+The control app typechecks. Next: wire the scheduled job, then the Shop tab and Legal pane changes.
+
+Cron is wired. Now the Shop tab: it should say which seller details are missing, and warn when the Terms of sale are edited.
+
+The Shop tab is done. Now the Legal pane: the "tell people about this change" switch on an edit, and the "takes effect on" line.
+
+The Legal pane is done. Now item 7: what the consultant and the Legal assistant tell the owner.
+
+Feature code is in place and typechecks. Now running the existing suites this touches, starting with REQ-665's.
+
+REQ-665's suites pass. Next, the shop and checkout suites, which the seller-details gate is expected to break.
+
+As expected, 40 fail. Confirming the cause is the seller-details gate and not something else:
+
+Not the gate, as it turns out. `ticketStoreFor` throws when the BLOBS binding is missing, and these suites run without one. Checking whether a store can be opened read-only without it:
+
+The REQ-665 publish step reads the same store, so these suites may already fail on xgd-working. Running BUG-372 in the main checkout to get a baseline:
+
+Baseline passes, so the failure is mine. Checking where the BLOBS binding comes from in that suite:
+
+One left: REQ-643's UAT pins the exact shape of `/api/shop/selling`, which REQ-666 extends. Updating its expectation and recording the supersession on the ticket.
+
+Running the message, Paperwork and checkout-page suites next.
+
+Existing suites pass (the two skipped files were skipped before my change too). Now writing REQ-666's own UATs, modelled on REQ-665's test rig.
+
+Writing the REQ-666 suite. Checking how REQ-665's suite addresses published pages first.
+
+Now writing the suite file.
+
+Running the new suite:
+
+Two pass. Debugging the first failure: Buy doesn't come back after the details are filled in and the site republished.
+
+All five REQ-666 UATs pass. Now jsdom UATs for the Shop tab's prompt and warning and the Legal pane's "tell people" switch, modelled on existing builder tests.
+
+The webui suites skip in a worktree because `@lagrangefoundry` isn't reachable from here. Linking it, as the setup notes say:
+
+Now writing the builder UATs:
+
+Both builder UATs pass. Launching the full workers and node suites in the background to look for regressions elsewhere:
+
+While those run, I'll update the ticket body. First checking how this repo bumps its version:
+
+Writing the implementation record into the ticket body, keeping the existing text:
+
+Ticket body updated. Checking on the background suite runs:
+
+While the suites run, committing the work so far to the branch:
+
+Committed on the branch as `5055a8c44d`. Waiting for the background suites to finish:
+
+Background check: per a memory note updated by another session, REQ-668 (sign-in per business) landed on 2026-11-08. That unblocks items 4–5. First, the suite results:
+
+REQ-668 is on xgd-working. While the suites finish, reading REQ-668's acceptance-gate change, which items 4–5 build on:
+
+Reading the acceptance page builder and wording:
+
+Waiting for the suites before merging xgd-working in. A merge now would change files under the running tests.
+
+Workers suite finished. Its failures:
+
+325 failures, nearly all in suites far from this change (reconciliation, consultant runtime). A pattern that wide may be environmental. Reading the actual error messages to check:
+
+These two tests build the shop inventory from `{ DB, SITES }` only, and the inventory now reads seller details from the business's store. Giving their `shopEnv` the BLOBS binding:
+
+Same failures on xgd-working for all but two files: BUG-230 and REQ-222 pass there. Re-running those two on the branch on their own, since the full run was under parallel load:
+
+Both pass now. The node suite has finished as well; its failures:
+
+Counts match the baseline. A static guard can stay red with the same count while also naming a new file, so checking whether my files appear in their messages:
+
+The `REQ-666` marker matches the worktree path in every stack trace. Rerunning the check with file names only:
+
+No node failure names a REQ-666 file. Same check over the workers run:
+
+Those four are already fixed. Failures that surface only as an HTTP 500 hide their stack, so one more baseline: the suites failing with 500s or 503s.
+
+Clean merge. Refreshing the generated files, then reading how REQ-668's tests drive a client business's contact through sign-in and the gate:
+
+REQ-668's harness has everything items 4–5 need. Checking whether any test pins the acceptance key list before I add a Member terms key:
+
+Adding a key is safe. Writing the client business's acceptance gate (`client-terms.ts`):
+
+`client-terms.ts` needs `legalOnSite` to return the site as well. Updating it and its caller in `orders.ts`:
+
+Typechecks. Next, item 7's re-acceptance part: the pre-publish summary should say when signed-in customers will be asked to accept again.
+
+Writing the UATs for items 4–5 on REQ-668's harness. Checking the site-address helper first:
+
+Now writing the member-acceptance suite:
+
+The starter site has nothing built yet, so there's nothing to publish. Giving Alice a seeded site with real content instead:
+
+Progress: the acceptance itself records correctly. After it, though, requests come back with a different refusal, "1st Contact cannot open this for you". Finding where that comes from:
+
+All three pass. Re-running the sign-in, terms gate, acceptance, portal and legal suites around this change:
+
+No summary printed, so the run probably hit the time limit. Splitting it into two batches:
+
+The only failure (REQ-204 `the_chrome_is_told_nothing…`) also fails on xgd-working. Second batch:
+
+Nothing flagged. Items 1–7 are now all built, so "everything is done" holds. Updating the ticket body for items 4–5 before landing:
+
+Committing items 4–5 on the branch:
+
+Landing the work now. First bringing in the latest xgd-working and bumping the version:
+
+Only tickets came in, and it still typechecks. Bumping the version, after checking that nobody has claimed 0.2.821:
+
+Overlay check: nothing to change. Moving the ticket to `free_coded` with the four REQ-666 commits (merge commits left out):
+
+The shell passed all four SHAs as one argument. Passing them separately:
+
+Landed and at `free_coded`. Saving one test-harness lesson from this session to memory:
+
+REQ-666 is built and on xgd-working, and the ticket is at `free_coded`. REQ-668's per-business sign-in landed from another session while I worked, so I built items 4–5 as well; with all seven items done, I moved the ticket on. I haven't promoted it to ready_to_reconcile; that's yours.
+
+**What it does now:**
+1. **Checkout:** one line above the payment form, "By paying you agree to our Terms of sale. See our Privacy notice.", with no tick box. Both names link to the live pages. The order records the two version uids the server knows are on the site.
+2. **Confirmation email:** links the exact Terms of sale version at `/legal/terms-of-sale/v<N>`. Every published version now stays on the site as its own static page, so the link keeps working after newer versions. UK and EU buyers also get the 14-day cancellation summary (platform wording, for the lawyer).
+3. **Seller details:** Buy and checkout stay off until the legal name, postal address and contact email are filled in. The Shop tab names what's missing and links to Paperwork → Legal. An edited Terms of sale gets a warning, not a block.
+4. **Signed-in customers:** a client business's contact gets that business's acceptance page: Terms of use (and Member terms) to agree to, Privacy notice as "I have read". Acceptances are recorded on their contact; Member terms use a new key, `member_terms_accepted`.
+5. **Re-acceptance:** asked again only when a version since the accepted one is material. Wording-only changes ask nobody, and the Privacy notice is never re-asked.
+6. **Privacy changes:** a material change waits 30 days with the old version live, its page saying when the new one takes effect. The 10-minute scheduled job emails "We've updated our privacy notice" to the business's contacts in batches, once each, then puts the new version on the site. Adding a mailing list sends nothing. Owner edits have a "tell people about this change" checkbox.
+7. **Assistants:** the summary the consultant must read out before publishing, and the Legal assistant's instructions, now say when a publish will email contacts or ask customers to accept again, and flag that using existing data for a new purpose usually needs consent.
+
+**Three decisions to check:**
+- **No Buy block when there's no Terms of sale yet.** This differs from what I proposed earlier. REQ-665's module texts (DOC-87..116) are all drafts, so blocking would have switched off every client shop until you publish them. The checkout line just leaves out a document the site doesn't have.
+- **The 1st Contact business is left out of all of this**, as REQ-665 left it: no seller check, no client documents.
+- **I changed `admit` in `identity.ts`.** After accepting their business's Terms, a client business's customer counts as a member who operates no business, which `admit` used to refuse. They are now let into their portal. A suspended contact is still refused, and they still only reach their own business's records. It's a small change, but it's in the sign-in code, so it's worth a look.
+
+**Tests:**
+- 10 new UATs pass: `test_UAT_FC_REQ-666_legal_in_use`, `_member_acceptance` and `_shop_and_legal_pane`.
+- The sign-in, acceptance, portal, Paperwork, shop and REQ-665 suites pass. The one exception, a REQ-204 sign-out test, fails on xgd-working too.
+- The full runs show about 325 workers failures and about 600 more in the node run, all in suites not related to this ticket. Every suite I baselined fails identically on xgd-working, and none of the failure messages name a file from this ticket.
+- I updated six other tickets' UATs: REQ-643's exact `/api/shop/selling` response now includes the three new fields, and REQ-633, REQ-647, REQ-222 and BUG-230's test setups now include the ticket-store binding (BLOBS) that the seller check needs. The ticket body lists the decisions above, the behaviour each superseded ticket now has, and every UAT.
+
+The four commits are `5055a8c44d`, `27ac75c2ca`, `2c64130b94` and `6499527fa5` (version 0.2.821). The branch has been merged and removed.
 
 <!-- xgd-chat-end -->

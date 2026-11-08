@@ -5,8 +5,8 @@ type: bug
 title: 'Local dev: access-sim blocks 1c push, so a wiped local store cannot be refilled'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T23:19:13.324318+00:00'
-updated_at: '2026-11-08T03:28:35.224043+00:00'
-completed_at: '2026-11-08T03:28:33.584334+00:00'
+updated_at: '2026-11-08T03:34:01.565019+00:00'
+completed_at: '2026-11-08T03:34:01.565019+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,15 +17,15 @@ fields:
   commits:
   - working_sha: 2ca6ef1a167d28bafdab7b83478a3d6775d3ec80
     reconcile_sha: 30d3ef18eb90b19d02c4149292e1bcb17b99f90a
-    main_sha: null
+    main_sha: b4a0661fb03028cb19cbae9f5608410785b6bb3d
     working_sha_history: []
   - working_sha: 2751532a22f6e39ccaccc57a0d2f604864d6d90f
     reconcile_sha: 0c13193ae58863098a46a39c55758e37593e054e
-    main_sha: null
+    main_sha: ab3f0f2110e70584232781fb0cf523eb8a99f362
     working_sha_history: []
   - working_sha: 99b88111d9bc79dfebc30756181ba41408f01f99
-    reconcile_sha: 0e1b352e0397e3762dd4fd04ad90372b3fbf83b2
-    main_sha: null
+    reconcile_sha: b13512a6c96c28b6e9fb7d052769a8fff0e76593
+    main_sha: b13512a6c96c28b6e9fb7d052769a8fff0e76593
     working_sha_history: []
   version: 0.2.126
   bundled_in: bundle-4164b433

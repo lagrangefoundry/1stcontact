@@ -5,8 +5,8 @@ type: bug
 title: 'Invite modal: composer fields overflow the panel'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T22:44:05.075064+00:00'
-updated_at: '2026-11-08T03:28:34.550803+00:00'
-completed_at: '2026-11-08T03:28:31.391241+00:00'
+updated_at: '2026-11-08T03:34:10.032978+00:00'
+completed_at: '2026-11-08T03:34:10.032978+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,11 +18,11 @@ fields:
   commits:
   - working_sha: 851c01fa174f36b3b6bc141fb4d4275ea408c14d
     reconcile_sha: 093817f89fc71517c5129362e10743ba69106817
-    main_sha: null
+    main_sha: 81bfb486744245f1887f7a715d099a80737283f9
     working_sha_history: []
   - working_sha: b685f54e2aa03a97dd1e14004a141df9dfd5f0c1
-    reconcile_sha: 91f0e899b172f94d36fe23e59fb7904a5c5743de
-    main_sha: null
+    reconcile_sha: b7dd02bc29b306008c402be21e7a966bea594938
+    main_sha: b7dd02bc29b306008c402be21e7a966bea594938
     working_sha_history: []
   version: 0.2.129
   story_points: 2
