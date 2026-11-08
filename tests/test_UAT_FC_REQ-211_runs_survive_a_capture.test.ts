@@ -263,11 +263,19 @@ describe('REQ-211 the capture records which runs are one flow', () => {
 
     // A <br> ends a flow. Rejoining across it would put the line break back on
     // the browser's own wrapping — a decision the reference had already made.
+    //
+    // The two lines are one element and one block, so without the break they
+    // would be a single two-run flow and both would carry the same group. With
+    // it, each line is a flow of ONE — and a flow of one is not recorded as a
+    // flow (it gains nothing from being told so), so neither carries a group.
     const first = runByText(c, 'First captured line')
     const second = runByText(c, 'second captured line')
-    expect(first?.inlineGroup).toBeDefined()
-    expect(second?.inlineGroup).toBeDefined()
-    expect(second!.inlineGroup).not.toBe(first!.inlineGroup)
+    expect(first, 'the first line is captured as its own run').toBeDefined()
+    expect(second, 'the second line is captured as its own run').toBeDefined()
+    expect(first!.inlineGroup).toBeUndefined()
+    expect(second!.inlineGroup).toBeUndefined()
+    expect(first!.textFlow).toBeUndefined()
+    expect(second!.textFlow).toBeUndefined()
 
     // A flex row blockifies its children, so each link is its own formatting
     // context. This is what keeps a nav row from silently becoming a sentence.
