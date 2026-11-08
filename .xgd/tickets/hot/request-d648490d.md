@@ -5,10 +5,10 @@ type: request
 title: 'Text can vary within a run: multi-variate L1 text'
 created_by: CHAT-49
 created_at: '2026-09-09T21:25:01.708637+00:00'
-updated_at: '2026-09-10T17:43:16.559302+00:00'
+updated_at: '2026-11-08T12:30:08.489050+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 13
@@ -25,6 +25,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.145
+  bundled_in: bundle-0d00566a
 ---
 
 ## What changes

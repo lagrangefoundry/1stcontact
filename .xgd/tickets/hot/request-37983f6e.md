@@ -5,10 +5,10 @@ type: request
 title: Modals in L1 — the overlay role and the disclosure verb
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T00:17:52.482228+00:00'
-updated_at: '2026-09-10T17:09:24.422010+00:00'
+updated_at: '2026-11-08T12:30:07.678386+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -24,6 +24,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.143
+  bundled_in: bundle-0d00566a
 ---
 
 # Modals in L1 — the overlay role and the disclosure verb

@@ -5,10 +5,10 @@ type: request
 title: 'The user can point: Marked Points on the edit preview'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:58.462451+00:00'
-updated_at: '2026-09-10T00:22:20.051759+00:00'
+updated_at: '2026-11-08T12:30:07.260657+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 8
@@ -23,6 +23,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.142
+  bundled_in: bundle-0d00566a
 ---
 
 ## What changes
