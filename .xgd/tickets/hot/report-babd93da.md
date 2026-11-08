@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-41: REQ-210, REQ-211, REQ-212, R
   BUG-67, BUG-69, BUG-70, BUG-71, BUG-72)'
 created_by: xgd
 created_at: '2026-11-08T12:42:54.689461+00:00'
-updated_at: '2026-11-08T12:47:14.440777+00:00'
+updated_at: '2026-11-08T13:10:21.373504+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -64,7 +64,7 @@ fields:
       set the precedent but cover navigation and states, not an overlay or disclosure
       verb. This is a new capability bucket inside the L1 substrate. Evidence: tests/test_UAT_FC_REQ-212_l1_modals.test.ts,
       BUG-48 test additions.'
-    story_uid: null
+    story_uid: story-e214a00d
   - index: 3
     component: 'Framework Substrate: Multi-Variate Text Runs'
     item_type: feature
