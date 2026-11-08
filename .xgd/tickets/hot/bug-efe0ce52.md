@@ -6,10 +6,10 @@ title: 'public-site: /site/<key>/ returns 500 — deployed Worker predates the R
   baseline'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T20:44:03.515198+00:00'
-updated_at: '2026-11-05T19:26:48.707428+00:00'
-completed_at: null
+updated_at: '2026-11-08T00:25:51.268431+00:00'
+completed_at: '2026-11-08T00:25:51.268431+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
