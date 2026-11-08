@@ -6,9 +6,9 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-11-08T02:33:45.452151+00:00'
+updated_at: '2026-11-08T02:34:10.864182+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-8e1807f6
@@ -201,8 +201,9 @@ not against what the host constructed.
   difference cannot be observed and is not a code issue. Out of scope for this
   story, and left to the matrix entries that own them: the describer role's
   digest-only priming, the generated bridge-shim export list, and the
-  change-signal and corpus-delta conditionality, which belong to the reminder's
-  own stories (REQ-131 / AC-1799).
+  change signal's conditionality, which belongs to the REQ-131 reminder story.
+  The corpus delta's absence when nothing arrived is already pinned here by
+  AC-1799.
 
 ## Dependencies
 
