@@ -2,12 +2,12 @@
 uid: acceptance_criterion-07b3ae73
 id: AC-2380
 type: acceptance_criterion
-title: The model is never told which vendor generates images
+title: The image tool never tells the model which vendor generates images
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:42:25.630590+00:00'
-updated_at: '2026-11-08T10:38:16.768178+00:00'
+updated_at: '2026-11-08T10:47:29.759168+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-39c992d3
@@ -16,11 +16,10 @@ fields:
 ---
 
 ## Criterion
-Nothing the model sees names the image vendor: not the tool's manual entry, not its parameter schema, not any tool result or error text (success, provider refusal, unsupported shape, budget exhausted), and not anything the session's knowledge base returns for a generated picture (its material body as stored and indexed). The tool has no parameter for choosing a provider or model. No vendor or model name (for example "OpenAI", "gpt-image", "Google", "Gemini") appears, matched without regard to case.
-
-The generated picture's material body still carries the prompt verbatim, so it remains findable by what it shows. `description_model` keeps naming the generating model: that field is shown to the client in the Library and is not something the model reads.
+Nothing the image tool itself tells the model names the image vendor: not the tool's manual entry, not its parameter schema, and not any tool result or error text (success, provider refusal, unsupported shape, budget exhausted). The tool has no parameter for choosing a provider or model. No vendor or model name (for example "OpenAI", "gpt-image", "Google", "Gemini") appears in any of these, matched without regard to case.
 
 ## Verification
-Capture the tool manual, the schema and the tool results for success and for each error path in a session. Assert that none contains a vendor or model name, and that the schema has no provider/model parameter. After a successful `create_image` turn, read the stored material body and search the session's knowledge base for the prompt. Assert that neither the body nor any search result contains a vendor or model name, that the body still contains the prompt verbatim, and that the record's `description_model` still names the model.
+Capture the tool manual, the schema and the tool results for success and for each error path in a session. Assert that none contains a vendor or model name, and that the schema has no provider/model parameter.
 
-Erratum (fix_plan iteration 11, REQ-208 property 1): widened to the material body and knowledge base. The plugin writes `- Provider:` / `- Model:` lines into the body, `generatedMaterialStore` stored them unchanged and indexed them, so the vendor was reachable by search.
+## Scope note (reconciliation, fix_plan iteration 11, attempt 2)
+This criterion does NOT cover the generated picture's stored material body or the session knowledge base. The code does not keep REQ-208's promise there. The `ai-imagegen` plugin writes `- Provider:` / `- Model:` lines into the body (`toolbox.js:757-758`). `generatedMaterialStore.create` (`apps/control-app/src/imagegen.ts`) stores the body unchanged, and `attach` indexes it (`imagegen.ts:260`), so a search can reach the vendor name. Iteration 11's first attempt widened this AC to cover that channel and asked for a `code_frozen` override to fix `imagegen.ts`. The validator refused the override, so in reconciliation the code stands. The divergence is recorded on STORY-172 (Reconciliation Decisions), and the fix is tracked as BUG-381 (`bug-da5f9050`). When BUG-381 lands, it widens this criterion again.
