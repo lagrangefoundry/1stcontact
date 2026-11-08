@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Every picture is named with one declared shape whose schema the model is shown
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:42:05.175968+00:00'
-updated_at: '2026-10-27T20:44:35.716045+00:00'
+updated_at: '2026-11-08T21:43:26.575391+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-58b2cec4
@@ -16,7 +16,7 @@ fields:
 ---
 
 ## Criterion
-Every looking operation that takes a picture takes it in one shape: `kind` (required, one of `reference`, `draft`, `edit`, `revision`, `url`), plus `bundle`, `page`, `revision` (integer), `url` and `viewport` (one of `mobile`, `tablet`, `desktop`). The tool schema offered to the model for each such parameter lists exactly these keys with those enums and disallows additional properties. No operation carries its own reference/actual/source/size-style parameter. A picture with an unknown key or an out-of-enum `kind`/`viewport` is refused before the operation runs.
+Every looking operation that takes a picture takes it in one shape: `kind` (required, one of `reference`, `draft`, `edit`, `revision`, `url`), plus `bundle`, `page`, `revision` (integer), `url`, `viewport` (one of `mobile`, `tablet`, `desktop`) and `after` (an array of phrases; only a `draft` picture may carry it — see the REQ-216 ACs). The tool schema offered to the model for each such parameter lists these keys with those enums, describes `after` as draft-only, and disallows additional properties. No operation carries its own reference/actual/source/size-style parameter. A picture with an unknown key or an out-of-enum `kind`/`viewport` is refused before the operation runs.
 
 ## Verification
-Inspect the offered tool schemas for `screenshot` and `compare` and assert the picture parameter's properties, enums and additionalProperties:false; assert no operation declares ref/actual/source/size parameters. Call `screenshot` with an extra key and with `kind: 'page'` and assert each is refused as invalid parameters.
+Inspect the offered tool schemas for `screenshot` and `compare` and assert the picture parameter's properties (including `after`, typed as an array, whose description says only a `draft` picture can be driven), enums and additionalProperties:false; assert no operation declares ref/actual/source/size parameters. Call `screenshot` with an extra key and with `kind: 'page'` and assert each is refused as invalid parameters.
