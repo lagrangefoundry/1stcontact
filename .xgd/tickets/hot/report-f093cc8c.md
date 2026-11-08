@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-39: BUG-59 + BUG-63 + REQ-204 + 
   + BUG-64)'
 created_by: xgd
 created_at: '2026-11-08T01:38:28.960420+00:00'
-updated_at: '2026-11-08T02:24:41.344702+00:00'
+updated_at: '2026-11-08T02:34:38.526132+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -153,7 +153,7 @@ fields:
       pins that each host actually sends the system prompt, purpose and reminder to
       the model, which is the regression BUG-63 caught. No new capability bucket:
       this is the same priming behaviour, stated per host and checked on what is sent.'
-    story_uid: null
+    story_uid: STORY-149
     target_story_ids:
     - STORY-149
     acceptance_criteria_changes:
