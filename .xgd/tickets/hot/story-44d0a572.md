@@ -5,10 +5,10 @@ type: story
 title: 'Marked Points: point at the edit preview and send the pointing as text'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:45:21.261082+00:00'
-updated_at: '2026-11-08T12:45:21.261082+00:00'
+updated_at: '2026-11-08T13:05:16.583687+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-0d00566a
   capability_uid: capability-12fee326
