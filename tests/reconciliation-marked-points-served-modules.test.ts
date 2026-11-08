@@ -32,6 +32,7 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { run } from '../tools/generate/src/cli'
+import { withDistAssetsLock } from './support/fs-lock'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 import * as sourceAnchors from '../packages/site-schema/src/anchors'
 import * as sourceMarkedPoints from '../packages/framework/src/l1/marked-points'
@@ -182,7 +183,7 @@ describe('story-44d0a572 — the builder is served the anchor and measurement mo
     const log = console.log
     console.log = () => {}
     try {
-      await run(['assets'])
+      await withDistAssetsLock(REPO, () => run(['assets']))
     } finally {
       console.log = log
     }

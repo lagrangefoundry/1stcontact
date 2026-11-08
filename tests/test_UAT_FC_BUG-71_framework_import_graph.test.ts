@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { run } from '../tools/generate/src/cli'
+import { withDistAssetsLock } from './support/fs-lock'
 import { checkImportGraph } from '../tools/generate/src/cli/assets'
 import { CommandError } from '../tools/generate/src/cli/errors'
 
@@ -84,7 +85,7 @@ describe('BUG-71 — the emitted framework tree is the import graph', () => {
     const log = console.log
     console.log = (...a: unknown[]) => void lines.push(a.map(String).join(' '))
     try {
-      await run(['assets'])
+      await withDistAssetsLock(REPO, () => run(['assets']))
     } finally {
       console.log = log
     }

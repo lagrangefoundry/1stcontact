@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { WEBUI_SCOPE, sharedModulePath, sharedModuleUrl } from '../tools/generate/src/cli/webui'
+import { withDistAssetsLockSync } from './support/fs-lock'
 import { TICKETING_INSTALLED, TICKETING_SKIP_REASON } from './support/ticketing-installed'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
@@ -411,7 +412,10 @@ describe('story-ab1ecd62 — the shared component resolves, is reported, and its
       symlinkSync(path.join(REPO, modules, entry), path.join(mirror, modules, entry))
     }
 
-    const json = spawnSync('node', [BIN, 'assets', '--json'], { cwd: mirror, encoding: 'utf8' })
+    // Each build holds the dist-assets lock, like every suite-initiated `1c assets`.
+    const assets = (args: string[]) =>
+      withDistAssetsLockSync(REPO, () => spawnSync('node', [BIN, ...args], { cwd: mirror, encoding: 'utf8' }))
+    const json = assets(['assets', '--json'])
     expect(json.status, json.stderr).toBe(0)
     const report = JSON.parse(json.stdout) as { ticketingEntry: string; aiWorkersEntry: string }
 
@@ -444,7 +448,7 @@ describe('story-ab1ecd62 — the shared component resolves, is reported, and its
     }
 
     // ── (e) it is its own named line in the build report, naming the location ──
-    const human = spawnSync('node', [BIN, 'assets'], { cwd: mirror, encoding: 'utf8' })
+    const human = assets(['assets'])
     expect(human.status, human.stderr).toBe(0)
     const line = human.stdout.split('\n').find((l) => l.startsWith(COMPONENT))
     expect(line, 'the report names the emitted module on a line of its own').toBeDefined()

@@ -16,6 +16,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { run } from '../tools/generate/src/cli'
+import { withDistAssetsLock } from './support/fs-lock'
 import { checkImportGraph } from '../tools/generate/src/cli/assets'
 import { CommandError } from '../tools/generate/src/cli/errors'
 
@@ -81,7 +82,7 @@ describe('story-e674c60a — the asset build emits and verifies the import graph
     const log = console.log
     console.log = (...a: unknown[]) => void lines.push(a.map(String).join(' '))
     try {
-      await run(['assets'])
+      await withDistAssetsLock(REPO, () => run(['assets']))
     } finally {
       console.log = log
     }
@@ -290,7 +291,7 @@ async function assetsIn(root: string): Promise<unknown> {
   console.log = () => {}
   process.chdir(root)
   try {
-    await run(['assets'])
+    await withDistAssetsLock(REPO, () => run(['assets']))
     return undefined
   } catch (err) {
     return err

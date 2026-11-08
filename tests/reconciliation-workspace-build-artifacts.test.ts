@@ -39,6 +39,7 @@ import {
   webuiPackageDir,
 } from '../tools/generate/src/cli/webui'
 import { startAccessTeam, type AccessTeam } from './support/access'
+import { withDistAssetsLock } from './support/fs-lock'
 import { applyLocalD1Schema, localD1, seedIdentity } from './support/local-d1'
 
 const REPO = path.resolve(__dirname, '..')
@@ -167,7 +168,11 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
     if (cwd) fs.rmSync(cwd, { recursive: true, force: true })
   })
 
-  it('test_UAT_AC1400_client_components_and_bridges_are_built_artifacts_behind_the_gate', async () => {
+  // The served tree is read under the dist-assets lock: sibling suites run `1c
+  // assets` against this checkout, and a build swaps the tree out from under any
+  // reader, so a read concurrent with one sees no tree or half of one. The test's
+  // budget covers waiting for a build in progress plus its own 120 s.
+  it('test_UAT_AC1400_client_components_and_bridges_are_built_artifacts_behind_the_gate', () => withDistAssetsLock(REPO, async () => {
     // The build must have been run for any of this to mean anything. Its absence
     // is an environment precondition and says so, rather than passing vacuously.
     expect(
@@ -318,5 +323,5 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
     } finally {
       await unbuilt.close()
     }
-  }, 120000)
+  }), 600_000)
 })

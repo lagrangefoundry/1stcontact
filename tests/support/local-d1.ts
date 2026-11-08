@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { withLockSync } from './fs-lock'
 import { TERMS_VERSION } from '../../apps/control-app/src/terms'
 
 /**
@@ -75,8 +76,7 @@ export function applyLocalD1Schema(repoRoot: string): void {
 function runLocalD1(repoRoot: string, args: string[], what: string): void {
   const appDir = path.join(repoRoot, 'apps', 'control-app')
   const lock = path.join(appDir, '.wrangler', 'test-local-d1.lock')
-  mkdirSync(path.dirname(lock), { recursive: true })
-  withLock(lock, () => {
+  withLockSync(lock, { staleMs: LOCK_STALE_MS, what: 'local D1' }, () => {
     for (let attempt = 1; ; attempt += 1) {
       try {
         execFileSync('npx', ['wrangler', 'd1', ...args], {
@@ -101,33 +101,8 @@ function runLocalD1(repoRoot: string, args: string[], what: string): void {
   })
 }
 
+/** Longer than any migration has taken; past it a holder is presumed crashed. */
 const LOCK_STALE_MS = 120_000
-
-function withLock(lock: string, body: () => void): void {
-  const deadline = Date.now() + LOCK_STALE_MS
-  for (;;) {
-    try {
-      mkdirSync(lock)
-      break
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
-      try {
-        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) rmSync(lock, { recursive: true, force: true })
-      } catch {
-        /* released between the check and the stat */
-      }
-      if (Date.now() > deadline) {
-        throw new Error(`Timed out waiting for the local D1 lock at ${lock}.`)
-      }
-      sleep(100)
-    }
-  }
-  try {
-    body()
-  } finally {
-    rmSync(lock, { recursive: true, force: true })
-  }
-}
 
 function sleep(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)

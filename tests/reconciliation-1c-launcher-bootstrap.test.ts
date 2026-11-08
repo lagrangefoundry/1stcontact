@@ -46,6 +46,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse as parseYaml } from 'yaml'
 import { expectNoAstroContainerToConstruct } from './support/astro-absent'
+import { withDistAssetsLockSync } from './support/fs-lock'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const REPO = fileURLToPath(new URL('..', import.meta.url))
@@ -334,13 +335,16 @@ describe('story-e15a19ef — 1c assets bootstraps without loading the CLI barrel
       }
 
       // Human mode: it exits 0 …
-      const human = spawnSync('node', [BIN, 'assets'], { cwd: mirror, encoding: 'utf8' })
+      // Each build holds the dist-assets lock, like every suite-initiated `1c assets`.
+      const assets = (args: string[]) =>
+        withDistAssetsLockSync(REPO, () => spawnSync('node', [BIN, ...args], { cwd: mirror, encoding: 'utf8' }))
+      const human = assets(['assets'])
       expect(human.status, human.stderr).toBe(0)
       expect(human.stdout).toContain('out        ')
 
       // … and `--json` satisfies the scriptable-output contract: nothing on
       // stderr, and stdout is exactly one parseable document.
-      const json = spawnSync('node', [BIN, 'assets', '--json'], { cwd: mirror, encoding: 'utf8' })
+      const json = assets(['assets', '--json'])
       expect(json.status, json.stderr).toBe(0)
       expect(json.stderr).toBe('')
       const report = JSON.parse(json.stdout) as {

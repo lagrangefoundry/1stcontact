@@ -63,6 +63,7 @@ import { fileURLToPath } from 'node:url'
 // The component scope and the component list are declared exactly once in this
 // repository (AC-960); every reference composes them from that declaration.
 import { WEBUI_PACKAGES, WEBUI_SCOPE } from '../tools/generate/src/cli/webui'
+import { withDistAssetsLock } from './support/fs-lock'
 
 const REPO = realpathSync(fileURLToPath(new URL('..', import.meta.url)))
 
@@ -168,6 +169,16 @@ async function buildWhileReading(
   root: string,
   served: string,
   opts: { nodeArgs?: string[]; env?: NodeJS.ProcessEnv } = {},
+): Promise<BuildRun> {
+  // Every suite-initiated `1c assets` holds the dist-assets lock for its run, so
+  // no two builds in one test run overlap and no sibling reads mid-swap.
+  return withDistAssetsLock(REPO, () => buildAndRead(root, served, opts))
+}
+
+async function buildAndRead(
+  root: string,
+  served: string,
+  opts: { nodeArgs?: string[]; env?: NodeJS.ProcessEnv },
 ): Promise<BuildRun> {
   const child = spawn('node', [...(opts.nodeArgs ?? []), ONE_C, 'assets'], {
     cwd: root,
