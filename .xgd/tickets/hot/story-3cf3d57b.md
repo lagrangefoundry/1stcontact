@@ -6,9 +6,9 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-11-08T02:41:42.659363+00:00'
+updated_at: '2026-11-08T05:12:32.611366+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-8e1807f6
@@ -131,13 +131,21 @@ so the first upload of a conversation would be announced again, and again.
 
 Each side's runtime reads its index through a map keyed by source name (upstream knowledge REQ-112, repaired here by BUG-55). This matters twice over: the search resolves its index through that key, and the runtime seeds the snapshot that decides which documents are readable *from* the same map. A runtime opened with the old singular key searched nothing and placed no document in its snapshot, so every read was refused as "not in the corpus" — an answer, not an error, and exactly how the assistant came to report shipped capabilities as missing. The client's knowledge base declares no source and must be keyed under the component's default source explicitly, because index lookup (unlike store lookup) has no fallback for an unnamed index. The composite runtime that merges the two searches holds no index of its own; it forwards each side's maps.
 
-Priming follows the framework's DOC-22 configuration (BUG-63). It is an ordered
-list of named entries: the consultant system text, the knowledge component's
-landscape provider, the purpose text, and the knowledge component's mechanism
-provider, which carries this session's projected manual. The per-turn reminder is
-a registered reminder provider resolved at assembly time, because the role object
-is frozen and must never be assigned to. Entry names are configuration and are
-never rendered into the prompt. The knowledge component still prints its own two
+Priming follows the framework's DOC-22 configuration (BUG-63, REQ-182). It is an
+ordered list of named entries, declared in one configuration data file and
+loaded through the framework's own role loader. With a knowledge base the
+entries are: the consultant role text and the product text (together, the
+"consultant system prompt"), the knowledge component's landscape provider, the
+purpose text, the knowledge component's mechanism provider (which carries this
+session's projected manual), and one cache boundary, last. The boundary puts the
+whole priming in one cached prefix, assembled once per session. That is why a
+document arriving mid-conversation must reach the session through the per-turn
+arrival notice: the map is not re-read. The per-turn reminder is a list of
+configured reminder entries, with the arrival notice declared last, because the
+role object is frozen and must never be assigned to. Entry names are
+configuration and are never rendered into the prompt. No authored entry names a
+corpus document (BUG-65): which documents exist reaches the session only through
+the map the build generates. The knowledge component still prints its own two
 section headings ("What exists", "How to search"), but the old "Your purpose"
 heading and the closing "prime yourself now" sentence were deleted along with the
 retired assembler. Before this migration, a framework change made the role
@@ -203,6 +211,30 @@ not against what the host constructed.
   change signal's conditionality, which belongs to the REQ-131 reminder story.
   The corpus delta's absence when nothing arrived is already pinned here by
   AC-1799.
+
+- **The trailing cache boundary is a criterion of this story** (decided at
+  reconciliation, 2026-11-07, BUNDLE-40 / REQ-182). REQ-182's implementation
+  scope places one `{cache_boundary: true}` last, so that "the whole assembled
+  priming becomes one cached prefix". Its acceptance asks that "the assembled
+  cache offsets cover the whole priming" and that "the landscape provider runs
+  once for a session, not once per turn". This story owns what reaches the model
+  in priming and on which cadence, so AC-2376 pins it here. It covers both
+  declared orders, because the corpus-free order also closes with a boundary.
+  AC-1807's "arrival notice last" is the per-turn half of the same cost rule and
+  stands unchanged.
+- **Corpus membership reaches a session only through the build** (decided at
+  reconciliation, 2026-11-07, BUNDLE-40 / BUG-65). BUG-65 requires that "the
+  `purpose` entry must name no document, of any kind, by id or by title", and
+  that adding, demoting or retitling a document costs no edit to the authored
+  priming. That is a claim about what a session is told about its knowledge, so
+  it is formalised here as AC-2377. It also covers the reminder's method line,
+  which BUG-65 brings into scope ("the same defect one tier down"), and both id
+  namespaces (`DOC-`, `REF-`) plus titles, as BUG-65's design decisions state.
+  The invariant is scoped to text that can reach a model. The configuration
+  file's maintainer-only `about` block cites `DOC-22` as format provenance, which
+  BUG-65 explicitly allows, so it is not a code issue. Rebuilding the awareness
+  map is a build-artefact step and is not claimed. The criterion's end-to-end
+  half proves the property over a real fixture build instead.
 
 ## Dependencies
 
