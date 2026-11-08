@@ -2,11 +2,301 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-07T19:26:10.784898+00:00",
-  "ticket_count": 0,
+  "ticket_count": 15,
   "rebuild_epoch": 1794079570.7846432,
-  "tickets": {},
-  "by_type": {},
-  "by_field": {},
-  "id_to_uid": {},
+  "tickets": {
+    "report-9e9f839a": {
+      "id": "REPORT-1071",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.505363+00:00",
+      "created_at": "2026-11-08T01:07:34.505363+00:00",
+      "completed_at": null,
+      "title": "Claude structural_rebalance report",
+      "fields": {
+        "subject_uid": "report-98fc5946",
+        "report_kind": "structural_rebalance"
+      }
+    },
+    "comment-fe2ff8e0": {
+      "id": "COMMENT-598",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.518684+00:00",
+      "created_at": "2026-11-08T01:07:34.518684+00:00",
+      "completed_at": null,
+      "title": "Comment on request REQ-115",
+      "fields": {
+        "subject_uid": "request-a6740b4a",
+        "kind": "chat_transcript"
+      }
+    },
+    "report-510318c4": {
+      "id": "REPORT-545",
+      "type": "report",
+      "status": "running",
+      "updated_at": "2026-11-08T01:07:34.567767+00:00",
+      "created_at": "2026-11-08T01:07:34.567767+00:00",
+      "completed_at": null,
+      "title": "Resync anchor",
+      "fields": {
+        "subject_uid": "resync-anchor",
+        "report_kind": "resync_run"
+      }
+    },
+    "chat-0e338704": {
+      "id": "CHAT-14",
+      "type": "chat",
+      "status": "open",
+      "updated_at": "2026-11-08T01:07:34.587794+00:00",
+      "created_at": "2026-11-08T01:07:34.587794+00:00",
+      "completed_at": null,
+      "title": "Process cleanup",
+      "fields": {}
+    },
+    "comment-01e0c9eb": {
+      "id": "COMMENT-631",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.599984+00:00",
+      "created_at": "2026-11-08T01:07:34.599984+00:00",
+      "completed_at": null,
+      "title": "Comment on chat CHAT-14",
+      "fields": {
+        "subject_uid": "chat-0e338704",
+        "kind": "chat_transcript"
+      }
+    },
+    "report-8238c475": {
+      "id": "REPORT-1280",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.610453+00:00",
+      "created_at": "2026-11-08T01:07:34.610453+00:00",
+      "completed_at": null,
+      "title": "Resync anchor",
+      "fields": {
+        "subject_uid": "resync-anchor",
+        "report_kind": "resync_run"
+      }
+    },
+    "report-dc224deb": {
+      "id": "REPORT-1282",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.620648+00:00",
+      "created_at": "2026-11-08T01:07:34.620648+00:00",
+      "completed_at": null,
+      "title": "Resync anchor",
+      "fields": {
+        "subject_uid": "resync-anchor",
+        "report_kind": "resync_run"
+      }
+    },
+    "report-b51cdbb4": {
+      "id": "REPORT-1305",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.635094+00:00",
+      "created_at": "2026-11-08T01:07:34.635094+00:00",
+      "completed_at": null,
+      "title": "Resync anchor",
+      "fields": {
+        "subject_uid": "resync-anchor",
+        "report_kind": "resync_run"
+      }
+    },
+    "comment-bb16cc50": {
+      "id": "COMMENT-675",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.649107+00:00",
+      "created_at": "2026-11-08T01:07:34.649107+00:00",
+      "completed_at": null,
+      "title": "Comment on chat CHAT-15",
+      "fields": {
+        "subject_uid": "chat-062126d9",
+        "kind": "chat_transcript"
+      }
+    },
+    "report-1f5793b1": {
+      "id": "REPORT-1322",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T01:07:34.662997+00:00",
+      "created_at": "2026-11-08T01:07:34.662997+00:00",
+      "completed_at": null,
+      "title": "Dispatch plan: 2026-08-05T22:28:46.462509+00:00",
+      "fields": {
+        "report_kind": "dispatch_plan"
+      }
+    },
+    "report-711e58de": {
+      "id": "REPORT-1323",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T01:07:34.673820+00:00",
+      "created_at": "2026-11-08T01:07:34.673820+00:00",
+      "completed_at": null,
+      "title": "Dispatch plan: 2026-08-05T22:28:53.429487+00:00",
+      "fields": {
+        "report_kind": "dispatch_plan"
+      }
+    },
+    "comment-1a1939a6": {
+      "id": "COMMENT-678",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.686808+00:00",
+      "created_at": "2026-11-08T01:07:34.686808+00:00",
+      "completed_at": null,
+      "title": "Comment on chat CHAT-16",
+      "fields": {
+        "subject_uid": "chat-da5160c5",
+        "kind": "chat_transcript"
+      }
+    },
+    "comment-001dfe44": {
+      "id": "COMMENT-649",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.697883+00:00",
+      "created_at": "2026-11-08T01:07:34.697883+00:00",
+      "completed_at": null,
+      "title": "Claude response for uat_coverage_check report",
+      "fields": {
+        "subject_uid": "report-7622967a",
+        "kind": "note"
+      }
+    },
+    "comment-006db532": {
+      "id": "COMMENT-644",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.710652+00:00",
+      "created_at": "2026-11-08T01:07:34.710652+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-5ebffa3e",
+        "kind": "note"
+      }
+    },
+    "comment-008c6391": {
+      "id": "COMMENT-660",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T01:07:34.722017+00:00",
+      "created_at": "2026-11-08T01:07:34.722017+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-c98ee17c",
+        "kind": "note"
+      }
+    }
+  },
+  "by_type": {
+    "report": [
+      "report-9e9f839a",
+      "report-510318c4",
+      "report-8238c475",
+      "report-dc224deb",
+      "report-b51cdbb4",
+      "report-1f5793b1",
+      "report-711e58de"
+    ],
+    "comment": [
+      "comment-fe2ff8e0",
+      "comment-01e0c9eb",
+      "comment-bb16cc50",
+      "comment-1a1939a6",
+      "comment-001dfe44",
+      "comment-006db532",
+      "comment-008c6391"
+    ],
+    "chat": [
+      "chat-0e338704"
+    ]
+  },
+  "by_field": {
+    "subject_uid": {
+      "report-98fc5946": [
+        "report-9e9f839a"
+      ],
+      "request-a6740b4a": [
+        "comment-fe2ff8e0"
+      ],
+      "resync-anchor": [
+        "report-510318c4",
+        "report-8238c475",
+        "report-dc224deb",
+        "report-b51cdbb4"
+      ],
+      "chat-0e338704": [
+        "comment-01e0c9eb"
+      ],
+      "chat-062126d9": [
+        "comment-bb16cc50"
+      ],
+      "chat-da5160c5": [
+        "comment-1a1939a6"
+      ],
+      "report-7622967a": [
+        "comment-001dfe44"
+      ],
+      "report-5ebffa3e": [
+        "comment-006db532"
+      ],
+      "report-c98ee17c": [
+        "comment-008c6391"
+      ]
+    },
+    "report_kind": {
+      "structural_rebalance": [
+        "report-9e9f839a"
+      ],
+      "resync_run": [
+        "report-510318c4",
+        "report-8238c475",
+        "report-dc224deb",
+        "report-b51cdbb4"
+      ],
+      "dispatch_plan": [
+        "report-1f5793b1",
+        "report-711e58de"
+      ]
+    },
+    "kind": {
+      "chat_transcript": [
+        "comment-fe2ff8e0",
+        "comment-01e0c9eb",
+        "comment-bb16cc50",
+        "comment-1a1939a6"
+      ],
+      "note": [
+        "comment-001dfe44",
+        "comment-006db532",
+        "comment-008c6391"
+      ]
+    }
+  },
+  "id_to_uid": {
+    "REPORT-1071": "report-9e9f839a",
+    "COMMENT-598": "comment-fe2ff8e0",
+    "REPORT-545": "report-510318c4",
+    "CHAT-14": "chat-0e338704",
+    "COMMENT-631": "comment-01e0c9eb",
+    "REPORT-1280": "report-8238c475",
+    "REPORT-1282": "report-dc224deb",
+    "REPORT-1305": "report-b51cdbb4",
+    "COMMENT-675": "comment-bb16cc50",
+    "REPORT-1322": "report-1f5793b1",
+    "REPORT-1323": "report-711e58de",
+    "COMMENT-678": "comment-1a1939a6",
+    "COMMENT-649": "comment-001dfe44",
+    "COMMENT-644": "comment-006db532",
+    "COMMENT-660": "comment-008c6391"
+  },
   "backlinks_index": {}
 }
