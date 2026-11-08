@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: .gif and .avif site assets resolve to image/gif and image/avif content types
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T23:03:39.780147+00:00'
-updated_at: '2026-11-08T23:03:39.780147+00:00'
+updated_at: '2026-11-08T23:45:24.289918+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
