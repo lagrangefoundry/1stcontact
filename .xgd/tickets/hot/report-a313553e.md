@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-39c992d3'
 created_by: xgd
 created_at: '2026-11-08T06:54:47.980082+00:00'
-updated_at: '2026-11-08T06:54:47.980082+00:00'
+updated_at: '2026-11-08T07:03:16.027195+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -73,6 +73,7 @@ fields:
         lines: 677-720
       trust_boundary: false
   fix_iteration: 2
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
