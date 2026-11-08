@@ -82,6 +82,17 @@ const ABSENT_FONT =
   '<text id="w" x="0" y="40" font-family="Nonesuch Whatever, serif" font-size="40">Ax</text>' +
   '</svg>'
 
+/**
+ * Flat-topped capitals only. A cap height is the height of a FLAT capital: round
+ * ones (C, O, G) overshoot it by design, by a percent or two of the em — about a
+ * unit at this size — so the ink top of "Contact" is the C's overshoot, not the
+ * cap line, and cannot be the reference a cap-height ratio is checked against.
+ */
+const FLAT_CAPITALS =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80">' +
+  '<text id="cap" x="0" y="62" font-family="monospace" font-size="62" font-weight="700">HE</text>' +
+  '</svg>'
+
 /** A node inside a translated group — the transform must be resolved away. */
 const NESTED =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">' +
@@ -211,13 +222,20 @@ describe('REQ-209 measuring a drawing for real', () => {
     expect(font.xHeight, seen).toBeLessThan(font.capHeight)
     expect(font.ascender, seen).toBeGreaterThan(0)
     expect(font.descender, seen).toBeLessThan(0)
-    // Cap-top derived from the ratio lands on the real ink top of a capital.
-    const rest = nodeOf(m, '#rest')
-    const capTop = rest.baseline! - font.capHeight * rest.fontSize!
+    // Cap-top derived from the ratio lands on the real ink top of a capital —
+    // a flat-topped one, measured in its own drawing at a different size from the
+    // 100-unit probe the ratio was taken at, so the ratio has to scale to agree.
+    const flat = await measure(FLAT_CAPITALS)
+    const capFont = flat.fonts[0]
+    const cap = nodeOf(flat, '#cap')
+    const capTop = cap.baseline! - capFont.capHeight * cap.fontSize!
     expect(
       capTop,
-      `${seen} rest=${JSON.stringify(rest)} capTop=${capTop} inkTop=${rest.ink?.[1]}`,
-    ).toBeCloseTo(rest.ink![1], 0)
+      `fonts=${JSON.stringify(flat.fonts)} cap=${JSON.stringify(cap)} capTop=${capTop} inkTop=${cap.ink?.[1]}`,
+    ).toBeCloseTo(cap.ink![1], 0)
+    // And the ink box is the glyphs, not the font's box: it starts below the
+    // ascender line, which is what makes this a cap-height check at all.
+    expect(cap.ink![1]).toBeGreaterThan(cap.baseline! - capFont.ascender * cap.fontSize!)
   })
 
   it('test_UAT_FC_REQ_209_a_drawing_that_names_no_real_font_is_reported_as_such', async (ctx) => {
