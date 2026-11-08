@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-d87c1fe2'
 created_by: xgd
 created_at: '2026-11-08T10:31:25.053173+00:00'
-updated_at: '2026-11-08T10:31:25.053173+00:00'
+updated_at: '2026-11-08T11:32:13.406126+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-d87c1fe2
@@ -169,6 +169,16 @@ fields:
   batch_index: -1
   parent_report_uid: ''
   anchor_ticket: bundle-c0301347
+  ruling: declined
+  ruling_reason: 'The rule stands, decided at rung 2. The code_frozen override was
+    refused for this batch by review (override_misjudged, REPORT-11385), so the batch
+    is decided at the next rung. The reference state (imagegen.ts:354-375, 377-410)
+    stores and indexes the plugin body unchanged, and this mode freezes that code.
+    Superseded does not apply (no AC or test changed after the report), and aligned_to_tip
+    does not apply (REQ-208 orders the conflict the other way). The batch is fixed
+    within the rule: AC-2380 is scoped to the channels the code keeps vendor-free,
+    STORY-172 records the divergence as a Reconciliation Decision, and the fix is
+    filed as BUG-381 (bug-da5f9050).'
 ---
 
 # Review gaps blocked by `code_frozen`
@@ -279,3 +289,7 @@ AC-1492 (acceptance_criterion-535253fa) is owned by story-e07c589b (STORY-128) a
    - (f) Run scoped quality f
 
 **Proposed change**: Apply the production-code remediation items in the review that need a `code_frozen` grant or an operator ruling, and add the UAT each one requires (see evidence).
+
+## Ruling: declined
+
+The rule stands, decided at rung 2. The code_frozen override was refused for this batch by review (override_misjudged, REPORT-11385), so the batch is decided at the next rung. The reference state (imagegen.ts:354-375, 377-410) stores and indexes the plugin body unchanged, and this mode freezes that code. Superseded does not apply (no AC or test changed after the report), and aligned_to_tip does not apply (REQ-208 orders the conflict the other way). The batch is fixed within the rule: AC-2380 is scoped to the channels the code keeps vendor-free, STORY-172 records the divergence as a Reconciliation Decision, and the fix is filed as BUG-381 (bug-da5f9050).
