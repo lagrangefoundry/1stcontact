@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-d87c1fe2'
 created_by: xgd
 created_at: '2026-11-08T11:17:47.642185+00:00'
-updated_at: '2026-11-08T11:17:47.642185+00:00'
+updated_at: '2026-11-08T11:22:27.092251+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-d87c1fe2
@@ -74,6 +74,7 @@ fields:
     reconcile mode (apps/control-app/src/imagegen.ts) and the batch grants no `code_frozen`
     override naming them. Grant the override (the rule is overridable), or change
     the plan so the batch does not edit them'
+  batches_pending: false
 ---
 
 {
