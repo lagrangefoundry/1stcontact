@@ -8,10 +8,10 @@ title: Live browser acquisitions are capped per session at forty, counted at the
   tools keep working
 created_by: xgd
 created_at: '2026-11-08T04:36:40.717779+00:00'
-updated_at: '2026-11-08T04:36:40.717779+00:00'
+updated_at: '2026-11-08T05:07:38.161507+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
