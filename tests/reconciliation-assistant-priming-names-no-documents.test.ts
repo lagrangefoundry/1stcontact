@@ -58,7 +58,7 @@ function shippedTexts(): string[] {
 }
 
 describe('BUG-65 — no authored text names a document', () => {
-  it('test_UAT_FC_BUG-65_no_shipped_priming_text_names_a_corpus_document', () => {
+  it('test_UAT_AC2377_no_shipped_priming_text_names_a_corpus_document', () => {
     // Both id namespaces the corpus has: exported `doc` tickets keep their human
     // id (`DOC-33`), and the projected reference is written under `REF-`. Either
     // one in authored prose is the same defect.
@@ -74,7 +74,7 @@ describe('BUG-65 — no authored text names a document', () => {
     }
   })
 
-  it('test_UAT_FC_BUG-65_no_shipped_priming_text_names_a_document_by_title', () => {
+  it('test_UAT_AC2377_no_shipped_priming_text_names_a_document_by_title', () => {
     // An id list is the obvious shape of the defect and a title list is the same
     // defect spelled differently — it drifts on a retitle instead of on a
     // demotion. These three are the titles the retired entry carried.
@@ -83,7 +83,7 @@ describe('BUG-65 — no authored text names a document', () => {
     }
   })
 
-  it('test_UAT_FC_BUG-65_the_purpose_still_carries_the_obligation_and_the_subjects', () => {
+  it('test_UAT_AC2377_the_purpose_still_carries_the_obligation_and_the_subjects', () => {
     const purpose = primingText(PURPOSE_ENTRY)
 
     // What the map cannot carry, and therefore what authored priming is for: that
@@ -97,7 +97,14 @@ describe('BUG-65 — no authored text names a document', () => {
     // it nothing to bite on. Subjects, not documents.
     expect(purpose).toMatch(/how a consultation runs/)
     expect(purpose).toMatch(/who\s+you are talking to/)
+    expect(purpose).toMatch(/what\s+separates\s+work\s+worth\s+paying\s+for/)
+    expect(purpose).toMatch(/what\s+this\s+product\s+is\s+for/)
     expect(purpose).toMatch(/vocabulary a page is written in/)
+    expect(purpose).toMatch(/what\s+the\s+components\s+will\s+and\s+will\s+not\s+do/)
+    expect(purpose).toMatch(/stores\s+and\s+publishes\s+a\s+site/)
+
+    // It points the session at the map for which documents exist.
+    expect(purpose).toMatch(/work\s+from\s+the\s+map,\s+not\s+from\s+a\s+title\s+you\s+think\s+you\s+remember/)
 
     // And it still frames BOTH corpora: the client's own material is half of what
     // there is to search and none of it is guessable from priming.
@@ -105,7 +112,7 @@ describe('BUG-65 — no authored text names a document', () => {
     expect(purpose.length).toBeLessThan(900)
   })
 
-  it('test_UAT_FC_BUG-65_the_reminder_points_at_the_method_without_naming_it', () => {
+  it('test_UAT_AC2377_the_reminder_points_at_the_method_without_naming_it', () => {
     const method = (primingDocument.reminders as { name?: string; text?: string }[]).find(
       (entry) => entry.name === 'method',
     )
@@ -115,6 +122,25 @@ describe('BUG-65 — no authored text names a document', () => {
     expect(method?.text).toMatch(/differ in kind rather than refining one/)
     expect(method?.text).toMatch(/in your knowledge base/)
     expect(method?.text).not.toMatch(/DOC-\d+/)
+
+    // Every authored reminder entry, not only the method line, names no document.
+    const authored = (primingDocument.reminders as { text?: string | string[] }[])
+      .map((entry) => entry.text)
+      .filter((text): text is string | string[] => text !== undefined)
+      .map((text) => (Array.isArray(text) ? text.join('\n') : text))
+    expect(authored.length).toBeGreaterThan(0)
+    for (const text of authored) {
+      expect(text).not.toMatch(/\bDOC-\d+\b|\bREF-[a-z]/)
+      expect(text).not.toMatch(/consultation playbook|personas, modes|differentiation audit/i)
+    }
+  })
+
+  it('test_UAT_AC2377_both_declared_orders_are_scanned', () => {
+    // Both priming orders carry authored text, so the scan above covers both.
+    for (const list of [primingDocument.priming, primingDocument.priming_without_corpus]) {
+      const texts = (list as { text?: unknown }[]).filter((e) => e.text !== undefined)
+      expect(texts.length).toBeGreaterThan(0)
+    }
   })
 })
 
@@ -230,7 +256,7 @@ describe('BUG-65 — which documents exist is the build’s answer, not a senten
     rmSync(root, { recursive: true, force: true })
   })
 
-  it('test_UAT_FC_BUG-65_a_document_added_to_the_corpus_reaches_the_session', () => {
+  it('test_UAT_AC2377_a_document_added_to_the_corpus_reaches_the_session', () => {
     // It was not in the first build and nothing authored ever mentions it, so the
     // only way it can be in the second priming is the map the build generated.
     expect(before).not.toContain('DOC-C')
@@ -238,14 +264,14 @@ describe('BUG-65 — which documents exist is the build’s answer, not a senten
     expect(after).toMatch(/[Tt]ypography/)
   })
 
-  it('test_UAT_FC_BUG-65_a_document_demoted_from_the_corpus_leaves_the_session', () => {
+  it('test_UAT_AC2377_a_document_demoted_from_the_corpus_leaves_the_session', () => {
     // The failure this bug WAS: a document leaves the corpus and the priming goes
     // on naming it, so the session is told to read something it cannot open.
     expect(before).toContain('DOC-A')
     expect(after).not.toContain('DOC-A')
   })
 
-  it('test_UAT_FC_BUG-65_neither_change_cost_an_edit_to_the_authored_priming', () => {
+  it('test_UAT_AC2377_neither_change_cost_an_edit_to_the_authored_priming', () => {
     // The whole claim, stated as bytes: the corpus a session sees changed
     // completely and the authored half of the priming did not move at all.
     expect(primingFileAfter).toBe(primingFileBefore)
@@ -255,7 +281,7 @@ describe('BUG-65 — which documents exist is the build’s answer, not a senten
     expect(after.length).toBeLessThan(MAX_PRIMING_CHARS)
   })
 
-  it('test_UAT_FC_BUG-65_the_session_is_still_told_to_go_and_read_its_method', () => {
+  it('test_UAT_AC2377_the_session_is_still_told_to_go_and_read_its_method', () => {
     // Removing the ids must not remove the obligation. Both primings carry the
     // purpose verbatim, whatever the corpus underneath them is.
     for (const priming of [before, after]) {

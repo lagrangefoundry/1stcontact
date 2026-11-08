@@ -695,6 +695,65 @@ describe('story-7b1025b8 — the invite', () => {
     }
   })
 
+  it('test_UAT_AC2409_the_invite_draft_prefills_the_template_and_each_recipient_gets_their_own_message_from_the_templates_sender', async () => {
+    // REQ-205: the invite's sender is the invite template's own address, not the
+    // deployment's MAIL_FROM. The seeded invite declares one.
+    const TEMPLATE_FROM = SEED_TEMPLATES.invite.from
+    expect(TEMPLATE_FROM, 'the seeded invite declares no sender').toBe('1st Contact <invite@1stcontact.io>')
+    expect(TEMPLATE_FROM).not.toBe(FROM)
+
+    // A business that has never had an `invite` template is given the default.
+    const owner = await aCustomerOwner('Never Templated Either')
+    const store = await storeFor(owner.businessId)
+    const existing = await store.query({
+      predicate: 'type=template AND fields.template_key=invite',
+      limit: 'all',
+    })
+    expect(existing.tickets, 'the business already had an invite template').toHaveLength(0)
+
+    const port = recording()
+    const draftResponse = await viaRouter(owner.email, 'GET', PERSON_INVITE_PATH, owner.businessId, port.send)
+    expect(draftResponse.status).toBe(200)
+    const draft = await draftResponse.json<{
+      from: string
+      subject: string
+      body: string
+      templateKey: string
+      templateUid: string
+    }>()
+    expect(draft.from).toBe(TEMPLATE_FROM)
+    expect(draft.subject).toBe(SEED_TEMPLATES.invite.subject)
+    expect(draft.body).toBe(SEED_TEMPLATES.invite.body)
+    expect(draft.templateKey).toBe('invite')
+    const seeded = await templateFor(store, 'invite')
+    expect(seeded.uid, 'the draft did not come from a template that now exists').toBe(draft.templateUid)
+
+    // Two contacts, one message each, each from the template's sender — a
+    // spoofed `from` in the request is ignored.
+    const a = anEmail()
+    const b = anEmail()
+    const ids: string[] = []
+    for (const email of [a, b]) {
+      const added = await viaRouter(owner.email, 'POST', PERSON_ADD_PATH, owner.businessId, port.send, {
+        email,
+      })
+      ids.push((await added.json<AddBody>()).person.id)
+    }
+    const sent = await viaRouter(owner.email, 'POST', PERSON_INVITE_PATH, owner.businessId, port.send, {
+      ids,
+      from: 'ceo@spoofed.example',
+    })
+    expect(sent.status).toBe(200)
+    expect(port.sent, 'one message per contact').toHaveLength(2)
+    expect(port.sent.map((m) => m.to)).toEqual([a, b])
+    for (const message of port.sent) {
+      expect(typeof message.to).toBe('string')
+      expect(message.to).not.toMatch(/[,;]/)
+      expect(message.from, 'a `from` in the request was honoured').not.toBe('ceo@spoofed.example')
+      expect(message.from).toBe(TEMPLATE_FROM)
+    }
+  })
+
   it('test_UAT_AC2338_edits_apply_to_that_send_only_and_a_body_without_cta_url_is_refused_before_sending', async () => {
     const owner = await aCustomerOwner()
     const store = await storeFor(owner.businessId)

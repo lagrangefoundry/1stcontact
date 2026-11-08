@@ -29,6 +29,7 @@ import {
   CONSULTANT_ROLE_TEXT,
   PRODUCT_SYSTEM,
 } from '../tools/generate/src/cli/ai/roles'
+import primingDocument from '../tools/generate/src/cli/ai/priming.json'
 import {
   modelSaw,
   says,
@@ -246,5 +247,156 @@ describe('the Node CLI host sends the model the whole priming', () => {
 
     // The reminder still goes out on every turn.
     expect(modelSaw(bare)).toContain(`You are working on the site "${SLUG}"`)
+  })
+})
+
+// ── AC-2376: one declared cache boundary, last ───────────────────────────────
+
+/** The system blocks as sent, normalised to the array form. */
+function systemBlocks(req: ModelRequest): { text: string; cache_control?: unknown }[] {
+  return typeof req.system === 'string'
+    ? [{ text: req.system }]
+    : (req.system as { text?: string; cache_control?: unknown }[]).map((b) => ({
+        ...b,
+        text: b.text ?? '',
+      }))
+}
+
+/**
+ * The cached prefix: every block up to and including the LAST one carrying a
+ * cache breakpoint. A breakpoint caches everything before it, so this is the
+ * span the backend will not re-send uncached next turn.
+ */
+function cachedPrefixOf(req: ModelRequest): string {
+  const blocks = systemBlocks(req)
+  let last = -1
+  blocks.forEach((b, i) => {
+    if (b.cache_control) last = i
+  })
+  return blocks
+    .slice(0, last + 1)
+    .map((b) => b.text)
+    .join('')
+}
+
+/** Provider calls, counted at the registry the host itself assembles from. */
+const providerReads: Record<string, number> = {}
+
+/**
+ * The knowledge-bearing deps, with the landscape and mechanism providers
+ * re-registered around their real bindings so every assembly pass is counted.
+ * The registry is the host's own; replacing a binding is what `register` is for.
+ */
+async function countingDeps(): Promise<HostDeps> {
+  const hostDeps = await deps(true)
+  const bridge = (await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))) as {
+    LANDSCAPE_PROVIDER: string
+    MECHANISM_PROVIDER: string
+  }
+  const register = hostDeps.priming
+  expect(register, 'knowledge deps register no priming providers').toBeTruthy()
+  return {
+    ...hostDeps,
+    priming: async (box: unknown, providers: unknown) => {
+      await register!(box, providers)
+      const registry = providers as {
+        get: (n: string) => (ctx: unknown) => Promise<string>
+        register: (n: string, p: unknown) => void
+      }
+      for (const name of [bridge.LANDSCAPE_PROVIDER, bridge.MECHANISM_PROVIDER]) {
+        const inner = registry.get(name)
+        registry.register(name, async (ctx: unknown) => {
+          providerReads[name] = (providerReads[name] ?? 0) + 1
+          return inner(ctx)
+        })
+      }
+    },
+  } as HostDeps
+}
+
+describe('AC-2376 — the whole priming sits before one cache boundary declared at its end', () => {
+  it('test_UAT_AC2376_each_priming_order_declares_exactly_one_boundary_and_it_is_last', () => {
+    // Both declared orders: with a knowledge base and without one.
+    for (const list of [primingDocument.priming, primingDocument.priming_without_corpus]) {
+      const markers = (list as object[]).filter((e) => 'cache_boundary' in e)
+      expect(markers).toHaveLength(1)
+      expect(list[list.length - 1]).toEqual({ cache_boundary: true })
+    }
+    // The reminders are re-sent every turn; there is no prefix for them to end.
+    expect((primingDocument.reminders as object[]).some((e) => 'cache_boundary' in e)).toBe(false)
+  })
+
+  it('test_UAT_AC2376_with_a_knowledge_base_the_whole_priming_is_one_cached_prefix', async () => {
+    const req = await turn(await deps(true))
+    const { text: system } = systemText(req)
+    const prefix = cachedPrefixOf(req)
+
+    // The last cache offset equals the length of the assembled priming: nothing
+    // in it is re-sent uncached. Without the declared marker the framework's
+    // computed rule would end the prefix at the first provider (the landscape).
+    expect(prefix.length).toBeGreaterThan(0)
+    expect(prefix).toBe(system)
+
+    // Every entry of the corpus-bearing order is inside it.
+    expect(prefix).toContain(CONSULTANT_ROLE_TEXT)
+    expect(prefix).toContain(PRODUCT_SYSTEM)
+    expect(prefix).toContain(TERRITORY)
+    expect(prefix).toContain(CONSULTANT_PURPOSE)
+    expect(prefix).toContain('# How to search')
+    expect(prefix).toMatch(/KnowledgeSearch/)
+
+    // The per-turn reminder is not in it: it reaches the model past the prefix.
+    expect(modelSaw(req)).toContain(`You are working on the site "${SLUG}"`)
+    expect(prefix).not.toContain(`You are working on the site "${SLUG}"`)
+  })
+
+  it('test_UAT_AC2376_without_a_knowledge_base_the_whole_priming_is_one_cached_prefix', async () => {
+    const req = await turn(await deps(false))
+    const { text: system } = systemText(req)
+    const prefix = cachedPrefixOf(req)
+
+    expect(prefix.length).toBeGreaterThan(0)
+    expect(prefix).toBe(system)
+    // Role text, product text and the manual — all cached.
+    expect(prefix.indexOf(CONSULTANT_ROLE_TEXT)).toBe(0)
+    expect(prefix).toContain(PRODUCT_SYSTEM)
+    expect(prefix).toMatch(/set_l1/)
+    expect(prefix).not.toContain(`You are working on the site "${SLUG}"`)
+  })
+
+  it('test_UAT_AC2376_the_boundary_renders_nothing', async () => {
+    // The marker is a position, not text: no trace of it in either order.
+    for (const withKnowledge of [true, false]) {
+      resetAiHost()
+      const { text: system } = systemText(await turn(await deps(withKnowledge)))
+      expect(system).not.toMatch(/cache[_ ]?boundary/i)
+      expect(system).not.toContain('{"cache_boundary"')
+    }
+  })
+
+  it('test_UAT_AC2376_landscape_and_manual_are_assembled_once_a_session_not_once_a_turn', async () => {
+    for (const key of Object.keys(providerReads)) delete providerReads[key]
+    const hostDeps = await countingDeps()
+    const client = scriptedClient(['One', 'Two', 'Three'].map(() => says('Noted.')))
+    setModelClient(client)
+    const opened = await openSession(SLUG, { cwd }, hostDeps)
+    expect(opened.ready).toBe(true)
+    for (const text of ['One', 'Two', 'Three']) {
+      for await (const _e of streamPrompt(opened.sessionId, text, { cwd }, hostDeps)) void _e
+    }
+    expect(client.seen).toHaveLength(3)
+
+    // Three turns, one read each: everything before the marker is assembled once
+    // and re-delivered, so neither the landscape nor the manual is volatile.
+    const reads = Object.values(providerReads)
+    expect(reads).toHaveLength(2)
+    expect(reads).toEqual([1, 1])
+
+    // And the priming each turn carried is the same bytes, wholly cached.
+    const first = systemText(client.seen[0]).text
+    for (const req of client.seen) {
+      expect(systemText(req).text).toBe(first)
+      expect(cachedPrefixOf(req)).toBe(first)
+    }
   })
 })
