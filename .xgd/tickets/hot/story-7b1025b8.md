@@ -6,9 +6,9 @@ title: 'Identity: add records a Lead, the invite mails a selection, provisioning
   a business, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-07T08:19:48.938831+00:00'
+updated_at: '2026-11-08T01:42:26.856682+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -577,6 +577,17 @@ invites or creating businesses.
   2026-11-07). BUG-62's acceptance asks that a misconfigured `PLATFORM_ADMINS` be
   diagnosable from the Worker's output alone; its *Additions to scope* adds the
   boolean as the consequence. Formalized in AC-1759.
+- **An emailless identity is refused only when nothing maps it to a person**
+  (recorded at reconciliation, 2026-11-07, BUNDLE-39). BUG-59 gives a service
+  token a person to be: the gate's branch resolves its machine name through the
+  deployment's `SERVICE_TOKEN_IDENTITIES` to that person's address *before*
+  admission is asked, so admission still answers only "may this address in" and
+  has no second question about tokens. AC-1755 is narrowed accordingly — the
+  `no_email` refusal now covers an emailless identity with no mapping (unmapped,
+  or the mapping empty), which is the same refusal from the same place as
+  before. A mapped token reaches admission as an ordinary address and meets
+  every rule here unchanged, including `no_user` for an address with no person.
+  The mapping and its rules are STORY-120's (AC-2358 to AC-2360).
 
 ## Dependencies
 
