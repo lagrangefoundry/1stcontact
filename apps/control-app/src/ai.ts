@@ -186,7 +186,13 @@ function describerSession(
     tools: [],
     ...(client ? { client } : {}),
   })
-  lib.registerBackend(name, () => backend)
+  // THE CAPABILITIES ARE NOT OPTIONAL. The session manager gates content on what
+  // a backend DECLARES at registration, not on what the adapter could do: a
+  // backend registered without them declares no vision, so every image turn is
+  // refused before it reaches the model and each upload records a describer
+  // failure. Pass the adapter class's own declaration, as the library does when
+  // it registers its built-in backends.
+  lib.registerBackend(name, () => backend, lib.ClaudeAPIBackend.capabilities)
 
   const role = new lib.Role({
     name,
