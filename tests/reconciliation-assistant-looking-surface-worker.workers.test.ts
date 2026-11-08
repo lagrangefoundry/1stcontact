@@ -158,7 +158,7 @@ describe('a Worker-hosted consultant with a browser can see', () => {
     const browser = eyes()
     // The Worker's own router and chat host, with the browser it launches injected.
     const chat = (path: string, body: unknown) =>
-      route(request(path, body), workerEnv(), { launch: browser.launch })
+      route(request(path, body), workerEnv(), { businessId: TENANT }, { launch: browser.launch })
 
     const opened = await chat('/api/ai/session', { slug })
     expect(opened.status).toBe(200)
@@ -225,7 +225,7 @@ describe('a Worker-hosted consultant with no browser still edits', () => {
       says('Changed it.'),
     ])
     setModelClient(client)
-    const chat = (path: string, body: unknown) => route(request(path, body), blind, {})
+    const chat = (path: string, body: unknown) => route(request(path, body), blind, { businessId: TENANT }, {})
 
     // The session constructs…
     const opened = await chat('/api/ai/session', { slug })
