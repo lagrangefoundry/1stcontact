@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-d87c1fe2'
 created_by: xgd
 created_at: '2026-11-08T11:29:33.224057+00:00'
-updated_at: '2026-11-08T11:29:33.224057+00:00'
+updated_at: '2026-11-08T11:36:47.161574+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -74,6 +74,7 @@ fields:
       files:
       - tests/reconciliation-consultant-image-generation.workers.test.ts
   fix_iteration: 18
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 18
