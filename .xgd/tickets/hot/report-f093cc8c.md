@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-39: BUG-59 + BUG-63 + REQ-204 + 
   + BUG-64)'
 created_by: xgd
 created_at: '2026-11-08T01:38:28.960420+00:00'
-updated_at: '2026-11-08T02:05:02.356714+00:00'
+updated_at: '2026-11-08T02:24:41.344702+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -122,7 +122,7 @@ fields:
       now has one narrow, self-checking exception for identity mappings, which the
       AC must state, or it overstates the rule. No new capability bucket: the same
       AC under the same story.'
-    story_uid: null
+    story_uid: STORY-119
     target_story_ids:
     - STORY-119
     acceptance_criteria_changes:
