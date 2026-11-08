@@ -5,9 +5,9 @@ type: bundle
 title: REQ-210 + REQ-212 + REQ-213 + REQ-211 + BUG-69 + 4 more
 created_by: xgd
 created_at: '2026-11-08T12:30:04.545337+00:00'
-updated_at: '2026-11-08T12:31:17.554852+00:00'
+updated_at: '2026-11-08T16:01:12.866482+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: regression_anchor_uid
 status: reconciling
 fields:
   bundle_type: reconcile
@@ -86,6 +86,7 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
+  regression_anchor_uid: report-49607926
 ---
 
 # Bundle
