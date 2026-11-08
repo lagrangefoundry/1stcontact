@@ -110,10 +110,38 @@ const LABEL_REACH_PX = 200
  * measuring against the page would measure a drawing the visitor never sees.
  * The script hosts the drawing in a shadow root under `all: initial`, which is
  * the same isolation from whichever document it is called in.
+ *
+ * WHICH IS WHY ONLY A VALIDATED DRAWING GETS HERE. The script parses the SVG
+ * as live markup into a shadow root in the builder's own document, so an
+ * uploaded drawing carrying an `onerror=` or a `<script>` would run with the
+ * builder's session. An `<img>` paints the same bytes without running them;
+ * parsing them does not. {@link isMeasurable} decides first, using the closed
+ * grammar from `packages/site-schema/src/svg.ts`, not a second validator.
  */
 async function evaluateMeasure(measureScript, svg) {
   // eslint-disable-next-line no-new-func -- see above: this string IS the contract.
   return await new Function(`return ${measureScript(svg)}`)()
+}
+
+/**
+ * May this drawing be measured? Only when the SVG content validator accepts it
+ * whole.
+ *
+ * Fails closed: the real (un-injected) path with no validator served measures
+ * nothing. A drawing that is refused loses only its `near:` line. Its exact
+ * coordinates in every frame do not depend on the measurement.
+ *
+ * @param {((svg: string) => {ok: boolean}) | undefined} validateSvg
+ * @param {string} svg
+ * @param {boolean} injected  a suite's measurement double parses nothing
+ */
+function isMeasurable(validateSvg, svg, injected) {
+  if (typeof validateSvg !== 'function') return injected
+  try {
+    return validateSvg(svg)?.ok === true
+  } catch {
+    return false
+  }
 }
 
 /** `{f0: metrics}` — the shape `nearestAnchors` reads ratios out of. */
@@ -422,6 +450,9 @@ export function createMarkedPoints(options = {}) {
       const intrinsics = points.readDrawingIntrinsics(svg)
       if (!intrinsics) throw new Error('no viewBox')
       let measurement = null
+      // A drawing the validator refuses is never parsed into this document:
+      // it keeps its exact coordinates and goes without `near:`.
+      if (!isMeasurable(api?.validateSvg, svg, measure !== null)) return { intrinsics, measurement }
       try {
         measurement = measure ? await measure(svg) : await evaluateMeasure(api.measureScript, svg)
       } catch {

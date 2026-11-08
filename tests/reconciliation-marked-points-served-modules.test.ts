@@ -44,6 +44,7 @@ const IMPORT_MAP = path.join(REPO, 'apps', 'control-app', 'src', 'generated', 'i
 const ENTRY = '/builder/main.js'
 const ANCHORS_URL = '/framework/site-schema-anchors.js'
 const MEASURE_URL = '/framework/measure-svg.js'
+const SVG_VALIDATOR_URL = '/framework/site-schema-svg.js'
 const ORIGIN = 'http://builder.test'
 const PREVIEW_PATH = '/preview/acme/edit/'
 
@@ -282,13 +283,14 @@ describe('story-44d0a572 — the builder is served the anchor and measurement mo
       // The api object is the one `main.js` builds, from the same URLs. No
       // `measure` is passed: the controller measures the drawing itself.
       await page.evaluate(`(async () => {
-        const [{ createMarkedPoints }, editClient, edit, markedPoints, anchors, measure] = await Promise.all([
+        const [{ createMarkedPoints }, editClient, edit, markedPoints, anchors, measure, svg] = await Promise.all([
           import('/builder/points.js'),
           import('/framework/edit-client.js'),
           import('/framework/site-schema-edit.js'),
           import('/framework/marked-points.js'),
           import(${JSON.stringify(ANCHORS_URL)}),
           import(${JSON.stringify(MEASURE_URL)}),
+          import(${JSON.stringify(SVG_VALIDATOR_URL)}),
         ])
         const ctl = createMarkedPoints({
           api: {
@@ -297,6 +299,7 @@ describe('story-44d0a572 — the builder is served the anchor and measurement mo
             markedPoints,
             anchors,
             measureScript: measure.measureScript,
+            validateSvg: svg.validateSvg,
           },
           insertToken: () => {},
           removeToken: () => {},

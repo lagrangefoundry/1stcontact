@@ -33,6 +33,7 @@ import { resolveEditTarget } from '../packages/framework/src/l1/edit-client'
 import * as markedPoints from '../packages/framework/src/l1/marked-points'
 import * as anchors from '../packages/site-schema/src/anchors'
 import { measureScript } from '../tools/generate/src/cli/capture/measure-svg'
+import { validateSvg } from '../packages/site-schema/src/svg'
 import { L1_EDIT_PAGE_ATTR } from '../packages/site-schema/src/l1/edit'
 import type { L1Node } from '@1stcontact/site-schema'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
@@ -655,9 +656,176 @@ describe('REQ-210 — one implementation, served', () => {
       ['marked-points', 'packages/framework/src/l1/marked-points.ts'],
       ['site-schema-anchors', 'packages/site-schema/src/anchors.ts'],
       ['measure-svg', 'tools/generate/src/cli/capture/measure-svg.ts'],
+      ['site-schema-svg', 'packages/site-schema/src/svg.ts'],
     ]) {
       expect(assets).toContain(`'${name}': '${source}'`)
       expect(entry).toContain(`'/framework/${name}.js'`)
     }
+  })
+})
+
+// ── the drawing is never parsed into the builder unvalidated ─────────────────
+
+describe('REQ-210 — measuring a drawing never runs it', () => {
+  /**
+   * An uploaded drawing that would run script the moment it is parsed as markup.
+   * An `<img>` paints it inertly, but the measuring script parses it into a
+   * shadow root in the BUILDER's document, with the builder's session.
+   */
+  const HOSTILE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEW_BOX}" onload="window.__pwned=1">
+  <image href="x" onerror="window.__pwned=1"/>
+  <text id="one" x="0" y="62" font-family="Satoshi" font-size="62">1</text>
+</svg>`
+
+  const MEASURED = {
+    viewBox: [0, 0, 320, 86],
+    fonts: [
+      {
+        key: 'f0',
+        requested: 'Satoshi',
+        resolved: 'Satoshi',
+        generic: false,
+        capHeight: 0.7,
+        xHeight: 0.5,
+        ascender: 0.75,
+        descender: -0.25,
+      },
+    ],
+    nodes: [
+      {
+        ref: '#one',
+        text: '1',
+        font: 'f0',
+        fontSize: 62,
+        box: [0, 15.5, 34.4, 62],
+        ink: [1.2, 18.6, 24.8, 43.4],
+        baseline: 62,
+        advanceStart: 0,
+        advanceWidth: 34.4,
+      },
+    ],
+    warnings: [],
+  }
+
+  let cwd: string | null = null
+  let controller: ReturnType<typeof createMarkedPoints> | null = null
+  let shadowHosts: number
+  let realAttachShadow: typeof Element.prototype.attachShadow
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 10))
+
+  function teardown(): void {
+    controller?.destroy()
+    controller = null
+    if (cwd) rmSync(cwd, { recursive: true, force: true })
+    cwd = null
+  }
+
+  /** Bind a controller to a fresh edit render serving `svg` as the drawing, and point in it. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function pointAt(svg: string, extra: Record<string, unknown> = {}): Promise<any> {
+    cwd = mkdtempSync(path.join(tmpdir(), 'req210-svg-'))
+    cmdNew('acme', { cwd })
+    seedPage(cwd, 'acme')
+    const dom = await editDom(cwd, 'acme')
+    const doc = dom.window.document
+    doc.elementFromPoint = () => null
+    const img = doc.querySelector('img')!
+    withBox(img, { left: 100, top: 50, width: 320, height: 86 })
+    controller = createMarkedPoints({
+      // The api `main.js` builds, validator included.
+      api: {
+        resolveEditTarget,
+        L1_EDIT_PAGE_ATTR,
+        markedPoints,
+        anchors,
+        measureScript,
+        validateSvg,
+      },
+      fetch: async () => ({ ok: true, text: async () => svg }) as Response,
+      ...extra,
+    })
+    const ctl = controller as unknown as {
+      bind: (d: Document) => void
+      setActive: (on: boolean) => void
+      list: () => unknown[]
+    }
+    ctl.bind(doc)
+    ctl.setActive(true)
+    img.dispatchEvent(
+      new dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 110,
+        clientY: 71,
+      }),
+    )
+    await settle()
+    return ctl.list()[0]
+  }
+
+  beforeEach(() => {
+    delete (globalThis as Record<string, unknown>).__pwned
+    // The measuring script parses with `host.attachShadow(...)` then
+    // `shadow.innerHTML = SVG` in the builder's own document. Counting shadow
+    // roots shows whether the bytes were parsed or not.
+    shadowHosts = 0
+    realAttachShadow = Element.prototype.attachShadow
+    Element.prototype.attachShadow = function (init: ShadowRootInit) {
+      shadowHosts += 1
+      return realAttachShadow.call(this, init)
+    }
+  })
+
+  afterEach(() => {
+    Element.prototype.attachShadow = realAttachShadow
+    teardown()
+  })
+
+  it('test_UAT_FC_REQ-210_a_hostile_drawing_is_never_parsed_into_the_builder', async () => {
+    expect(validateSvg(HOSTILE_SVG).ok).toBe(false)
+
+    // No `measure` injected: the controller's own `evaluateMeasure` path runs.
+    const point = await pointAt(HOSTILE_SVG)
+
+    expect((globalThis as Record<string, unknown>).__pwned).toBeUndefined()
+    expect(shadowHosts).toBe(0)
+    expect(document.querySelector('div[style*="all:initial"]')).toBeNull()
+    expect(document.querySelector('svg')).toBeNull()
+
+    // The point keeps its exact drawing coordinates. Only `near:` is lost.
+    expect(point.drawing).toMatchObject({ asset: 'assets/mark.svg', viewBox: [0, 0, 320, 86] })
+    expect(point.drawing.x).toBeCloseTo(10, 3)
+    expect(point.drawing.y).toBeCloseTo(21, 3)
+    expect(point.near ?? []).toEqual([])
+    expect(markedPoints.formatMarkedPoint(point)).not.toMatch(/^\s+near:/m)
+  })
+
+  it('test_UAT_FC_REQ-210_a_valid_drawing_still_reaches_the_measuring_script', async () => {
+    expect(validateSvg(MARK_SVG).ok).toBe(true)
+
+    // Real path: the validated bytes are handed to the measuring script. jsdom
+    // has no canvas to finish the measurement, but the parse can be observed.
+    const point = await pointAt(MARK_SVG)
+    expect(shadowHosts).toBe(1)
+    expect(point.drawing.x).toBeCloseTo(10, 3)
+  })
+
+  it('test_UAT_FC_REQ-210_a_valid_drawing_still_gets_near_and_a_hostile_one_is_not_measured', async () => {
+    const measured: string[] = []
+    const measure = async (svg: string) => {
+      measured.push(svg)
+      return MEASURED
+    }
+
+    const honest = await pointAt(MARK_SVG, { measure })
+    expect(measured).toEqual([MARK_SVG])
+    expect(honest.near.map((line: { anchor: string }) => line.anchor)).toContain('cap-top')
+    teardown()
+
+    measured.length = 0
+    const hostile = await pointAt(HOSTILE_SVG, { measure })
+    expect(measured).toEqual([])
+    expect(hostile.near ?? []).toEqual([])
   })
 })

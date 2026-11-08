@@ -7,6 +7,7 @@ import { shadeHex } from '/framework/site-schema-shade.js'
 import * as markedPoints from '/framework/marked-points.js'
 import * as anchors from '/framework/site-schema-anchors.js'
 import { measureScript } from '/framework/measure-svg.js'
+import { validateSvg } from '/framework/site-schema-svg.js'
 
 /**
  * Browser entry point. Kept separate from `app.js` so the composition can be
@@ -69,6 +70,8 @@ if (loaded) {
      * Marked Points' half ([[REQ-210]]): resolve a clicked pixel to a segment,
      * invert the transform chain under it, name the lines it is near, and
      * measure the drawing the way `measure_drawing` measures it.
+     * `validateSvg` gates that measurement: the drawing is parsed into this
+     * document, so only one the closed SVG grammar accepts is measured.
      */
     editBridge: {
       mountL1EditBridge,
@@ -78,6 +81,7 @@ if (loaded) {
       markedPoints,
       anchors,
       measureScript,
+      validateSvg,
     },
     shadeHex,
   })

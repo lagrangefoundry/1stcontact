@@ -94,6 +94,11 @@ const FRAMEWORK_SOURCES: Record<string, string> = {
   // renders nothing, and returns a string of browser JS — which is what both
   // callers evaluate, one through a driver and one in the page.
   'measure-svg': 'tools/generate/src/cli/capture/measure-svg.ts',
+  // The SVG content validator ([[REQ-130]]). The measuring script parses a
+  // drawing as live markup in the builder's own document, so a drawing goes
+  // through the same closed grammar a generated asset does before it is
+  // measured. One validator, served, not a browser copy.
+  'site-schema-svg': 'packages/site-schema/src/svg.ts',
 }
 
 /** What the build wrote, so the command can report it and a UAT can assert it. */
