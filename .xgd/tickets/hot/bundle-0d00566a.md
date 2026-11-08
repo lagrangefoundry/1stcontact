@@ -5,7 +5,7 @@ type: bundle
 title: REQ-210 + REQ-212 + REQ-213 + REQ-211 + BUG-69 + 4 more
 created_by: xgd
 created_at: '2026-11-08T12:30:04.545337+00:00'
-updated_at: '2026-11-08T16:27:23.388073+00:00'
+updated_at: '2026-11-08T16:35:21.137118+00:00'
 completed_at: null
 last_field_updated: session_planner
 status: reconciling
@@ -89,8 +89,8 @@ fields:
   regression_anchor_uid: report-49607926
   session_builder: 8f67a0f4-f71f-4f88-9656-224802979826
   session_builder_started_at: '2026-11-08T16:05:23.977978+00:00'
-  session_planner: bceca2e9-cd9c-40e4-badb-09133bfe6321
-  session_planner_started_at: '2026-11-08T16:27:23.315563+00:00'
+  session_planner: ee678d3f-2c80-4c9a-8163-198c9d96f307
+  session_planner_started_at: '2026-11-08T16:35:21.059055+00:00'
 ---
 
 # Bundle
