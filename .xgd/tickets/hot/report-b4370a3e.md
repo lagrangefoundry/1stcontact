@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-d87c1fe2'
 created_by: xgd
 created_at: '2026-11-08T07:39:43.355376+00:00'
-updated_at: '2026-11-08T07:39:43.355376+00:00'
+updated_at: '2026-11-08T07:49:34.289318+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-d87c1fe2
@@ -25,6 +25,7 @@ fields:
     test_scope: AC-1817 (orphaned acceptance criterion) or AC-1818 (orphaned acceptance
       criterion) or test_UAT_AC1054 or test_UAT_AC1817 or test_UAT_AC1818 or REQ-209
       measuring a drawing for real test_UAT_FC_REQ_209_the_font_metrics_are_the_face_that_resolved
+  batches_pending: false
 ---
 
 {
