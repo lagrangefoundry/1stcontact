@@ -3,7 +3,7 @@
  * story-7b1025b8 (BUNDLE-38, REQ-199) — **the Contacts tab: `+` adds a Lead,
  * Invite acts on a checked selection.**
  *
- * The rendering half of AC-2336, AC-2337 and AC-2339; the route and D1 half is
+ * The rendering half of AC-2336, AC-2409 and AC-2339; the route and D1 half is
  * `test_reconciliation_contacts_add_invite.workers.test.ts`. Mounted against the
  * installed `builder/people.js`; the only double is the HTTP transport, because
  * that is the network.
@@ -211,49 +211,6 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7b1025b8 — the add dialog', () => {
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('story-7b1025b8 — the invite modal', () => {
-  it('test_UAT_AC2337_invite_is_disabled_until_a_row_is_checked_and_opens_a_message_with_read_only_from_and_a_to_list', async () => {
-    await panel()
-    expect(boxes()).toHaveLength(3)
-    for (const box of boxes()) expect(box.type).toBe('checkbox')
-
-    expect(inviteButton().hidden, 'Invite is hidden rather than disabled').toBe(false)
-    expect(inviteButton().disabled).toBe(true)
-    await setChecked(0, true)
-    expect(inviteButton().disabled).toBe(false)
-    await setChecked(0, false)
-    expect(inviteButton().disabled, 'unticking the last row left Invite live').toBe(true)
-
-    await setChecked(0, true)
-    await setChecked(1, true)
-    await press(inviteButton())
-
-    const from = document.querySelector('.builder-people__from') as HTMLElement
-    expect(text(from)).toBe(DRAFT.from)
-    expect(['INPUT', 'TEXTAREA', 'SELECT']).not.toContain(from.tagName)
-    expect(from.getAttribute('contenteditable')).toBeNull()
-
-    expect((document.querySelector('.builder-people__subject') as HTMLInputElement).value).toBe(
-      DRAFT.subject,
-    )
-    expect((document.querySelector('.builder-people__body') as HTMLTextAreaElement).value).toBe(DRAFT.body)
-
-    const toList = document.querySelector('.builder-people__tolist') as HTMLTextAreaElement
-    expect(toList.readOnly).toBe(true)
-    expect(toList.value.split('\n')).toEqual(['a@example.test', 'b@example.test'])
-    const label = [...document.querySelectorAll('.builder-people__label')].find(
-      (node) => text(node) === 'To-List:',
-    ) as HTMLElement
-    expect(label, 'the recipients are not labelled To-List:').toBeTruthy()
-    expect(label.getAttribute('title') ?? '').toMatch(/own message/i)
-    expect(label.getAttribute('title') ?? '').toMatch(/address/i)
-
-    expect(text(modalButton('Send') ?? null)).toBe('Send 2')
-
-    await press(modalButton('Send'))
-    expect(calls.invite).toHaveLength(1)
-    expect((calls.invite[0] as { ids: string[] }).ids).toEqual(['usr_a', 'usr_b'])
-  })
-
   it('test_UAT_AC2409_invite_is_disabled_until_a_row_is_checked_and_shows_the_templates_sender_read_only_with_a_to_list', async () => {
     // REQ-205: the From the modal shows is whatever the invite template resolved
     // to — here the seeded invite's own address, not a deployment-wide one.

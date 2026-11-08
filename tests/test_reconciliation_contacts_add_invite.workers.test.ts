@@ -38,7 +38,7 @@ import { personByEmail } from './support/person'
  * `admit` really produced, because the deployed default (`mailerFor` with no
  * credential) cannot be told to fail.
  *
- * The Contacts-tab half of AC-2336, AC-2337 and AC-2339 is the jsdom sibling,
+ * The Contacts-tab half of AC-2336, AC-2409 and AC-2339 is the jsdom sibling,
  * `test_reconciliation_contacts_add_invite_tab.test.ts`.
  */
 
@@ -641,58 +641,6 @@ describe('story-7b1025b8 — the invite', () => {
     })
     expect(byAddress.status).toBe(400)
     expect(await count('users')).toBe(before)
-  })
-
-  it('test_UAT_AC2337_the_invite_draft_prefills_the_template_and_each_recipient_gets_their_own_message_from_the_deployment', async () => {
-    // A business that has never had an `invite` template is given the default.
-    const owner = await aCustomerOwner('Never Templated')
-    const store = await storeFor(owner.businessId)
-    const existing = await store.query({
-      predicate: 'type=template AND fields.template_key=invite',
-      limit: 'all',
-    })
-    expect(existing.tickets, 'the business already had an invite template').toHaveLength(0)
-
-    const port = recording()
-    const draftResponse = await viaRouter(owner.email, 'GET', PERSON_INVITE_PATH, owner.businessId, port.send)
-    expect(draftResponse.status).toBe(200)
-    const draft = await draftResponse.json<{
-      from: string
-      subject: string
-      body: string
-      declared: string[]
-      templateKey: string
-      templateUid: string
-    }>()
-    expect(draft.from).toBe(FROM)
-    expect(draft.subject).toBe(SEED_TEMPLATES.invite.subject)
-    expect(draft.body).toBe(SEED_TEMPLATES.invite.body)
-    expect(draft.templateKey).toBe('invite')
-    const seeded = await templateFor(store, 'invite')
-    expect(seeded.uid, 'the draft did not come from a template that now exists').toBe(draft.templateUid)
-
-    // Two contacts, one message each, each from the deployment's address.
-    const a = anEmail()
-    const b = anEmail()
-    const ids: string[] = []
-    for (const email of [a, b]) {
-      const added = await viaRouter(owner.email, 'POST', PERSON_ADD_PATH, owner.businessId, port.send, {
-        email,
-      })
-      ids.push((await added.json<AddBody>()).person.id)
-    }
-    const sent = await viaRouter(owner.email, 'POST', PERSON_INVITE_PATH, owner.businessId, port.send, {
-      ids,
-      from: 'ceo@spoofed.example',
-    })
-    expect(sent.status).toBe(200)
-    expect(port.sent, 'one message per contact').toHaveLength(2)
-    expect(port.sent.map((m) => m.to)).toEqual([a, b])
-    for (const message of port.sent) {
-      expect(typeof message.to).toBe('string')
-      expect(message.to).not.toMatch(/[,;]/)
-      expect(message.from, 'a `from` in the request was honoured').toBe(FROM)
-    }
   })
 
   it('test_UAT_AC2409_the_invite_draft_prefills_the_template_and_each_recipient_gets_their_own_message_from_the_templates_sender', async () => {
