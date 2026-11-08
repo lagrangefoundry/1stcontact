@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-39: BUG-59 + BUG-63 + REQ-204 + 
   + BUG-64)'
 created_by: xgd
 created_at: '2026-11-08T01:38:28.960420+00:00'
-updated_at: '2026-11-08T02:54:51.216893+00:00'
+updated_at: '2026-11-08T03:05:18.580501+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -254,7 +254,7 @@ fields:
       but its tests only read the flag during a running turn, where an always-true
       value looks correct. The AC must cover a quiet session with past turns, both
       at the origin and at the panel. No new capability bucket.
-    story_uid: null
+    story_uid: STORY-104
     target_story_ids:
     - STORY-104
     acceptance_criteria_changes:
