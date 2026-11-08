@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-39: BUG-59 + BUG-63 + REQ-204 + 
   + BUG-64)'
 created_by: xgd
 created_at: '2026-11-08T01:38:28.960420+00:00'
-updated_at: '2026-11-08T02:34:38.526132+00:00'
+updated_at: '2026-11-08T02:44:47.492198+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -191,7 +191,7 @@ fields:
       commit (a session flag on /api/businesses and a control drawn only for sessions)
       was reversed by the second, so only the final behaviour is documented. No new
       capability bucket: this is the same sign-out endpoint and the same builder chrome.'
-    story_uid: null
+    story_uid: STORY-171
     target_story_ids:
     - STORY-171
     acceptance_criteria_changes:
