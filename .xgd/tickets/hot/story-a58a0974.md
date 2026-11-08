@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-11-01T09:51:02.787730+00:00'
+updated_at: '2026-11-08T05:12:13.000432+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -50,23 +50,34 @@ In scope:
   change is refused whole) is carried unchanged. A conversation begun under the
   role's former name is still the same conversation: it reopens with its turns
   and keeps working, and nothing is ever written under the old name again.
-- **How what the assistant is told is organised** — three texts, split by what
-  changes them, and each piece of material in exactly one. The **product
-  level** is what is true of the product whatever role reads it — the tools are
-  the only path, a malformed change is refused whole, the site is a typed tree
-  plus vetted components never named to the client, read before you write,
-  changes are private until published — written once, naming no role, so a
-  second role costs a second role text and nothing more. The **role level** is
-  the role's own text, placed *before* the product text in the system prompt so
-  the role holds the highest-attention position, plus a short purpose in the
-  priming naming the documents the role must read (the consultation playbook,
-  the personas and registers document and the differentiation audit) and both
-  corpora it searches. The **reminder** rides every turn and is a handful of
-  lines: which site, the habits that decay first, and options-not-iterations
-  with a pointer to where the rest of the method lives, rather than the method
-  itself. The two per-turn signals — the client changed the site, the client's
-  corpus gained something — ride the reminder as its one stated exception and
-  are absent when there is nothing to say.
+- **How what the assistant is told is organised.** It is configuration, not
+  code: one data file holds every word the session is told by hand, as ordered
+  lists of named entries. The host contributes structure only, and a prose
+  change needs no source change. Each piece of material lives in exactly one
+  entry. The **product text** is what is true of the product whatever role
+  reads it: the tools are the only path, a malformed change is refused whole,
+  the site is a typed tree plus vetted components never named to the client,
+  read before you write, and changes are private until published. It is
+  written once and names no role. The framework's **product tier is declared
+  empty**: the product text is an entry in the role's own list, *after* the
+  role text, so the role holds the highest-attention position. None of the
+  framework's shipped product entries is adopted, because one of them would
+  tell the session about a transcript it cannot read. The **role level** is
+  that list: role text, product text, then (with a knowledge base) the map, a
+  short **purpose** and how to search. The purpose names the *subjects* the
+  method covers and both corpora searched, and points at the map for which
+  documents exist. It names no document. One cache boundary closes the list,
+  so the whole priming is one cached prefix assembled once per session. The
+  **reminder** rides every turn as six entries: which site, the two habits
+  that decay first, and options-not-iterations with a pointer to the knowledge
+  base for the rest of the method, rather than the method itself or a
+  document id. The two per-turn signals (the client changed the site, the
+  client's corpus gained something) ride the reminder as its one stated
+  exception. Each entry is dropped with its separator when there is nothing
+  to say. The file is checked when the host starts: a malformed entry, a
+  misplaced boundary or an unregistered provider stops start-up with an error
+  naming the entry. The assembled priming is capped at a declared 60,000
+  characters, and overflow fails loudly rather than truncating.
 - **Keeping the ledger** — where the conversation is a ticket, the consultant
   writes the engagement's record into that ticket's body: one numbered entry
   per decision as it is settled, with why and what was rejected, and a title
@@ -267,11 +278,14 @@ Out of scope:
   the operations actually granted, so a session's priming never mentions a
   capability it does not have, and the map is generated from the corpus rather
   than written by hand. Neither document is hand-authored prose about the tools.
-  The knowledge library renders only its own two texts — the map, and how to
-  reach it — as named providers resolved on every assembly, and states no role;
-  where the role's purpose sits between them is declared in this host's own
-  priming entry list. Resolving per assembly is also what lets a document
-  published after the conversation opened reach it.
+  The knowledge library renders only its own two texts, the map and how to
+  reach it, as named providers, and states no role. Where the role's purpose
+  sits between them is declared in this host's own priming configuration. With
+  the cache boundary at the end of the list, those providers run once per
+  session, not once per turn. A document published after the conversation
+  opened therefore reaches it through the per-turn corpus delta in the
+  reminder, not through a re-assembled map (REQ-182 §4/finding D). That is also
+  the only channel that works when the system block is fixed at spawn.
 - **Degradation is not failure, and the two are distinguished.** No knowledge base
   built is the pre-knowledge assistant — tools but no documents — and is reported
   to nobody, because nothing is wrong. A knowledge base that was built and then
@@ -823,6 +837,55 @@ DOC-33 §3.1 describes. All of it landed on one branch, as the intent decided.
   the granted operations" is still true of the summary; the summary claim is the
   new criterion's, so the order criterion does not take on a second property.
   AC-2066's register claim is unaffected by the reminder's new pointer line.
+
+Decisions taken on **2026-11-07** while reconciling BUNDLE-40 (REQ-182, BUG-65).
+REQ-182's governing statement is its *Implementation scope — 2026-09-07* and *As
+built* sections, which revise the original body after the BUG-63 review. Where
+they disagree, the later sections win.
+
+- **"Product level" survives as a text; the product *tier* is empty.** REQ-182
+  item 1 asked for product-tier and role-tier entries. Its own review (finding A)
+  and its implementation scope reverse that: tiers concatenate product-first, and
+  REQ-171's role-first order is kept. So the product text is an entry in the
+  role's list, and the framework product tier is declared empty, deliberately
+  (item 10, decided as "omit"). AC-2107 is restated to say so. The criterion still
+  pins that the product text names no role. That is the property that lets it
+  move unchanged into a product tier when DOC-33 §10's second role arrives.
+- **The reminder criterion is restated as six configured entries.** The as-built
+  section corrects "five" to six and states the order: site first, delta last. It
+  also states the blank-line separator, and makes "absent" a null-drop of the
+  entry *and* its separator. AC-2109 now pins those. The 600-character bound for
+  a quiet turn is kept: the shipped static lines are well under it.
+- **The "DOC-33" pointer is superseded by BUG-65, in place.** AC-2109's old
+  verification required the reminder to contain "DOC-33". BUG-65 explicitly
+  removes that id ("it now says the method is in the knowledge base"). The
+  criterion is edited rather than retired, because its real claim survives:
+  the reminder points at the method rather than carrying it. BUG-65's own test
+  plan retargeted the matching REQ-171 assertion the same way. Likewise
+  AC-2107's "purpose naming the documents the role must read" is replaced by
+  the subjects-and-map wording. The no-document-id property itself is pinned on
+  STORY-149 (AC-2377), which owns what a session is told about its corpora.
+- **Configuration validation is one criterion (AC-2374).** The intent lists
+  both-or-neither and the unregistered provider. The code's loader comment
+  (and the plan) add a marker carrying keys, two markers in one tier and a
+  marker in the reminders. These are formalised together, because each is
+  the same observable: start-up refused, naming the entry. The marker cases
+  are framework loader behaviour that this host adopts by loading through it.
+  The intent's "the mapping is loaded through `rolesFromMapping` … makes [the
+  format's checks] this host's behaviour" is the basis for claiming them here.
+- **"No `.ts` constant" is claimed over prose, not over read paths.**
+  `CONSULTANT_ROLE_TEXT`, `PRODUCT_SYSTEM` and `CONSULTANT_PURPOSE` still exist
+  as exported names. They are derived from the file at load and hold no copy
+  of the words, which the as-built section states explicitly. AC-2374 claims
+  that no sentence is a string literal, which is true.
+- **The 60,000 budget and null-drops are one criterion (AC-2375).** The intent
+  asks for a declared cap with headroom and a loud, entry-naming overflow with
+  no truncation. BUG-65 restates the number (60,000). The general null-drop
+  rule is put beside it, and the reminder's specific signals stay with AC-2109.
+- **Left out, as the intent leaves them out:** one `Role` for every site (blocked
+  on `SessionContext.scope`, finding C); `session-summary` (lagrange-framework
+  BUG-45); deleting the legacy role alias (item 9, pending the operator's answer;
+  AC-2056 stands unchanged).
 
 ## Dependencies
 
