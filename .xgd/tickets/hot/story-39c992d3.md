@@ -6,7 +6,7 @@ title: The consultant can generate a raster picture that lands as an ordinary, l
   piece of the client's material
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:41:24.865738+00:00'
-updated_at: '2026-11-08T10:09:41.760852+00:00'
+updated_at: '2026-11-08T10:47:39.183762+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
@@ -33,7 +33,7 @@ The image credential (`OPENAI_API_KEY`) is optional. Without it there is no imag
 ## Technical Context
 - Intent: REQ-208 (body, "Implementation decisions taken in this session", "Amendments, made during implementation") and its chat transcript COMMENT-2318. Commits 59e2b440 (feature) and 3cac1876 (version).
 - Code: `apps/control-app/src/imagegen.ts` (`imageSurface`, `generatedMaterialStore`, `IMAGE_BUDGET`, `GENERATED_ORIGIN`), wired in `router.ts` beside the fidelity surface; `tickets.ts` adds `generated` to the `material` `origin` enum; `secretsOf()` gains `OPENAI_API_KEY`; deploy hook `bin/deploy.d/secrets/30-openai-api-key`; Worker shim in `tools/generate/src/cli/assets.ts`.
-- Provider is `openai` (`gpt-image-1`). It is named only where the plugin is constructed. The model is given no provider parameter, and no error message or manual line names the vendor.
+- Provider is `openai` (`gpt-image-1`). It is named only where the plugin is constructed. The model is given no provider parameter, and no error message or manual line names the vendor. The stored material body is the exception. It carries the plugin's `Provider`/`Model` lines and is indexed (see Reconciliation Decisions, BUG-381).
 - The plugin gets a scoped, normalising store as its `options.store`. At create it merges in `kind: image`, `origin: generated`, `rights: owned`, `republishable: true`, `exportable: false`, `role: site`, `description_status: ok` and `description_model` (the backend's model id). At attach it adds `content_type`/`filename`, taken from the same values the attachment record gets, and then indexes the material through the same path an upload uses. The store refuses any type other than `material`, and any attach against a ticket it did not create.
 - The grant comes from the plugin's own declaration (`instanceConfig()`), not from `instances.json`, so it cannot name a capability the surface does not have. This is the opposite of the REQ-206 fidelity surface, on purpose.
 - The per-session cap is the framework default of 10. It is a stop for runaway loops, not a cost control. An attempt counts even if it fails, and hitting the cap refuses only image generation.
@@ -47,7 +47,9 @@ The image credential (`OPENAI_API_KEY`) is optional. Without it there is no imag
 - **Attach scope** (decided at reconciliation, 2026-11-07): intent says the plugin "cannot write arbitrary tickets". The code also refuses an attach to any ticket it did not create in that session. Formalized in AC-2390 as part of the same guarantee.
 - **When to generate, and how the result is presented, is left to model judgement** (decided at reconciliation, 2026-11-08): REQ-208's "How it behaves" says the assistant does not generate what the client already has, and says what it made and why, as a draft. Nothing in this product instructs that. The adopted plugin's manual (the `imagegen` surface's overview and the `CreateImage` description) says only that generation is slow and costs money and so is not to be done speculatively; it does not tell the model to check the client's existing material first, nor to present the result as a draft with its reasons. The consultant role's priming (`priming.json`) says nothing about generating images. So there is no instruction reaching the model's tool list or system text that an AC could assert, and the behaviour depends on the model's own judgement in conversation. No AC is written for it. Making it a guarantee would need a priming or manual line (product priming, or upstream in the plugin's declaration), which is a production change outside this reconciliation.
 
-No contradictions between intent and code were found.
+- **The vendor reaches the model through the stored material body: divergence from intent, not fixed here** (decided at reconciliation, 2026-11-08): REQ-208 says the model never learns which vendor drew the image. The tool's manual, schema and error text keep that promise (AC-2380). The material body does not. The `ai-imagegen` plugin writes `- Provider:` / `- Model:` lines (`toolbox.js:757-758`), `generatedMaterialStore.create` stores them unchanged, and `attach` indexes the material (`imagegen.ts:260`), so the session knowledge base can return the vendor name. Fixing it is a production change to `imagegen.ts`. The `code_frozen` override for it was refused in fix_plan iteration 11, so this reconciliation records the code as it is: AC-2380 is scoped to the tool's own channels, and the fix is BUG-381 (`bug-da5f9050`).
+
+One contradiction between intent and code was found: the vendor reaches the model through the stored material body. It is recorded above and tracked as BUG-381.
 
 ## Dependencies
 None.
