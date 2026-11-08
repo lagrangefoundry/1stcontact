@@ -202,15 +202,22 @@ describe('REQ-209 measuring a drawing for real', () => {
     const m = await measure(COMPOSED)
     expect(m.fonts.length).toBeGreaterThan(0)
     const font = m.fonts[0]
-    expect(font.capHeight).toBeGreaterThan(0.4)
-    expect(font.capHeight).toBeLessThan(0.95)
-    expect(font.xHeight).toBeLessThan(font.capHeight)
-    expect(font.ascender).toBeGreaterThan(0)
-    expect(font.descender).toBeLessThan(0)
+    // DIAGNOSTIC: the gate reported this case failed with no message or
+    // traceback. Every assertion carries the measured values, so the next gate
+    // run says which one failed and by how much. No assertion is changed.
+    const seen = `fonts=${JSON.stringify(m.fonts)}`
+    expect(font.capHeight, seen).toBeGreaterThan(0.4)
+    expect(font.capHeight, seen).toBeLessThan(0.95)
+    expect(font.xHeight, seen).toBeLessThan(font.capHeight)
+    expect(font.ascender, seen).toBeGreaterThan(0)
+    expect(font.descender, seen).toBeLessThan(0)
     // Cap-top derived from the ratio lands on the real ink top of a capital.
     const rest = nodeOf(m, '#rest')
     const capTop = rest.baseline! - font.capHeight * rest.fontSize!
-    expect(capTop).toBeCloseTo(rest.ink![1], 0)
+    expect(
+      capTop,
+      `${seen} rest=${JSON.stringify(rest)} capTop=${capTop} inkTop=${rest.ink?.[1]}`,
+    ).toBeCloseTo(rest.ink![1], 0)
   })
 
   it('test_UAT_FC_REQ_209_a_drawing_that_names_no_real_font_is_reported_as_such', async (ctx) => {

@@ -22,7 +22,13 @@ import {
   type HostDeps,
 } from '../tools/generate/src/cli/ai/host-core'
 import { knowledgeDeps } from '../tools/generate/src/cli/ai/host'
-import { CONSULTANT_PURPOSE, CONSULTANT_SYSTEM } from '../tools/generate/src/cli/ai/roles'
+// The preamble is two configured entries since REQ-182 — the role text first,
+// the product text after it — read here from `priming.json` itself.
+import {
+  CONSULTANT_PURPOSE,
+  CONSULTANT_ROLE_TEXT,
+  PRODUCT_SYSTEM,
+} from '../tools/generate/src/cli/ai/roles'
 import {
   modelSaw,
   says,
@@ -189,7 +195,8 @@ describe('the Node CLI host sends the model the whole priming', () => {
     const { text: system } = systemText(built)
 
     const at = (needle: string): number => system.indexOf(needle)
-    const preamble = at(CONSULTANT_SYSTEM)
+    const preamble = at(CONSULTANT_ROLE_TEXT)
+    const product = at(PRODUCT_SYSTEM)
     const landscape = at('# What exists')
     const territory = at(TERRITORY)
     const purpose = at(CONSULTANT_PURPOSE)
@@ -198,14 +205,17 @@ describe('the Node CLI host sends the model the whole priming', () => {
     // ALL FOUR ARE THERE, verbatim where the text is ours. The whole preamble
     // rather than a word from it: a dropped `system` key would leave nothing,
     // and a truncated one would leave a word.
-    expect(preamble, 'consultant system prompt missing from what the model was sent').toBe(0)
+    expect(preamble, 'consultant role text missing from what the model was sent').toBe(0)
+    expect(product, 'product system text missing from what the model was sent').toBeGreaterThanOrEqual(
+      CONSULTANT_ROLE_TEXT.length,
+    )
     expect(landscape).toBeGreaterThan(0)
     expect(territory).toBeGreaterThan(landscape)
     expect(purpose).toBeGreaterThan(0)
     expect(mechanism).toBeGreaterThan(0)
 
     // …AND IN THAT ORDER: system prompt, landscape, purpose, mechanism.
-    expect(preamble).toBeLessThan(landscape)
+    expect(product).toBeLessThan(landscape)
     expect(territory).toBeLessThan(purpose)
     expect(landscape).toBeLessThan(purpose)
     expect(purpose).toBeLessThan(mechanism)
@@ -222,9 +232,11 @@ describe('the Node CLI host sends the model the whole priming', () => {
 
     // The system prompt first, then the tool manual, so the session still knows
     // how to act…
-    expect(bareSystem.indexOf(CONSULTANT_SYSTEM)).toBe(0)
+    expect(bareSystem.indexOf(CONSULTANT_ROLE_TEXT)).toBe(0)
+    const bareProduct = bareSystem.indexOf(PRODUCT_SYSTEM)
+    expect(bareProduct).toBeGreaterThanOrEqual(CONSULTANT_ROLE_TEXT.length)
     const manual = bareSystem.search(/set_l1/)
-    expect(manual).toBeGreaterThan(CONSULTANT_SYSTEM.length - 1)
+    expect(manual).toBeGreaterThanOrEqual(bareProduct + PRODUCT_SYSTEM.length)
     // …and neither a landscape nor a how-to-search section, because there is no
     // corpus to describe or reach.
     expect(bareSystem).not.toContain('# What exists')

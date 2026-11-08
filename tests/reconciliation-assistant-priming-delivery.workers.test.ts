@@ -8,7 +8,13 @@ import { DocDirStore, bundleDocReader } from '../apps/control-app/src/generated/
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import type { Scope } from '../apps/control-app/src/scope'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
-import { CONSULTANT_PURPOSE, CONSULTANT_SYSTEM } from '../tools/generate/src/cli/ai/roles'
+// The preamble is two configured entries since REQ-182 — the role text first,
+// the product text after it — read here from `priming.json` itself.
+import {
+  CONSULTANT_PURPOSE,
+  CONSULTANT_ROLE_TEXT,
+  PRODUCT_SYSTEM,
+} from '../tools/generate/src/cli/ai/roles'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 import { STUB_DIM, stubEmbedder, stubVector } from './support/stub-embedder'
@@ -204,13 +210,17 @@ function systemText(req: ModelRequest): string {
 /** The criterion's ordering claim, asserted over one joined system prompt. */
 function expectFullPriming(system: string, mapsInLandscape: string[]): void {
   const at = (needle: string): number => system.indexOf(needle)
-  const preamble = at(CONSULTANT_SYSTEM)
+  const preamble = at(CONSULTANT_ROLE_TEXT)
+  const product = at(PRODUCT_SYSTEM)
   const landscape = at('# What exists')
   const purpose = at(CONSULTANT_PURPOSE)
   const mechanism = at('# How to search')
 
-  expect(preamble, 'consultant system prompt missing from what the model was sent').toBe(0)
-  expect(landscape).toBeGreaterThan(preamble)
+  expect(preamble, 'consultant role text missing from what the model was sent').toBe(0)
+  expect(product, 'product system text missing from what the model was sent').toBeGreaterThanOrEqual(
+    CONSULTANT_ROLE_TEXT.length,
+  )
+  expect(landscape).toBeGreaterThan(product)
   expect(purpose).toBeGreaterThan(landscape)
   expect(mechanism).toBeGreaterThan(purpose)
   for (const map of mapsInLandscape) {
