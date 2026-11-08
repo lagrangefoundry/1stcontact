@@ -6,10 +6,10 @@ title: The chat bubble shows the pill form while the assistant's turn carries th
   expansion; pills survive cut and paste in the composer
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:46:42.120873+00:00'
-updated_at: '2026-11-08T12:46:42.120873+00:00'
+updated_at: '2026-11-08T13:05:17.358658+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-44d0a572
   kind: behavior
