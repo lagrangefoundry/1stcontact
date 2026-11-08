@@ -6,17 +6,16 @@ title: 'Local dev fixture: seed a known cast of people and sign in as them witho
   Cloudflare'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:16:25.000890+00:00'
-updated_at: '2026-11-08T02:05:02.076052+00:00'
+updated_at: '2026-11-08T02:22:38.448867+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-5052a63c
   capability_uid: capability-c19c05c5
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-4164b433
+  updated_by: bundle-4164b433
 ---
 
 ## Story
