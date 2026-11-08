@@ -5,7 +5,7 @@ type: request
 title: 'Text can vary within a run: multi-variate L1 text'
 created_by: CHAT-49
 created_at: '2026-09-09T21:25:01.708637+00:00'
-updated_at: '2026-11-08T20:29:55.722301+00:00'
+updated_at: '2026-11-08T20:29:59.216862+00:00'
 completed_at: '2026-11-08T20:29:55.722301+00:00'
 last_field_updated: status
 status: free_and_reconciled
