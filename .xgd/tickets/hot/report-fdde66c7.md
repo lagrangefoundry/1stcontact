@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-42: BUG-73, BUG-75, REQ-216, REQ
   REQ-223, REQ-218)'
 created_by: xgd
 created_at: '2026-11-08T21:02:09.509063+00:00'
-updated_at: '2026-11-08T21:07:08.989697+00:00'
+updated_at: '2026-11-08T21:33:28.010516+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -88,7 +88,7 @@ fields:
       remove: []
     intent_delta_summary: The single-asset AC is strengthened from 'contains the inputs'
       to 'is a valid module whose behaviors are scoped from each other'.
-    story_uid: null
+    story_uid: story-179b8c06
   - index: 3
     component: Assistant Looking Surface — drive the draft before the shot (REQ-216)
     item_type: upgrade
