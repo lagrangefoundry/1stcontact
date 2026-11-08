@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-d87c1fe2'
 created_by: xgd
 created_at: '2026-11-08T08:36:58.589439+00:00'
-updated_at: '2026-11-08T08:36:58.589439+00:00'
+updated_at: '2026-11-08T08:44:37.884388+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-d87c1fe2
@@ -160,6 +160,16 @@ fields:
   batch_index: -1
   parent_report_uid: ''
   anchor_ticket: bundle-c0301347
+  ruling: declined
+  ruling_reason: 'Rung 1: REPORT-11364 hands off the reconciliation review, which
+    says story coverage and evidence are sufficient and that ''No further code, test
+    or matrix remediation is available or needed''. Its only FAIL is the historical
+    misjudged override report-7519d965 (story-4cabde9a batch 0). That override''s
+    consequence is applied (REQ-146 edit reverted; denial recorded in report-40bf3ba2
+    and REPORT-11362), and code_frozen is now denied for that batch. No production
+    change is demanded, so code_frozen stands; this batch only retires the superseded
+    AC-2337 tests and gates AC-2409. Clearing the historical misjudgment needs an
+    operator waiver, not a builder pass.'
 ---
 
 # Review gaps blocked by `code_frozen`
@@ -275,3 +285,7 @@ Remaining items:
 2. Advisory: add `test_UAT_AC2409_` to the next gate. Its workers UAT has not run in any gate, and this sandbox cannot run it.
 
 **Proposed change**: Apply the production-code remediation items in the review that need a `code_frozen` grant or an operator ruling, and add the UAT each one requires (see evidence).
+
+## Ruling: declined
+
+Rung 1: REPORT-11364 hands off the reconciliation review, which says story coverage and evidence are sufficient and that 'No further code, test or matrix remediation is available or needed'. Its only FAIL is the historical misjudged override report-7519d965 (story-4cabde9a batch 0). That override's consequence is applied (REQ-146 edit reverted; denial recorded in report-40bf3ba2 and REPORT-11362), and code_frozen is now denied for that batch. No production change is demanded, so code_frozen stands; this batch only retires the superseded AC-2337 tests and gates AC-2409. Clearing the historical misjudgment needs an operator waiver, not a builder pass.
