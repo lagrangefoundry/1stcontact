@@ -7,14 +7,15 @@ title: Invite is enabled only with a checked selection, prefills subject and bod
   recipient so no recipient sees another's address
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T07:23:02.829253+00:00'
-updated_at: '2026-11-07T08:05:53.813455+00:00'
+updated_at: '2026-11-08T08:04:01.045630+00:00'
 completed_at: null
 last_field_updated: status
-status: active
+status: superseded
 fields:
   story_uid: story-7b1025b8
   kind: behavior
   regression_only: false
+  superseded_by_uid: bundle-c0301347
 ---
 
 ## Criterion
