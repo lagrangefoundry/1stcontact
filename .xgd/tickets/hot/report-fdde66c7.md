@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-42: BUG-73, BUG-75, REQ-216, REQ
   REQ-223, REQ-218)'
 created_by: xgd
 created_at: '2026-11-08T21:02:09.509063+00:00'
-updated_at: '2026-11-08T21:02:09.509063+00:00'
+updated_at: '2026-11-08T21:07:08.989697+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-7ba3af93
@@ -60,7 +60,7 @@ fields:
     intent_delta_summary: The model-availability rule gains a second, credential-selected
       REST transport resolved in one place, and embedding failures become named, attributable
       errors.
-    story_uid: null
+    story_uid: story-5281f009
   - index: 2
     component: Behavior Modules — capabilities.js composition (BUG-75)
     item_type: upgrade
