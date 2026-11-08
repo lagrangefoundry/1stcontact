@@ -7,7 +7,7 @@ title: The origin reports a conversation live only while a turn is open; a settl
   transport without rejoin support still mounts
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T03:06:14.307080+00:00'
-updated_at: '2026-11-08T03:04:38.857451+00:00'
+updated_at: '2026-11-08T03:04:47.801891+00:00'
 completed_at: null
 last_field_updated: title
 status: active
@@ -15,9 +15,6 @@ fields:
   story_uid: story-7f437d57
   kind: behavior
   regression_only: false
-  title: The origin reports a conversation live only while a turn is open; a settled
-    or empty conversation is not rejoined; a failed rejoin leaves the pane usable;
-    a transport without rejoin support still mounts
 ---
 
 ## Criterion
