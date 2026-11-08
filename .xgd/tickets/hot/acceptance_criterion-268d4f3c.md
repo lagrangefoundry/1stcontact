@@ -2,10 +2,11 @@
 uid: acceptance_criterion-268d4f3c
 id: AC-2318
 type: acceptance_criterion
-title: A token minted by bin/access-sim passes the Worker's real Access verifier
+title: Both simulator token shapes pass the Worker's real verifier; a service token
+  carries common_name and no email
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:17:21.914031+00:00'
-updated_at: '2026-11-08T02:03:22.400463+00:00'
+updated_at: '2026-11-08T02:04:18.677252+00:00'
 completed_at: null
 last_field_updated: title
 status: active
