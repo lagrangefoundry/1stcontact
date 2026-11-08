@@ -648,7 +648,11 @@ describe('transcripts live outside the region site files are addressed within', 
     for (const object of audit.objects) {
       expect(object.key.startsWith('draft/'), object.key).toBe(false)
     }
-    expect(before).toContain(`draft/${TENANT}/${slug}/assets/${LOGO.name}`)
+    // The site region is keyed by the site's opaque id, not its tenant and slug
+    // (REQ-190), so the key is resolved through the store rather than composed.
+    const siteKey = await (await sharedStore()).siteKey(slug)
+    expect(siteKey).not.toBeNull()
+    expect(before).toContain(`draft/${siteKey}/assets/${LOGO.name}`)
 
     // THE PROBES ARE NOT VACUOUS: an address composed within the site region does
     // reach a site file. What follows is the same machinery being asked for

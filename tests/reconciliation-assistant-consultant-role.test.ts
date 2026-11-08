@@ -196,14 +196,21 @@ describe('the assistant is told it is a consultant', () => {
     // (it rides the tail of the last message, not `system`) — never the
     // function's return value read back.
     expect(client.seen.length).toBeGreaterThan(0)
-    const sent = modelSaw(client.seen[0])
+    const req = client.seen[0]
     const opening = `You are working on the site "${SLUG}".`
-    const start = sent.indexOf(opening)
-    expect(start, 'the reminder reached the model').toBeGreaterThanOrEqual(0)
-    // The reminder is one line (its sentences are joined with spaces).
-    const lineEnd = sent.indexOf('\n', start)
-    const reminder = sent.slice(start, lineEnd === -1 ? undefined : lineEnd)
-    expect(reminder.length).toBeGreaterThan(opening.length)
+    expect(modelSaw(req)).toContain(opening)
+    // The reminder is its own text block on the last message, several paragraphs
+    // separated by blank lines (AC-2109) — so the WHOLE block is what is read,
+    // from the site line through the method entry, not just its first line.
+    const last = req.messages.at(-1)?.content
+    const blocks = Array.isArray(last) ? (last as { text?: unknown }[]) : [{ text: last }]
+    const carried = blocks
+      .map((block) => (typeof block?.text === 'string' ? block.text : ''))
+      .filter((text) => text.startsWith(opening))
+    expect(carried, 'the reminder reached the model as one block').toHaveLength(1)
+    const reminder = carried[0]
+    expect(reminder.split('\n\n').length).toBeGreaterThanOrEqual(4)
+    expect(reminder).toMatch(/knowledge base/)
 
     expect(reminder).toMatch(/\bclient\b/)
     expect(reminder).not.toMatch(/\buser\b/i)

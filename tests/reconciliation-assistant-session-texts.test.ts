@@ -65,6 +65,22 @@ function systemOf(req: ModelRequest): string {
   return typeof s === 'string' ? s : s.map((block) => block.text ?? '').join('\n')
 }
 
+/**
+ * The per-turn reminder exactly as one request carried it: the text block, on
+ * the last message, that opens with the site line. The library appends it as its
+ * own block at the tail of the last message (REQ-144).
+ */
+function reminderSent(req: ModelRequest): string {
+  const opening = `You are working on the site "${SLUG}".`
+  const last = req.messages.at(-1)?.content
+  const blocks = Array.isArray(last) ? (last as { text?: unknown }[]) : [{ text: last }]
+  const found = blocks
+    .map((block) => (typeof block?.text === 'string' ? block.text : ''))
+    .filter((text) => text.startsWith(opening))
+  expect(found, 'the reminder reached the model as one block').toHaveLength(1)
+  return found[0]
+}
+
 /** Run one turn to completion, draining the stream so the turn has finished. */
 async function turn(sessionId: string, text: string): Promise<unknown[]> {
   const drained: unknown[] = []
@@ -216,7 +232,7 @@ describe('priming carries the grant-projected summary, with DescribeTools for th
 
 describe('the per-turn reminder points to the method and carries only the per-turn signals', () => {
   it(
-    'test_UAT_AC2109_reminder_is_short_points_to_doc33_and_carries_signals_only_when_present',
+    'test_UAT_AC2109_reminder_is_short_points_to_the_knowledge_base_and_carries_signals_only_when_present',
     async () => {
       const client = scriptedClient([says('Right.'), says('Noted.')])
       setModelClient(client)
@@ -227,12 +243,22 @@ describe('the per-turn reminder points to the method and carries only the per-tu
       const quiet = consultantReminder(SLUG)
       const firstSaw = modelSaw(client.seen[0])
       expect(firstSaw).toContain(quiet)
-      expect(quiet).toContain(`"${SLUG}"`)
-      expect(quiet).toMatch(/acts on that site and no other/)
-      expect(quiet).toContain('DOC-33')
-      expect(quiet).toMatch(/differ in kind rather than refining one/)
-      expect(quiet).not.toMatch(/stage \d/i)
-      expect(quiet.length).toBeLessThan(600)
+      // The reminder AS RECEIVED: the block the host appended for this turn.
+      const sentQuiet = reminderSent(client.seen[0])
+      expect(sentQuiet).toBe(quiet)
+      expect(sentQuiet).toContain(`"${SLUG}"`)
+      expect(sentQuiet).toMatch(/acts on that site and no other/)
+      // It POINTS to the method in the knowledge base and names no document.
+      expect(sentQuiet).toMatch(/knowledge base/)
+      expect(sentQuiet).not.toMatch(/DOC-\d+/)
+      expect(sentQuiet).toMatch(/differ in kind rather than refining one/)
+      expect(sentQuiet).not.toMatch(/stage \d/i)
+      expect(sentQuiet.length).toBeLessThan(600)
+      // No residue of an absent signal: no unfilled placeholder, no stray separator.
+      expect(sentQuiet).not.toMatch(/\{[a-z_]+\}/i)
+      expect(sentQuiet).not.toMatch(/\n\n\n/)
+      expect(sentQuiet.endsWith('\n')).toBe(false)
+      expect(sentQuiet.split('\n\n')).toHaveLength(4)
       expect(firstSaw).not.toMatch(/changed this site since your last turn/)
 
       // THE CLIENT CHANGES THE SITE between turns: the change line appears.
@@ -244,7 +270,12 @@ describe('the per-turn reminder points to the method and carries only the per-tu
       const secondSaw = modelSaw(client.seen[1])
       expect(secondSaw).toMatch(/changed this site since your last turn — 1 change\b/)
       const at = Number(/list_changes with since: (\d+)/.exec(secondSaw)![1])
-      expect(secondSaw).toContain(consultantReminder(SLUG, { at, changes: 1 }))
+      const sentChanged = reminderSent(client.seen[1])
+      expect(sentChanged).toBe(consultantReminder(SLUG, { at, changes: 1 }))
+      const paragraphs = sentChanged.split('\n\n')
+      expect(paragraphs).toHaveLength(5)
+      expect(paragraphs[4]).toMatch(/changed this site since your last turn — 1 change\b/)
+      expect(sentChanged).not.toMatch(/\{[a-z_]+\}/i)
 
       // A CORPUS DELTA rides last, after every other line.
       const DELTA = 'New in your client’s material since you were last told: "Winter menu".'
