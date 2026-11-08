@@ -69,6 +69,9 @@ function baseEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   delete env.SIM_PORT
   delete env.SIM_AUD
   delete env.SIM_BUILDER
+  delete env.SIM_CLIENT_ID
+  delete env.SIM_CLIENT_SECRET
+  delete env.SIM_SERVICE_EMAIL
   return env
 }
 
@@ -409,16 +412,35 @@ describe('story-5b5be809 — bin/access-sim', () => {
     sims.push(emptySim)
   }, 60_000)
 
-  it('test_UAT_AC2317_print_env_emits_exactly_the_two_access_settings', async () => {
-    const defaults = await run(process.execPath, [SIM, '--print-env'], baseEnv())
+  it('test_UAT_AC2317_print_env_emits_exactly_the_access_settings_and_the_identity_mapping', async () => {
+    // BUG-59 added the third line: the service-token name (client id without
+    // `.access`) mapped to the address the simulator acts as. `--service-email`
+    // is passed so the address does not depend on the checkout's PLATFORM_ADMINS.
+    const defaults = await run(
+      process.execPath,
+      [SIM, '--print-env', '--service-email', 'ops@example.test'],
+      baseEnv(),
+    )
     expect(defaults.code).toBe(0)
-    expect(defaults.stdout).toBe('ACCESS_TEAM_DOMAIN="http://127.0.0.1:8799"\nACCESS_AUD="local-dev-aud"\n')
+    expect(defaults.stdout).toBe(
+      'ACCESS_TEAM_DOMAIN="http://127.0.0.1:8799"\n' +
+        'ACCESS_AUD="local-dev-aud"\n' +
+        'SERVICE_TOKEN_IDENTITIES="local-dev=ops@example.test"\n',
+    )
 
     const port = await freePort()
-    const custom = await run(process.execPath, [SIM, '--print-env', '--port', String(port), '--aud', 'other-aud'], baseEnv())
+    const custom = await run(
+      process.execPath,
+      [SIM, '--print-env', '--port', String(port), '--aud', 'other-aud', '--client-id', 'bot.access', '--service-email', 'bot@example.test'],
+      baseEnv(),
+    )
     expect(custom.code).toBe(0)
     const lines = custom.stdout.trimEnd().split('\n')
-    expect(lines).toEqual([`ACCESS_TEAM_DOMAIN="http://127.0.0.1:${port}"`, 'ACCESS_AUD="other-aud"'])
+    expect(lines).toEqual([
+      `ACCESS_TEAM_DOMAIN="http://127.0.0.1:${port}"`,
+      'ACCESS_AUD="other-aud"',
+      'SERVICE_TOKEN_IDENTITIES="bot=bot@example.test"',
+    ])
 
     // It exited without leaving a server behind.
     expect(await portIsClosed(port)).toBe(true)
