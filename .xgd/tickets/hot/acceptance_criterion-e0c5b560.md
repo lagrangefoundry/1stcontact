@@ -2,11 +2,11 @@
 uid: acceptance_criterion-e0c5b560
 id: AC-2317
 type: acceptance_criterion
-title: bin/access-sim --print-env emits the two Access settings that point the Worker
-  at the simulator
+title: bin/access-sim --print-env emits the Access settings that point the Worker
+  at the simulator and the SERVICE_TOKEN_IDENTITIES mapping line
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:17:21.192988+00:00'
-updated_at: '2026-11-08T02:03:20.463066+00:00'
+updated_at: '2026-11-08T02:04:17.919537+00:00'
 completed_at: null
 last_field_updated: title
 status: active
