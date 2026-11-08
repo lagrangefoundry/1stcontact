@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for STORY-159'
 created_by: xgd
 created_at: '2026-11-08T15:39:19.499621+00:00'
-updated_at: '2026-11-08T15:39:19.499621+00:00'
+updated_at: '2026-11-08T15:47:29.226335+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -62,6 +62,7 @@ fields:
         sites change to match; this rung decides.
       rung3: The behavioural assertions for AC-2044 and AC-2080..2084 stand unchanged;
         only the fixture call shapes are corrected.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3
