@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-39c992d3'
 created_by: xgd
 created_at: '2026-11-08T06:57:36.645080+00:00'
-updated_at: '2026-11-08T07:09:21.950402+00:00'
+updated_at: '2026-11-08T07:10:19.006554+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-39c992d3
@@ -38,21 +38,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
-  conformance_verdict: fail
-  conformance_findings:
-  - item: 5
-    reason: 'planner misjudged trust boundary: the override was granted with planner_trust_boundary
-      false, but the production diff matches the trust-boundary patterns (trust_boundary_mismatch
-      is true).'
-    added_lines:
-    - '  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, ''\\$&'')).join(''|'')'
-    - '  const backendPhrase = new RegExp(`Backend\\s+"(?:${escaped})"`, ''gi'')'
-    - '  const bare = new RegExp(escaped, ''gi'')'
-    absent_tip_lines:
-    - '"planner_trust_boundary": false'
-    - '"trust_boundary_mismatch": true'
-    files:
-    - apps/control-app/src/imagegen.ts
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
