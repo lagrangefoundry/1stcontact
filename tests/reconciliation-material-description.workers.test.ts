@@ -44,12 +44,12 @@ import { applySchema } from './support/d1-site-factory'
 const APPLIED = applySchema()
 
 /** A fresh account per test, so one test's material can never answer another's query. */
-function storeEnv(tenant: string) {
-  return { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket, TENANT_ID: tenant }
+function storeEnv() {
+  return { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }
 }
 
 function storeFor(tenant: string): Promise<TicketStore> {
-  return ticketStoreFor(storeEnv(tenant))
+  return ticketStoreFor(storeEnv(), { businessId: tenant })
 }
 
 function bytesOf(text: string): Uint8Array {

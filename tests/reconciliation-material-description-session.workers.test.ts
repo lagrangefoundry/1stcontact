@@ -33,7 +33,7 @@ import { says, scriptedClient, type ModelRequest } from './support/scripted-mode
 const APPLIED = applySchema()
 
 function storeFor(tenant: string): Promise<TicketStore> {
-  return ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket, TENANT_ID: tenant })
+  return ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }, { businessId: tenant })
 }
 
 /** Flatten a request's system content to its text. */
