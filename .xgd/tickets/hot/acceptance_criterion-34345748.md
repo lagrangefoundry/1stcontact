@@ -2,11 +2,12 @@
 uid: acceptance_criterion-34345748
 id: AC-2024
 type: acceptance_criterion
-title: A deployment missing either the browser binding or the private bucket still
-  opens a session, with no looking operations offered
+title: A deployment with no browser still opens a session with no looking operations
+  offered; a Worker with no private bucket opens no chat at all, and the looking surface's
+  own private-bucket check is defence in depth
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:42:00.130589+00:00'
-updated_at: '2026-11-08T10:14:20.031697+00:00'
+updated_at: '2026-11-08T10:14:30.751995+00:00'
 completed_at: null
 last_field_updated: title
 status: active
