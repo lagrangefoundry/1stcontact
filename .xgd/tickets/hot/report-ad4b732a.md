@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-d87c1fe2'
 created_by: xgd
 created_at: '2026-11-08T09:33:00.974573+00:00'
-updated_at: '2026-11-08T09:33:00.974573+00:00'
+updated_at: '2026-11-08T09:40:23.297570+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-d87c1fe2
@@ -112,6 +112,16 @@ fields:
   batch_index: -1
   parent_report_uid: ''
   anchor_ticket: bundle-c0301347
+  ruling: declined
+  ruling_reason: 'Rung 1: REPORT-11387 hands off the fourth identical reconciliation
+    review. It finds coverage, fidelity, supersession, evidence and plan accounting
+    clean, and its only FAIL is the historical misjudged override report-7519d965
+    (story-4cabde9a batch 0, ai.ts). That override''s production change is correct
+    and required by AC-2097/AC-2378, its stray REQ-146 test edit is reverted, and
+    systemText() must stay because 11 test files import it. code_frozen is already
+    denied for that batch (report-40bf3ba2), and no production change is demanded,
+    so the rule stands. The review states that no builder or matrix edit can change
+    the historical record; clearing it needs an operator waiver.'
 ---
 
 # Review gaps blocked by `code_frozen`
@@ -207,3 +217,7 @@ REQ-205 explicitly supersedes REQ-199's invite-sender pin. AC-2337 is `supersede
 FAIL. The stories accurately and completely document the bundle's intent and behaviour, and the UAT evidence is sufficient. The only failing item is the misjudged code_frozen override report-7519d965 (items 4 and 6). That needs an operator waiver, not another fix pass.
 
 **Proposed change**: Apply the production-code remediation items in the review that need a `code_frozen` grant or an operator ruling, and add the UAT each one requires (see evidence).
+
+## Ruling: declined
+
+Rung 1: REPORT-11387 hands off the fourth identical reconciliation review. It finds coverage, fidelity, supersession, evidence and plan accounting clean, and its only FAIL is the historical misjudged override report-7519d965 (story-4cabde9a batch 0, ai.ts). That override's production change is correct and required by AC-2097/AC-2378, its stray REQ-146 test edit is reverted, and systemText() must stay because 11 test files import it. code_frozen is already denied for that batch (report-40bf3ba2), and no production change is demanded, so the rule stands. The review states that no builder or matrix edit can change the historical record; clearing it needs an operator waiver.
