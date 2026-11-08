@@ -3,10 +3,11 @@ uid: acceptance_criterion-677e9510
 id: AC-2374
 type: acceptance_criterion
 title: The session's priming entries and reminders are read from one configuration
-  file, and a malformed configuration stops start-up with an error naming the entry
+  file and reach the model exactly as declared, and a malformed configuration stops
+  start-up with an error naming the entry
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T05:10:52.989879+00:00'
-updated_at: '2026-11-08T10:08:32.136238+00:00'
+updated_at: '2026-11-08T10:08:45.150950+00:00'
 completed_at: null
 last_field_updated: title
 status: active
@@ -14,9 +15,6 @@ fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
-  title: The session's priming entries and reminders are read from one configuration
-    file and reach the model exactly as declared, and a malformed configuration stops
-    start-up with an error naming the entry
 ---
 
 ## Criterion
