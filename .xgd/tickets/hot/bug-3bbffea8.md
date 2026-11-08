@@ -5,10 +5,10 @@ type: bug
 title: 'Local dev: access-sim blocks 1c push, so a wiped local store cannot be refilled'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T23:19:13.324318+00:00'
-updated_at: '2026-09-11T19:23:21.566253+00:00'
+updated_at: '2026-11-08T01:14:41.026938+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -28,6 +28,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.126
+  bundled_in: bundle-4164b433
 ---
 
 ## Symptom

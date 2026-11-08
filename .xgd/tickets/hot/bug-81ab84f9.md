@@ -5,10 +5,10 @@ type: bug
 title: 'Invite modal: composer fields overflow the panel'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T22:44:05.075064+00:00'
-updated_at: '2026-09-08T21:36:40.969078+00:00'
+updated_at: '2026-11-08T01:14:44.856628+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -26,6 +26,7 @@ fields:
     working_sha_history: []
   version: 0.2.129
   story_points: 2
+  bundled_in: bundle-4164b433
 ---
 
 ## Symptom
