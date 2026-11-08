@@ -16,8 +16,9 @@ fields:
   chat_comment: comment-6bc952d2
   commits:
   - working_sha: 09f9faf92fc7a1802e8d23fe2dbc4245de4f8d10
-    reconcile_sha: null
+    reconcile_sha: e41301bae9d8ec958abc7472a67a8ad82e4ee01d
     main_sha: null
+    working_sha_history: []
   version: 0.2.155
   story_points: 3
 ---
