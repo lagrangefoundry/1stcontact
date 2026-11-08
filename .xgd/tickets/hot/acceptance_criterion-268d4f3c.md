@@ -6,7 +6,7 @@ title: Both simulator token shapes pass the Worker's real verifier; a service to
   carries common_name and no email
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:17:21.914031+00:00'
-updated_at: '2026-11-08T02:04:18.677252+00:00'
+updated_at: '2026-11-08T02:04:31.404586+00:00'
 completed_at: null
 last_field_updated: title
 status: active
@@ -14,8 +14,6 @@ fields:
   story_uid: story-5b5be809
   kind: behavior
   regression_only: false
-  title: Both simulator token shapes pass the Worker real verifier; a service token
-    carries common_name and no email
 ---
 
 ## Criterion
