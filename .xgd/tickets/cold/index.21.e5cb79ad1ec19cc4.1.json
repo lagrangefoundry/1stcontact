@@ -1,9 +1,9 @@
 {
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
-  "generated_at": "2026-11-08T03:34:41.818601+00:00",
-  "ticket_count": 1011,
-  "rebuild_epoch": 1794108881.802496,
+  "generated_at": "2026-11-08T12:20:31.057976+00:00",
+  "ticket_count": 1026,
+  "rebuild_epoch": 1794140431.041455,
   "tickets": {
     "report-9e9f839a": {
       "id": "REPORT-1071",
@@ -13554,6 +13554,228 @@
         "subject_uid": "report-c6018598",
         "kind": "note"
       }
+    },
+    "comment-f1c86d11": {
+      "id": "COMMENT-635",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T12:20:24.429808+00:00",
+      "created_at": "2026-11-08T12:20:24.429808+00:00",
+      "completed_at": null,
+      "title": "Claude response for overlap_resolution report",
+      "fields": {
+        "subject_uid": "report-ae68a81b",
+        "kind": "note"
+      }
+    },
+    "comment-f699347e": {
+      "id": "COMMENT-668",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T12:20:24.591874+00:00",
+      "created_at": "2026-11-08T12:20:24.591874+00:00",
+      "completed_at": null,
+      "title": "Claude response for uat_coverage_check report",
+      "fields": {
+        "subject_uid": "report-f2d8131e",
+        "kind": "note"
+      }
+    },
+    "report-00cb70b9": {
+      "id": "REPORT-1302",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:24.829470+00:00",
+      "created_at": "2026-11-08T12:20:24.829470+00:00",
+      "completed_at": null,
+      "title": "UAT Coverage: 1c CLI Argument Parsing & Output Hygiene",
+      "fields": {
+        "subject_uid": "capability-ac7ca849",
+        "report_kind": "uat_coverage_check",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-02071078": {
+      "id": "REPORT-1284",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:24.996779+00:00",
+      "created_at": "2026-11-08T12:20:24.996779+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: capability-modules (level=uat)",
+      "fields": {
+        "subject_uid": "capability-ce902be4",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-0911f3ec": {
+      "id": "REPORT-1317",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T12:20:25.159550+00:00",
+      "created_at": "2026-11-08T12:20:25.159550+00:00",
+      "completed_at": null,
+      "title": "UAT Coverage: framework_substrate",
+      "fields": {
+        "subject_uid": "capability-ae9d65d6",
+        "report_kind": "uat_coverage_check",
+        "violations": 2,
+        "needs_review_count": 1
+      }
+    },
+    "report-0cb0a92d": {
+      "id": "REPORT-1318",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T12:20:25.323821+00:00",
+      "created_at": "2026-11-08T12:20:25.323821+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: l1_reproduction_pipeline (level=story)",
+      "fields": {
+        "subject_uid": "capability-2049c9ec",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 8,
+        "needs_review_count": 1
+      }
+    },
+    "report-1706ff8a": {
+      "id": "REPORT-1298",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:25.562651+00:00",
+      "created_at": "2026-11-08T12:20:25.562651+00:00",
+      "completed_at": null,
+      "title": "UAT Coverage: reproduction-gate-3probe",
+      "fields": {
+        "subject_uid": "capability-8108afab",
+        "report_kind": "uat_coverage_check",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-1ba06894": {
+      "id": "REPORT-1299",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T12:20:25.725185+00:00",
+      "created_at": "2026-11-08T12:20:25.725185+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c CLI Argument Parsing & Output Hygiene (level=story)",
+      "fields": {
+        "subject_uid": "capability-ac7ca849",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 1,
+        "needs_review_count": 0
+      }
+    },
+    "report-1d7527b2": {
+      "id": "REPORT-1300",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:25.886677+00:00",
+      "created_at": "2026-11-08T12:20:25.886677+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c CLI Argument Parsing & Output Hygiene (level=ac)",
+      "fields": {
+        "subject_uid": "capability-ac7ca849",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-2131c6a0": {
+      "id": "REPORT-1306",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:26.126774+00:00",
+      "created_at": "2026-11-08T12:20:26.126774+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: size_aware_diffing (level=uat)",
+      "fields": {
+        "subject_uid": "capability-18a822ac",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-248c0b33": {
+      "id": "REPORT-1281",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:26.288701+00:00",
+      "created_at": "2026-11-08T12:20:26.288701+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: capability-modules (level=story)",
+      "fields": {
+        "subject_uid": "capability-ce902be4",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-292d4308": {
+      "id": "REPORT-1310",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T12:20:26.451567+00:00",
+      "created_at": "2026-11-08T12:20:26.451567+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: gradient_fidelity (level=story)",
+      "fields": {
+        "subject_uid": "capability-36dd68c5",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 4,
+        "needs_review_count": 0
+      }
+    },
+    "report-2aa5f48c": {
+      "id": "REPORT-1272",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:26.615797+00:00",
+      "created_at": "2026-11-08T12:20:26.615797+00:00",
+      "completed_at": null,
+      "title": "Overlap resolution: cluster 1",
+      "fields": {
+        "subject_uid": "report-31234d67",
+        "report_kind": "overlap_resolution"
+      }
+    },
+    "report-2d1becf5": {
+      "id": "REPORT-1273",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T12:20:26.851597+00:00",
+      "created_at": "2026-11-08T12:20:26.851597+00:00",
+      "completed_at": null,
+      "title": "Overlap resolution: cluster 2",
+      "fields": {
+        "subject_uid": "report-31234d67",
+        "report_kind": "overlap_resolution"
+      }
+    },
+    "report-31234d67": {
+      "id": "REPORT-1262",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-08T12:20:27.015503+00:00",
+      "created_at": "2026-11-08T12:20:27.015503+00:00",
+      "completed_at": null,
+      "title": "Regression start: 6667f6e1",
+      "fields": {
+        "subject_uid": "6667f6e1",
+        "report_kind": "regression_start"
+      }
     }
   },
   "by_type": {
@@ -14036,7 +14258,20 @@
       "report-feb7be57",
       "report-feea66e2",
       "report-fef71176",
-      "report-ff343d59"
+      "report-ff343d59",
+      "report-00cb70b9",
+      "report-02071078",
+      "report-0911f3ec",
+      "report-0cb0a92d",
+      "report-1706ff8a",
+      "report-1ba06894",
+      "report-1d7527b2",
+      "report-2131c6a0",
+      "report-248c0b33",
+      "report-292d4308",
+      "report-2aa5f48c",
+      "report-2d1becf5",
+      "report-31234d67"
     ],
     "comment": [
       "comment-fe2ff8e0",
@@ -14558,7 +14793,9 @@
       "comment-e68e8108",
       "comment-eb30f85e",
       "comment-f04ed3ea",
-      "comment-f1a8f7ab"
+      "comment-f1a8f7ab",
+      "comment-f1c86d11",
+      "comment-f699347e"
     ],
     "chat": [
       "chat-0e338704",
@@ -16044,7 +16281,8 @@
         "report-987f798d",
         "report-ba2f9c42",
         "report-bb8835f4",
-        "report-d4ff5ada"
+        "report-d4ff5ada",
+        "report-1706ff8a"
       ],
       "capability-2049c9ec": [
         "report-01a7f3a5",
@@ -16055,7 +16293,8 @@
         "report-75aece48",
         "report-97c88a94",
         "report-bc9e7a68",
-        "report-eef4fefa"
+        "report-eef4fefa",
+        "report-0cb0a92d"
       ],
       "STORY-80": [
         "report-01b49bbb",
@@ -16175,7 +16414,8 @@
         "report-e3ad52ca",
         "report-ecc53467",
         "report-ef3cb592",
-        "report-feb7be57"
+        "report-feb7be57",
+        "report-292d4308"
       ],
       "story-d5de22a5": [
         "report-03f0f316",
@@ -16224,7 +16464,10 @@
         "report-9d1764f7",
         "report-cf3d620a",
         "report-eec5c62c",
-        "report-faa78d91"
+        "report-faa78d91",
+        "report-00cb70b9",
+        "report-1ba06894",
+        "report-1d7527b2"
       ],
       "capability-aa030c83": [
         "report-0954436b",
@@ -16331,7 +16574,8 @@
         "report-a682e01e",
         "report-a879079c",
         "report-b528236c",
-        "report-de58083e"
+        "report-de58083e",
+        "report-0911f3ec"
       ],
       "f5e08d21": [
         "report-1d22d7da",
@@ -16384,7 +16628,8 @@
         "report-be59bb03",
         "report-cbfb9801",
         "report-d7883d86",
-        "report-e3e38cbe"
+        "report-e3e38cbe",
+        "report-2131c6a0"
       ],
       "capability-ce902be4": [
         "report-2f16ce41",
@@ -16394,7 +16639,9 @@
         "report-af435d1e",
         "report-c0e80833",
         "report-e3913d26",
-        "report-fc297865"
+        "report-fc297865",
+        "report-02071078",
+        "report-248c0b33"
       ],
       "story-c490f1cf": [
         "report-2f686536",
@@ -16578,6 +16825,19 @@
       ],
       "report-c6018598": [
         "comment-f1a8f7ab"
+      ],
+      "report-ae68a81b": [
+        "comment-f1c86d11"
+      ],
+      "report-f2d8131e": [
+        "comment-f699347e"
+      ],
+      "report-31234d67": [
+        "report-2aa5f48c",
+        "report-2d1becf5"
+      ],
+      "6667f6e1": [
+        "report-31234d67"
       ]
     },
     "report_kind": {
@@ -16807,7 +17067,14 @@
         "report-ef3cb592",
         "report-faa78d91",
         "report-fc297865",
-        "report-feb7be57"
+        "report-feb7be57",
+        "report-02071078",
+        "report-0cb0a92d",
+        "report-1ba06894",
+        "report-1d7527b2",
+        "report-2131c6a0",
+        "report-248c0b33",
+        "report-292d4308"
       ],
       "reconciliation_test": [
         "report-01b49bbb",
@@ -17042,7 +17309,9 @@
         "report-cb8b9597",
         "report-db2699bb",
         "report-f3fd71e9",
-        "report-fc827bc7"
+        "report-fc827bc7",
+        "report-2aa5f48c",
+        "report-2d1becf5"
       ],
       "batch_fix_assessment": [
         "report-1d22d7da",
@@ -17086,7 +17355,10 @@
         "report-e60a608f",
         "report-e88e23cb",
         "report-ecc53467",
-        "report-f479b749"
+        "report-f479b749",
+        "report-00cb70b9",
+        "report-0911f3ec",
+        "report-1706ff8a"
       ],
       "reconciliation_review": [
         "report-4393e3ba",
@@ -17105,7 +17377,8 @@
       "regression_start": [
         "report-9260fc31",
         "report-98fc5946",
-        "report-b1a287b0"
+        "report-b1a287b0",
+        "report-31234d67"
       ],
       "reconciliation_plan": [
         "report-abec2d25",
@@ -17630,7 +17903,9 @@
         "comment-e68e8108",
         "comment-eb30f85e",
         "comment-f04ed3ea",
-        "comment-f1a8f7ab"
+        "comment-f1a8f7ab",
+        "comment-f1c86d11",
+        "comment-f699347e"
       ],
       "change": [
         "comment-19fcc79b",
@@ -17688,7 +17963,11 @@
         "report-d7764c73",
         "report-e3913d26",
         "report-ec4cd337",
-        "report-faa78d91"
+        "report-faa78d91",
+        "report-0cb0a92d",
+        "report-1ba06894",
+        "report-248c0b33",
+        "report-292d4308"
       ],
       "uat": [
         "report-01a7f3a5",
@@ -17715,7 +17994,9 @@
         "report-ee4e4822",
         "report-eec5c62c",
         "report-fc297865",
-        "report-feb7be57"
+        "report-feb7be57",
+        "report-02071078",
+        "report-2131c6a0"
       ],
       "ac": [
         "report-0954436b",
@@ -17743,7 +18024,8 @@
         "report-d4ff5ada",
         "report-e87798af",
         "report-eef4fefa",
-        "report-ef3cb592"
+        "report-ef3cb592",
+        "report-1d7527b2"
       ]
     },
     "violations": {
@@ -17838,7 +18120,13 @@
         "report-eef4fefa",
         "report-f479b749",
         "report-faa78d91",
-        "report-fc297865"
+        "report-fc297865",
+        "report-00cb70b9",
+        "report-02071078",
+        "report-1706ff8a",
+        "report-1d7527b2",
+        "report-2131c6a0",
+        "report-248c0b33"
       ],
       "1": [
         "report-1956d8ad",
@@ -17849,7 +18137,17 @@
         "report-a309e3c3",
         "report-a5043438",
         "report-ef3cb592",
-        "report-feb7be57"
+        "report-feb7be57",
+        "report-1ba06894"
+      ],
+      "2": [
+        "report-0911f3ec"
+      ],
+      "8": [
+        "report-0cb0a92d"
+      ],
+      "4": [
+        "report-292d4308"
       ]
     },
     "needs_review_count": {
@@ -17948,14 +18246,24 @@
         "report-f479b749",
         "report-faa78d91",
         "report-fc297865",
-        "report-feb7be57"
+        "report-feb7be57",
+        "report-00cb70b9",
+        "report-02071078",
+        "report-1706ff8a",
+        "report-1ba06894",
+        "report-1d7527b2",
+        "report-2131c6a0",
+        "report-248c0b33",
+        "report-292d4308"
       ],
       "1": [
         "report-02113cbd",
         "report-0801bb53",
         "report-9d308c71",
         "report-a1c346dc",
-        "report-c1bbead2"
+        "report-c1bbead2",
+        "report-0911f3ec",
+        "report-0cb0a92d"
       ]
     },
     "anchor_uid": {
@@ -19132,7 +19440,22 @@
     "COMMENT-647": "comment-e68e8108",
     "COMMENT-683": "comment-eb30f85e",
     "COMMENT-664": "comment-f04ed3ea",
-    "COMMENT-643": "comment-f1a8f7ab"
+    "COMMENT-643": "comment-f1a8f7ab",
+    "COMMENT-635": "comment-f1c86d11",
+    "COMMENT-668": "comment-f699347e",
+    "REPORT-1302": "report-00cb70b9",
+    "REPORT-1284": "report-02071078",
+    "REPORT-1317": "report-0911f3ec",
+    "REPORT-1318": "report-0cb0a92d",
+    "REPORT-1298": "report-1706ff8a",
+    "REPORT-1299": "report-1ba06894",
+    "REPORT-1300": "report-1d7527b2",
+    "REPORT-1306": "report-2131c6a0",
+    "REPORT-1281": "report-248c0b33",
+    "REPORT-1310": "report-292d4308",
+    "REPORT-1272": "report-2aa5f48c",
+    "REPORT-1273": "report-2d1becf5",
+    "REPORT-1262": "report-31234d67"
   },
   "backlinks_index": {
     "request-d05379d0": {
