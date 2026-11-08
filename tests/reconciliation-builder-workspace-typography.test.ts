@@ -212,7 +212,8 @@ const libraryTransport = () => ({
   save: async () => ({}),
   setRole: async () => ({}),
   fileUrl: () => 'about:blank',
-  subscribe: () => () => {},
+  // Same shape as the real `subscribeMaterial` (api.js): a handle with `close`.
+  subscribe: () => ({ close: () => {} }),
 })
 
 const quietChat = {

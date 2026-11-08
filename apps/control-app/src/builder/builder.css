@@ -1138,6 +1138,17 @@ body {
 }
 
 /*
+ * The role pill (Site, Library, …) every Library row carries. It is the quiet,
+ * resting badge: muted ink on the shell border, no accent — the accent is kept
+ * for the exception below. Stated here so the modifier the row emits is the
+ * builder's own, not an unstyled class.
+ */
+.builder-library__badge--role {
+  color: var(--shell-fg-muted);
+  border-color: var(--shell-border);
+}
+
+/*
  * THE ACCENT IS SPENT ON THE EXCEPTION (REQ-181). The badge this replaced said
  * "on this site" — which, under one site per business, was true of nearly every
  * site-role row and therefore coloured the majority to say nothing. This one
