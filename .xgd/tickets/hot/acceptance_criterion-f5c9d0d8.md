@@ -8,10 +8,10 @@ title: The sending address is the template's own when it names one and MAIL_FROM
   route ignores any from on the request
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T04:11:58.521483+00:00'
-updated_at: '2026-11-08T04:11:58.521483+00:00'
+updated_at: '2026-11-08T04:34:12.922642+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
