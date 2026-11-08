@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { mailFrom, MailNotConfiguredError } from '../apps/control-app/src/mail'
+import { mailerFor, mailFrom, MailNotConfiguredError } from '../apps/control-app/src/mail'
 import { route, type RouterEnv } from '../apps/control-app/src/router'
 import { REDACTED } from '../apps/control-app/src/redact'
 import { TemplateRefusedError, renderTemplate } from '../apps/control-app/src/templates'
@@ -27,7 +27,8 @@ import { secretHookHarness } from './support/secret-hook'
 const REPO = path.resolve(import.meta.dirname, '..')
 const CONTROL_APP = path.join(REPO, 'apps', 'control-app')
 const WRANGLER = path.join(CONTROL_APP, 'wrangler.toml')
-const FROM_ADDRESS = 'no-reply@1stcontact.io'
+// REQ-205: the fallback carries a display name in RFC 5322 form.
+const FROM_ADDRESS = '1st Contact <no-reply@1stcontact.io>'
 
 const hook = secretHookHarness('bin/deploy.d/secrets/20-resend-api-key', 'RESEND_API_KEY')
 afterAll(() => hook.dispose())
@@ -185,7 +186,7 @@ describe('story-7d255580 — rendering', () => {
 })
 
 describe('story-7d255580 — the sending configuration', () => {
-  it('test_UAT_AC2279_from_address_is_configured_on_both_sides_and_absent_refuses', () => {
+  it('test_UAT_AC2279_from_address_is_configured_on_both_sides_and_absent_refuses', async () => {
     const config = readWranglerConfig(WRANGLER)
     expect(config.topLevel.vars).toContain('MAIL_FROM')
     expect(config.envs.production?.vars ?? []).toContain('MAIL_FROM')
@@ -218,6 +219,27 @@ describe('story-7d255580 — the sending configuration', () => {
       expect(caught).toBeInstanceOf(MailNotConfiguredError)
       expect((caught as Error).message).toContain('MAIL_FROM')
     }
+
+    // The display-name form reaches the provider verbatim: nothing between the
+    // configured value and the provider takes it apart.
+    const requests: RequestInit[] = []
+    const provider = (async (_url: string, init: RequestInit) => {
+      requests.push(init)
+      return Response.json({ id: 'msg_ac2279' })
+    }) as unknown as typeof fetch
+    const sent = await mailerFor(
+      { RESEND_API_KEY: 're_story7d255580_ac2279_key', MAIL_FROM: FROM_ADDRESS },
+      { fetch: provider },
+    )({
+      to: 'invitee@example.com',
+      from: mailFrom({ MAIL_FROM: FROM_ADDRESS }),
+      subject: 'A subject',
+      body: '<p>A body</p>',
+    })
+    expect(sent.providerId).toBe('msg_ac2279')
+    expect(requests).toHaveLength(1)
+    const payload = JSON.parse(requests[0].body as string) as { from?: unknown }
+    expect(payload.from).toBe('1st Contact <no-reply@1stcontact.io>')
   })
 
   it('test_UAT_AC2280_mail_credential_is_uncommitted_redacted_and_resolved_by_the_deploy_hook', async () => {

@@ -251,8 +251,19 @@ describe('story-7d255580 — the sender', () => {
     // The provider's HTML body field carries the rendered body, button and all.
     expect(payload.html).toBe(rendered.body)
     expect(String(payload.html)).toMatch(new RegExp(`<a\\s[^>]*href="${url.replace(/[./]/g, '\\$&')}"`))
-    // One part: no plain-text alternative is submitted beside it.
-    expect(payload.text).toBeUndefined()
+    // REQ-205 supersedes the single-part send: beside the authored HTML the
+    // provider receives a plain-text part derived from it — non-empty, free of
+    // tags, and still carrying the call to action's URL verbatim (REQ-205's
+    // falsifier is a text part that lost the link the HTML carries).
+    expect(typeof payload.text).toBe('string')
+    const text = payload.text as string
+    expect(text.trim()).not.toBe('')
+    // A tag is `<name>` / `<name attrs>` / `</name>`; the `<https://…>` an anchor
+    // renders to in text is an address, not a tag.
+    expect(text).not.toMatch(/<\/?[a-z][a-z0-9]*(?:\s[^>]*)?\/?>/i)
+    expect(text).toContain(url)
+    // One body authored: the template carries no separate text field.
+    expect(invite.fields).not.toHaveProperty('text')
   })
 })
 
