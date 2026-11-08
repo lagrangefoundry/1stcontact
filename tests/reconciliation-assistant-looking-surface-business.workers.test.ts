@@ -16,19 +16,28 @@ import { fidelityOperations } from '../tools/generate/src/cli/ai/fidelity-core'
 import { r2ReferenceStore } from '../tools/generate/src/store/r2-reference-store'
 import { bundleNameFor, type ReferenceStore } from '../tools/generate/src/store/reference-store'
 import { writeBundle, writeMultiState } from '../tools/generate/src/cli/capture/bundle'
-import type { Capture, CaptureResult } from '../tools/generate/src/cli/capture/types'
+import type { Capture, CaptureResult, Viewport } from '../tools/generate/src/cli/capture/types'
+import type {
+  PuppeteerBrowser,
+  PuppeteerPage,
+  PuppeteerRequest,
+} from '../tools/generate/src/cli/capture/cf-driver'
+import { HINTS_SCRIPT } from '../tools/generate/src/cli/capture/hints'
 import { encodePng } from '../tools/generate/src/cli/png'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
 import { syntheticCapture, syntheticMultiState } from './support/reference-fixtures'
 import { fakeBrowser } from './support/fake-puppeteer'
+import { CANNED_HINTS, signalsFor } from './support/fake-capture-driver'
 import { calls, says, scriptedClient, type ModelStep, type ScriptedClient } from './support/scripted-model-client'
 
 /**
  * **The assistant's eyes, bound to the business on the Worker** (story-58b2cec4,
- * REQ-206): AC-2372 (bound to the request's business), AC-2373 (the browser
- * budget) and AC-2024's no-private-bucket branch.
+ * REQ-206): AC-2372 (bound to the request's business, including a live
+ * `capture_site` driven through a turn), AC-2373 (the browser budget) and
+ * AC-2024's no-private-bucket branch — where a real Worker opens no chat at all,
+ * and the looking surface's own BLOBS check is defence in depth.
  *
  * Everything runs inside workerd through the Worker's own `route()` and chat
  * host, over real D1 and real R2. The two doubles are the external boundaries:
@@ -207,6 +216,93 @@ async function plantCapture(references: ReferenceStore, host: string): Promise<s
   return name
 }
 
+/**
+ * A puppeteer-shaped browser a live `capture_site` can run to completion on.
+ *
+ * `fakeBrowser` answers every page script with `true`, which the capture
+ * pipeline cannot read; this one answers them the way the shared fake capture
+ * driver does (as the deployed AC-2080 UAT's browser does). Every request still
+ * goes through the production driver's own interception handler, so whether a
+ * request was fulfilled in process or sent to the network is observed, not
+ * assumed. `alsoRequest` is issued on every navigation after the document — a
+ * page naming other addresses, e.g. our own host.
+ */
+function captureBrowser(png: Uint8Array, alsoRequest: string[] = []) {
+  const log = {
+    requested: [] as string[],
+    fulfilled: [] as { url: string; status: number }[],
+    continued: [] as string[],
+  }
+  let launches = 0
+  const issue = (handlers: ((req: PuppeteerRequest) => void)[], url: string) =>
+    new Promise<'fulfilled' | 'continued'>((resolve) => {
+      const req: PuppeteerRequest = {
+        url: () => url,
+        respond: async (r) => {
+          log.fulfilled.push({ url, status: r.status })
+          resolve('fulfilled')
+        },
+        continue: async () => {
+          log.continued.push(url)
+          resolve('continued')
+        },
+      }
+      log.requested.push(url)
+      for (const h of handlers) h(req)
+    })
+  const page = (): PuppeteerPage => {
+    const handlers: ((req: PuppeteerRequest) => void)[] = []
+    let width = 1280
+    let doc = ''
+    return {
+      setViewport: async (v: Viewport) => {
+        width = v.width
+      },
+      emulateMediaFeatures: async () => {},
+      setRequestInterception: async () => {},
+      on: (event: string, handler: (arg: never) => void) => {
+        if (event === 'request') handlers.push(handler as (req: PuppeteerRequest) => void)
+        return undefined
+      },
+      goto: async (url: string) => {
+        if ((await issue(handlers, url)) === 'continued') {
+          doc = '<html><head><title>The Old Bakery</title></head><body><h1>Fresh bread</h1></body></html>'
+        }
+        for (const extra of alsoRequest) await issue(handlers, extra)
+        return {}
+      },
+      evaluate: async (script: string) => (script === HINTS_SCRIPT ? CANNED_HINTS : signalsFor(width)),
+      addStyleTag: async () => ({}),
+      waitForNetworkIdle: async () => {},
+      screenshot: async () => png,
+      content: async () => doc,
+    }
+  }
+  const launch = async (): Promise<PuppeteerBrowser> => {
+    launches += 1
+    return {
+      createBrowserContext: async () => ({ newPage: async () => page(), close: async () => {} }),
+      close: async () => {},
+    }
+  }
+  return { launch, log, launches: () => launches }
+}
+
+/** What `capture_site` answers, as the model reads it. */
+interface CaptureAnswer {
+  bundle: string
+  url: string
+  reference: { adopted: boolean; uid: string | null; created: boolean; why: string | null }
+  refusals: unknown[]
+}
+
+/** The JSON object inside a (framed) tool result's text. */
+function answerOf(content: unknown): CaptureAnswer {
+  const text = textOf(content)
+  expect(text.startsWith('Error'), text.slice(0, 300)).toBe(false)
+  return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)) as CaptureAnswer
+}
+
 beforeAll(async () => {
   await APPLIED
 })
@@ -359,6 +455,161 @@ describe('the Worker binds the looking surface to the request business', () => {
     // None of those requests leased a browser.
     expect(draftBrowser.launches()).toBe(1)
   })
+
+  it('test_UAT_AC2372_capture_site_in_a_worker_turn_stores_in_the_businesss_bucket_and_adopts_it', async () => {
+    // The live path, end to end: the model calls `capture_site` inside a
+    // consultant turn on the Worker's own chat routes, and everything from the
+    // Toolbox to the adoption closure `sessionFidelity` binds is production code.
+    // Only the browser (at the puppeteer seam) and the describer are doubled.
+    const A = 'ac2372-live-a'
+    const B = 'ac2372-live-b'
+    const a = await business(A)
+    const b = await business(B)
+    const describer = async () => ({ text: 'An old bakery site.\n\nCream and brown.', model: 'stub/vision-1' })
+    // The captured page also names OUR host: a capture must not answer it in
+    // process out of our store.
+    const ourOwn = `${ORIGIN}/preview/${a.slug}/draft/`
+    const browser = captureBrowser(await realPng(), [ourOwn])
+    const target = 'http://oldbakery.test/'
+
+    const captured = await turn(
+      a.scope,
+      a.slug,
+      [
+        calls('capture_site', { url: target }),
+        calls('capture_site', { url: target }),
+        calls('list_references', {}),
+        says('Captured the old site.'),
+      ],
+      { launch: browser.launch, describeImage: describer },
+    )
+    expect(captured.frames.at(-1)?.kind).toBe('done')
+    expect(browser.launches()).toBeGreaterThan(0)
+
+    // The capture succeeded and was adopted, as the model was told.
+    const first = answerOf(toolResultOf(captured.client, 1))
+    expect(first.url).toBe(target)
+    expect(typeof first.bundle).toBe('string')
+    expect(first.bundle.length).toBeGreaterThan(0)
+    expect(first.reference.adopted, String(first.reference.why)).toBe(true)
+    expect(first.reference.created).toBe(true)
+    expect(first.reference.why).toBeNull()
+    const bundle = first.bundle
+
+    // Its objects are in A's own private bucket area — never in SITES, never under B.
+    const priv = await (env.BLOBS as R2Bucket).list({ prefix: `t/${A}/ref/` })
+    expect(priv.objects.length).toBeGreaterThan(0)
+    expect((await (env.SITES as R2Bucket).list({ prefix: `t/${A}/ref/` })).objects).toEqual([])
+    expect((await (env.BLOBS as R2Bucket).list({ prefix: `t/${B}/ref/` })).objects).toEqual([])
+    expect(await (await referencesOf(A)).list()).toContain(bundle)
+    expect(await (await referencesOf(B)).list()).not.toContain(bundle)
+
+    // A described, third-party `reference` in A's corpus.
+    const ticketsA = await ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }, { businessId: A })
+    const { tickets: refsA } = await ticketsA.query({ type: 'reference' })
+    const adopted = refsA.find((t) => t.uid === first.reference.uid)
+    expect(adopted).toBeDefined()
+    expect(adopted!.fields.bundle).toBe(bundle)
+    expect(adopted!.fields.rights).toBe('third_party')
+    expect(JSON.stringify(adopted)).toContain('An old bakery site.')
+
+    // Capturing the same page again in the same turn re-adopts, creating nothing.
+    const second = answerOf(toolResultOf(captured.client, 2))
+    expect(second.bundle).toBe(bundle)
+    expect(second.reference.adopted).toBe(true)
+    expect(second.reference.created).toBe(false)
+    expect(second.reference.uid).toBe(first.reference.uid)
+    const { tickets: refsAfter } = await ticketsA.query({ type: 'reference' })
+    expect(refsAfter.filter((t) => t.fields.bundle === bundle)).toHaveLength(1)
+
+    // A lists it in the same turn.
+    expect(textOf(toolResultOf(captured.client, 3))).toContain(bundle)
+
+    // The capture got no in-process answering: the outside page AND the request
+    // naming our own host both went to the network; nothing was fulfilled.
+    expect(browser.log.continued).toContain(target)
+    expect(browser.log.continued).toContain(ourOwn)
+    expect(browser.log.fulfilled).toEqual([])
+
+    // B's corpus does not hold it, and B neither lists it nor can picture it.
+    const ticketsB = await ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }, { businessId: B })
+    const { tickets: refsB } = await ticketsB.query({ type: 'reference' })
+    expect(refsB.filter((t) => t.fields.bundle === bundle)).toEqual([])
+    resetAiHost()
+    resetChatHost()
+    const listedB = await turn(
+      b.scope,
+      b.slug,
+      [calls('list_references', {}), calls('screenshot', { of: { kind: 'reference', bundle } }), says('None.')],
+      { launch: fakeBrowser({ png: await realPng() }).launch },
+    )
+    expect(textOf(toolResultOf(listedB.client, 1))).not.toContain(bundle)
+    const pictureB = toolResultOf(listedB.client, 2)
+    expect(hasImage(pictureB)).toBe(false)
+    expect(textOf(pictureB)).toContain(bundle)
+
+    // A `screenshot` of an outside address goes over the network: continued, not
+    // fulfilled in process.
+    resetAiHost()
+    resetChatHost()
+    const outside = 'https://outside.example/'
+    const urlBrowser = fakeBrowser({ png: await realPng() })
+    const shot = await turn(
+      a.scope,
+      a.slug,
+      [calls('screenshot', { of: { kind: 'url', url: outside } }), says('That is the outside page.')],
+      { launch: urlBrowser.launch },
+    )
+    expect(hasImage(toolResultOf(shot.client, 1))).toBe(true)
+    expect(urlBrowser.log.requested[0]).toBe(outside)
+    expect(urlBrowser.log.continued).toContain(outside)
+    expect(urlBrowser.log.fulfilled.filter((f) => f.url === outside)).toEqual([])
+  })
+
+  it('test_UAT_AC2372_a_capture_that_cannot_be_adopted_is_still_stored_and_says_it_was_not_written_up', async () => {
+    // ── Through a Worker turn: adoption is wired but fails (the index is down). ──
+    const id = 'ac2372-unadopted'
+    const { scope, slug } = await business(id)
+    const browser = captureBrowser(await realPng())
+    const target = 'http://unadopted.test/'
+    const failingIndex: RouterDeps['index'] = async () => async () => {
+      throw new Error('the material index is unreachable')
+    }
+    const captured = await turn(
+      scope,
+      slug,
+      [calls('capture_site', { url: target }), says('Captured, but not written up.')],
+      {
+        launch: browser.launch,
+        describeImage: async () => ({ text: 'A site.\n\nPlain.', model: 'stub/vision-1' }),
+        index: failingIndex,
+      },
+    )
+    expect(captured.frames.at(-1)?.kind).toBe('done')
+    const answer = answerOf(toolResultOf(captured.client, 1))
+    // The capture itself succeeded and is stored in this business's bucket…
+    expect(answer.url).toBe(target)
+    expect(await (await referencesOf(id)).list()).toContain(answer.bundle)
+    expect((await (env.BLOBS as R2Bucket).list({ prefix: `t/${id}/ref/` })).objects.length).toBeGreaterThan(0)
+    // …and the model is told it was not written up, and why.
+    expect(answer.reference.adopted).toBe(false)
+    expect(answer.reference.uid).toBeNull()
+    expect(answer.reference.why).toContain('the material index is unreachable')
+
+    // ── The production assembly with no adoption at all (`fidelityDeps` without
+    // the closure): the capture still stores, and says it was not indexed. ──
+    const store = await storeFor(routerEnv(), scope)
+    const references = await referencesOf(id)
+    const bare = captureBrowser(await realPng())
+    const ops = fidelityOperations(
+      fidelityDeps({} as ShotEnv, previewRenderer(store), references, ORIGIN, slug, { launch: bare.launch }),
+    )
+    const plain = (await ops.capture_site({ url: 'http://nocorpus.test/' })) as CaptureAnswer
+    expect(await references.list()).toContain(plain.bundle)
+    expect(plain.reference.adopted).toBe(false)
+    expect(plain.reference.uid).toBeNull()
+    expect(plain.reference.why).toMatch(/stored but not indexed/)
+  })
 })
 
 describe('a session has a bounded number of live-page looks', () => {
@@ -468,18 +719,77 @@ describe('a session has a bounded number of live-page looks', () => {
   })
 })
 
-describe('a Worker with a browser but no private bucket still edits', () => {
-  it('test_UAT_AC2024_a_worker_with_a_browser_but_no_private_bucket_opens_an_editing_assistant_with_no_eyes', async () => {
+describe('a Worker with a browser but no private bucket opens no chat at all', () => {
+  it('test_UAT_AC2024_a_worker_with_a_browser_but_no_private_bucket_refuses_the_session_naming_the_missing_binding', async () => {
+    // THE REAL DEPLOYMENT, NO SEAMS REPLACED: a browser is injected, no BLOBS
+    // binding is configured, and the chat's transcript store is the production
+    // `ticketStoreFor` — which needs BLOBS ([[REQ-160]]). So no session opens at
+    // all, and the looking surface's own BLOBS check is never what decides.
+    const id = 'ac2024-nobucket-real'
+    const { scope, slug } = await business(id)
+    const browser = fakeBrowser({ png: await realPng() })
+    const client = scriptedClient([says('Never asked.')])
+    setModelClient(client)
+    const deps: RouterDeps = { launch: browser.launch }
+    const noBucket = routerEnv({ BLOBS: undefined })
+    const post = (path: string, body: unknown, workerEnv: RouterEnv) =>
+      route(
+        new Request(`${ORIGIN}${path}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+        workerEnv,
+        scope,
+        deps,
+      )
+
+    // Opening the session is refused with the router's ordinary failure,
+    // carrying the transcript store's sentence naming the missing binding.
+    const opened = await post('/api/ai/session', { slug }, noBucket)
+    expect(opened.status).toBe(500)
+    const refused = (await opened.json()) as { error?: string; sessionId?: string; ready?: boolean }
+    expect(refused.sessionId).toBeUndefined()
+    expect(refused.ready).toBeUndefined()
+    expect(refused.error).toContain('The BLOBS binding is not configured')
+    // A prompt cannot get a turn either.
+    const prompted = await post('/api/ai/prompt', { sessionId: 'any', text: 'Change the headline.' }, noBucket)
+    expect(prompted.status).toBe(500)
+    expect(((await prompted.json()) as { error?: string }).error).toContain('The BLOBS binding is not configured')
+    // Nothing was leased and the model was never asked.
+    expect(browser.launches()).toBe(0)
+    expect(client.seen).toHaveLength(0)
+
+    // The failure is not cached: once the binding is there, the same business
+    // opens a session.
+    const repaired = await post('/api/ai/session', { slug }, routerEnv())
+    expect(repaired.status).toBe(200)
+    expect(((await repaired.json()) as { ready: boolean }).ready).toBe(true)
+  })
+
+  it('test_UAT_AC2024_defence_in_depth_the_looking_surface_withholds_its_operations_without_a_private_bucket', async () => {
     const id = 'ac2024-nobucket'
     const { scope, slug } = await business(id)
     const browser = fakeBrowser({ png: await realPng() })
-    // THE CONFIGURATION UNDER TEST: a browser is injected, but no BLOBS binding
-    // — nowhere private to keep what is looked at. The chat's own transcript
-    // store is supplied through the router's `tickets` seam, so the claim
-    // isolated here is the looking surface's composition, not the transcript's.
+    // DEFENCE IN DEPTH, NOT A DEPLOYMENT: a real Worker with no BLOBS opens no
+    // chat at all (the case above). Here the chat's transcript store is supplied
+    // through the router's `tickets` seam, so the only BLOBS check left in play
+    // is the looking surface's own — `sessionFidelity` — and what is asserted is
+    // that it withholds the surface rather than composing one with nowhere
+    // private to keep what is looked at.
     const noBucket: Partial<RouterEnv> = { BLOBS: undefined }
     const tickets: RouterDeps['tickets'] = (_env, s, opts) =>
       ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }, s, opts)
+
+    // Composed directly, the surface is absent without BLOBS and present with it.
+    const realTickets = await ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }, scope)
+    const siteStore = await storeFor(routerEnv(), scope)
+    expect(
+      await sessionFidelity(routerEnv(noBucket), scope, { launch: browser.launch }, siteStore, realTickets, ORIGIN),
+    ).toBeNull()
+    expect(
+      await sessionFidelity(routerEnv(), scope, { launch: browser.launch }, siteStore, realTickets, ORIGIN),
+    ).not.toBeNull()
 
     const { client, frames, ready } = await turn(
       scope,

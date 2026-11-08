@@ -5,6 +5,7 @@ import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
   InvalidMessageError,
+  RESEND_ENDPOINT,
   capturingMailer,
   mailerFor,
   textFrom,
@@ -143,19 +144,30 @@ async function mint(email: string): Promise<string> {
   return `${signed}.${b64url(new Uint8Array(signature))}`
 }
 
-function stubJwks(): void {
+/**
+ * Stubs the global fetch: Access's JWKS, and — the only other boundary we do not
+ * own — the mail provider, whose request bodies are returned so what a route
+ * actually DELIVERED is readable.
+ */
+function stubJwks(): Record<string, unknown>[] {
+  const delivered: Record<string, unknown>[] = []
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       if (url === certsUrl(TEAM)) {
         return new Response(JSON.stringify(jwks), {
           headers: { 'content-type': 'application/json' },
         })
       }
+      if (url === RESEND_ENDPOINT) {
+        delivered.push(JSON.parse(String(init?.body)) as Record<string, unknown>)
+        return Response.json({ id: `msg_story7d25_route_${delivered.length}` })
+      }
       throw new Error(`unexpected fetch to ${url}`)
     }),
   )
+  return delivered
 }
 
 function workerEnv(): Env {
@@ -348,6 +360,31 @@ describe('story-7d255580 — the sending address is per template (REQ-205)', () 
       expect((await messagesFor(store, contact.id))[0].from).toBe(DEPLOYMENT_FROM)
     }
 
+    // The address is NOT token-substituted: a template `from` carrying a literal
+    // `{{cta_url}}` is sent and recorded exactly as written, while the body's
+    // token in the same send IS filled.
+    await tick()
+    const tokenFrom = 'Invites {{cta_url}} <invite@1stcontact.io>'
+    await store.create({
+      type: TEMPLATE_TYPE,
+      title: 'Invite, tokened sender',
+      fields: {
+        template_key: 'invite',
+        subject: 'Come in',
+        placeholders: ['cta_url'],
+        from: tokenFrom,
+      },
+      body: '<p>Come in: <a href="{{cta_url}}">open your account</a></p>',
+    })
+    const tokened = (await addContact(identityEnv(), scope(business), { email: anEmail() })).person
+    const tp = recordingPort()
+    const [tokenResult] = await invitePeople({ ...deps, send: tp.send }, [tokened.id])
+    expect(tokenResult.status).toBe('sent')
+    expect(tp.sent[0].from).toBe(tokenFrom)
+    expect(tp.sent[0].from).not.toContain(CTA)
+    expect(tp.sent[0].body).toContain(CTA)
+    expect((await messagesFor(store, tokened.id))[0].from).toBe(tokenFrom)
+
     // A sign-in link comes from MAIL_FROM, never from the invite address.
     const signinBusiness = 'story7d25-ac2371-signin'
     const signinStore = await storeOf(signinBusiness)
@@ -366,8 +403,10 @@ describe('story-7d255580 — the sending address is per template (REQ-205)', () 
     expect((await messagesFor(signinStore, member.id))[0].from).toBe(DEPLOYMENT_FROM)
 
     // Through the Worker: the invite form's draft shows the template's address
-    // (not the fallback), and a forged `from` on the send is ignored.
-    stubJwks()
+    // (not the fallback), and a forged `from` on the send is ignored — in the
+    // record AND in what the provider was actually handed.
+    const delivered = stubJwks()
+    const routeEnv = (): Env => ({ ...workerEnv(), RESEND_API_KEY: KEY }) as Env
     const owner = anEmail()
     const seeded = await inviteAccount(identityEnv(), {
       email: owner,
@@ -379,7 +418,7 @@ describe('story-7d255580 — the sending address is per template (REQ-205)', () 
 
     const draftResponse = await worker.fetch(
       new Request(url, { headers: { 'cf-access-jwt-assertion': await mint(owner) } }),
-      workerEnv(),
+      routeEnv(),
     )
     expect(draftResponse.status).toBe(200)
     const draft = (await draftResponse.json()) as { from: string }
@@ -403,13 +442,18 @@ describe('story-7d255580 — the sending address is per template (REQ-205)', () 
           body: '<p>Edited: <a href="{{cta_url}}">come in</a></p>',
         }),
       }),
-      workerEnv(),
+      routeEnv(),
     )
     expect(sendResponse.status).toBe(200)
     const [record] = await messagesFor(ownerStore, target.id)
     expect(record, 'the invite recorded nothing').toBeTruthy()
     expect(record.from).toBe(INVITE_FROM)
     expect(record.from).not.toContain('attacker@example.com')
+    // What was DELIVERED: exactly one message reached the provider, from the
+    // template's address, and the forged value appears nowhere in it.
+    expect(delivered, 'the route delivered nothing to the provider').toHaveLength(1)
+    expect(delivered[0].from).toBe(INVITE_FROM)
+    expect(JSON.stringify(delivered[0])).not.toContain('attacker@example.com')
   })
 
   it('test_UAT_AC2282_template_type_requires_key_subject_body_with_optional_placeholders_and_from', async () => {

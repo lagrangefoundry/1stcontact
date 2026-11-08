@@ -161,6 +161,14 @@ const STORAGE = member(
   'Storage and revisions',
   'A draft is private until publishing snapshots it into a numbered immutable revision.',
 )
+/** The same document as {@link STORAGE} — same id, same file — under a new title. */
+const STORAGE_TITLE = 'Storage and revisions'
+const RETITLED_TITLE = 'Publishing drafts as numbered revisions'
+const RETITLED_STORAGE = member(
+  'DOC-B',
+  RETITLED_TITLE,
+  'A draft is private until publishing snapshots it into a numbered immutable revision.',
+)
 const TYPOGRAPHY = member(
   'DOC-C',
   'Typography and colour palette',
@@ -228,6 +236,8 @@ describe('BUG-65 — which documents exist is the build’s answer, not a senten
   let after: string
   let primingFileBefore: string
   let primingFileAfter: string
+  let retitled: string
+  let primingFileRetitled: string
 
   const PRIMING_FILE = 'tools/generate/src/cli/ai/priming.json'
 
@@ -248,6 +258,13 @@ describe('BUG-65 — which documents exist is the build’s answer, not a senten
     await buildIndexesAndMap(root)
     primingFileAfter = readFileSync(PRIMING_FILE, 'utf8')
     after = await assembledPriming(root)
+
+    // A third build: one document keeps its id and its file and changes only its
+    // title. Again nothing authored is touched.
+    seed(root, { 'DOC-B.md': RETITLED_STORAGE, 'DOC-C.md': TYPOGRAPHY })
+    await buildIndexesAndMap(root)
+    primingFileRetitled = readFileSync(PRIMING_FILE, 'utf8')
+    retitled = await assembledPriming(root)
   }, 180_000)
 
   afterAll(() => {
@@ -279,6 +296,21 @@ describe('BUG-65 — which documents exist is the build’s answer, not a senten
     // And the assembled document still fits the declared budget with the map in
     // it — the landscape is the part that grows with the corpus.
     expect(after.length).toBeLessThan(MAX_PRIMING_CHARS)
+  })
+
+  it('test_UAT_AC2377_a_document_retitled_in_the_corpus_is_retitled_in_the_session', () => {
+    // BUG-65's third case: a title list drifts on a retitle the way an id list
+    // drifts on a demotion. The session is told the title the build saw.
+    expect(after).toContain(STORAGE_TITLE)
+    expect(after).not.toContain(RETITLED_TITLE)
+    expect(retitled).toContain(RETITLED_TITLE)
+    expect(retitled).not.toContain(STORAGE_TITLE)
+    // Still the same document, under the same id.
+    expect(retitled).toContain('DOC-B')
+    // And it cost no edit to the authored priming, which still fits the budget.
+    expect(primingFileRetitled).toBe(primingFileBefore)
+    expect(retitled.length).toBeLessThan(MAX_PRIMING_CHARS)
+    expect(retitled).toContain(primingText(PURPOSE_ENTRY))
   })
 
   it('test_UAT_AC2377_the_session_is_still_told_to_go_and_read_its_method', () => {

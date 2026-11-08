@@ -22,13 +22,27 @@
  */
 
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { ANCHOR_NAMES, anchorAxis, anchorValue } from '../packages/site-schema/src/anchors'
-import { measureScript } from '../tools/generate/src/cli/capture/measure-svg'
+import { ANCHOR_NAMES, anchorAxis, anchorValue, recordedRelations } from '../packages/site-schema/src/anchors'
+import {
+  MEASURE_GLYPH_LIMIT,
+  MEASURE_NODE_LIMIT,
+  measureScript,
+} from '../tools/generate/src/cli/capture/measure-svg'
 import type { RawMeasurement, RawNodeMeasurement } from '../tools/generate/src/cli/capture/measure-svg'
+import type { BrowserDriver, BrowserDriverFactory } from '../tools/generate/src/cli/capture/types'
+import { browserMeasurer } from '../tools/generate/src/cli/ai/measure-core'
+import { nodeDeps, resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host'
+import { openSession, streamPrompt } from '../tools/generate/src/cli/ai/host-core'
+import type { HostDeps } from '../tools/generate/src/cli/ai/host-core'
+import { cmdNew } from '../tools/generate/src/cli/commands'
+import { memoryReferenceStore } from '../tools/generate/src/store/memory-reference-store'
+import { calls, says, scriptedClient } from './support/scripted-model-client'
+import type { ModelRequest } from './support/scripted-model-client'
 import {
   aiCore,
   createL1Toolbox,
@@ -392,6 +406,209 @@ type Measured = { nodes: Record<string, unknown>[]; fonts: Record<string, unknow
 const byRef = (m: Measured, ref: string) => m.nodes.find((n) => n.ref === ref) as Record<string, never>
 const right = (b: number[]) => b[0] + b[2]
 
+// ── a scripted browser driver, for the production measurer ───────────────────
+
+/** This deployment's own origin, as a host would hand it over. */
+const ORIGIN = 'https://app.example.test'
+
+/**
+ * A `BrowserDriver` that records every page it is asked to open, every script it
+ * is asked to run, and every close — and answers each script with `answer`. It
+ * stands in for the browser only: `browserMeasurer`, which builds the URL and
+ * owns the open/close discipline, is the production one.
+ */
+function scriptedDriver(answer: (script: string) => unknown) {
+  const log = { made: 0, opened: [] as string[], queried: [] as string[], closed: 0 }
+  const factory: BrowserDriverFactory = async () => {
+    log.made += 1
+    const driver: BrowserDriver = {
+      navigate: async (url: string) => {
+        log.opened.push(url)
+      },
+      screenshot: async () => new Uint8Array(),
+      query: (async (script: string) => {
+        log.queried.push(script)
+        return await answer(script)
+      }) as BrowserDriver['query'],
+      responses: () => [],
+      diagnostics: () => ({}) as ReturnType<BrowserDriver['diagnostics']>,
+      content: async () => '',
+      close: async () => {
+        log.closed += 1
+      },
+    }
+    return driver
+  }
+  return { factory, log }
+}
+
+// ── a scripted page, for what the shipped script does with what it finds ─────
+
+/**
+ * One element of a scripted drawing. The same spec yields both the SVG source
+ * that is written through `write_image` and the DOM the shipped `measureScript`
+ * walks, so the two cannot disagree about what the drawing holds.
+ */
+interface Spec {
+  tag: string
+  id?: string
+  attrs?: Record<string, string>
+  text?: string
+  /** `getBBox()` throws on this element, as it can for a node with no geometry. */
+  unreadable?: boolean
+  children?: Spec[]
+}
+
+function svgOf(spec: Spec): string {
+  const attrs = { ...(spec.id ? { id: spec.id } : {}), ...(spec.attrs ?? {}) }
+  const open = `<${spec.tag}${Object.entries(attrs)
+    .map(([k, v]) => ` ${k}="${v}"`)
+    .join('')}`
+  const inner = (spec.text ?? '') + (spec.children ?? []).map(svgOf).join('')
+  return inner === '' && spec.tag !== 'text' ? `${open}/>` : `${open}>${inner}</${spec.tag}>`
+}
+
+/** The identity — every node sits in root space, untransformed. */
+const IDENTITY = {
+  a: 1,
+  b: 0,
+  c: 0,
+  d: 1,
+  e: 0,
+  f: 0,
+  inverse: () => IDENTITY,
+  multiply: <M>(m: M) => m,
+}
+
+/** The DOM element the script sees for `spec`: 5 user units per character. */
+function elementOf(spec: Spec): Record<string, unknown> {
+  const children = (spec.children ?? []).map(elementOf)
+  const attrs: Record<string, string> = { ...(spec.id ? { id: spec.id } : {}), ...(spec.attrs ?? {}) }
+  const text = spec.text ?? ''
+  return {
+    tagName: spec.tag,
+    children,
+    textContent: text + children.map((c) => c.textContent as string).join(''),
+    getAttribute: (name: string) => attrs[name] ?? null,
+    getScreenCTM: () => IDENTITY,
+    getBBox: () => {
+      if (spec.unreadable) throw new Error('InvalidStateError: no box')
+      return { x: 0, y: 0, width: Math.max(text.length * 5, 10), height: 10 }
+    },
+    getNumberOfChars: () => text.length,
+    getStartPositionOfChar: () => ({ x: 0, y: 10 }),
+    getComputedTextLength: () => text.length * 5,
+    getExtentOfChar: (i: number) => ({ x: i * 5, y: 0, width: 5, height: 10 }),
+  }
+}
+
+/**
+ * Run the shipped `measureScript` against a scripted page holding `root`, and
+ * hand back its JSON value as a driver's `query()` would. No browser is involved;
+ * what is exercised is the script's own walk, caps and omissions.
+ */
+async function inScriptedPage(script: string, root: Spec): Promise<RawMeasurement> {
+  const svg = elementOf(root)
+  const shadow = {
+    set innerHTML(_source: string) {
+      /* the DOM is `root`'s, built from the same spec as the source */
+    },
+    querySelector: (selector: string) => (selector === 'svg' ? svg : null),
+  }
+  const host = { setAttribute: () => undefined, remove: () => undefined, attachShadow: () => shadow }
+  const ctx = {
+    font: '',
+    letterSpacing: '0px',
+    measureText: (t: string) => ({
+      width: t.length * 5,
+      actualBoundingBoxLeft: 0,
+      actualBoundingBoxRight: t.length * 5,
+      actualBoundingBoxAscent: 7,
+      actualBoundingBoxDescent: 2,
+      fontBoundingBoxAscent: 9,
+      fontBoundingBoxDescent: 3,
+    }),
+  }
+  const document = {
+    createElement: (tag: string) => (tag === 'canvas' ? { getContext: () => ctx } : host),
+    body: { appendChild: () => undefined },
+    fonts: { load: async () => [], ready: Promise.resolve() },
+  }
+  const getComputedStyle = () => ({
+    fontStyle: 'normal',
+    fontWeight: '400',
+    fontSize: '10px',
+    fontFamily: 'Satoshi',
+    letterSpacing: 'normal',
+  })
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const run = new Function('document', 'getComputedStyle', `return ${script}`) as (
+    d: unknown,
+    g: unknown,
+  ) => Promise<unknown>
+  return JSON.parse(JSON.stringify(await run(document, getComputedStyle))) as RawMeasurement
+}
+
+/** A root `<svg>` around `children`. */
+const svgRoot = (children: Spec[]): Spec => ({
+  tag: 'svg',
+  attrs: { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 1000 100' },
+  children,
+})
+
+/**
+ * The operations over a fresh store, measuring through the PRODUCTION
+ * `browserMeasurer` with a driver that runs the shipped script in a scripted
+ * page built from `root`. Writes `root` as the drawing `name`.
+ */
+async function scriptedPageSurface(name: string, root: Spec) {
+  site = makeMemorySite()
+  const driver = scriptedDriver((script) => inScriptedPage(script, root))
+  const measurer = browserMeasurer({ slug: site.slug, origin: ORIGIN, driverFactory: driver.factory })
+  const ops = l1Operations(site.slug, site.opts, {}, measurer)
+  await ops.write_image({ name, svg: svgOf(root) })
+  expect(await site.store.listAssets(site.slug)).toContain(`${name}.svg`)
+  return { ops, driver }
+}
+
+// ── the real host, for what a session is given ───────────────────────────────
+
+const workspaces: string[] = []
+
+/** A workspace with one fresh site in it, as `1c new` makes. */
+function workspace(slug: string): string {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'measure-'))
+  workspaces.push(cwd)
+  cmdNew(slug, { cwd })
+  return cwd
+}
+
+/** Node's own host deps for the workspace, with `fidelity` as given. */
+async function hostFor(cwd: string, fidelity: HostDeps['fidelity']): Promise<HostDeps> {
+  const base = await nodeDeps({ cwd })
+  return { ...base, logDir: undefined, junctions: base.lib.memoryJunctions(), fidelity }
+}
+
+async function turnIn(cwd: string, slug: string, deps: HostDeps, text: string) {
+  const opened = await openSession(slug, { cwd }, deps)
+  expect(opened.error).toBeUndefined()
+  expect(opened.ready).toBe(true)
+  for await (const _event of streamPrompt(opened.sessionId, text, { cwd }, deps)) {
+    /* drained */
+  }
+}
+
+/** The last `tool_result` on a request, as text. */
+function lastToolResult(req: ModelRequest | undefined): string {
+  const results = (req?.messages ?? [])
+    .filter((m) => m.role === 'user')
+    .flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+    .filter((b) => (b as { type?: string }).type === 'tool_result') as { content: unknown }[]
+  const last = results.at(-1)
+  if (!last) throw new Error('the request carried no tool result')
+  return typeof last.content === 'string' ? last.content : JSON.stringify(last.content)
+}
+
 // ── the ACs ──────────────────────────────────────────────────────────────────
 
 describe('story-d2bee21c the anchor vocabulary', () => {
@@ -445,6 +662,41 @@ describe('story-d2bee21c the anchor vocabulary', () => {
     await expect(
       ops.relate({ drawing: 'wordmark', a: '#one.cap-tip', b: '#one.cap-top' }),
     ).rejects.toThrow(/not an anchor reference/)
+
+    // Through the operations the refusal is the generic reference-shape one
+    // (Reconciliation Decision, AC-2393): the parse rejects an unknown anchor
+    // name before it can reach `anchorValue`, so relate and solve both say how
+    // to write a reference, and assert reports it as not a relation.
+    const generic = (ref: string) => [
+      `'${ref}' is not an anchor reference`,
+      'Write it as <node>.<anchor>',
+      'then one of the anchor names it lists',
+    ]
+    let viaRelate = ''
+    await (ops.relate({ drawing: 'wordmark', a: '#one.cap-tip', b: '#one.cap-top' }) as Promise<unknown>).catch(
+      (e: Error) => {
+        viaRelate = e.message
+      },
+    )
+    for (const part of generic('#one.cap-tip')) expect(viaRelate).toContain(part)
+    let viaSolve = ''
+    await (ops.solve({ drawing: 'wordmark', so: '#ord.cap-tip', equals: '#one.cap-top' }) as Promise<unknown>).catch(
+      (e: Error) => {
+        viaSolve = e.message
+      },
+    )
+    for (const part of generic('#ord.cap-tip')) expect(viaSolve).toContain(part)
+    const asserted = (await ops.write_image({
+      name: 'wordmark',
+      svg: A_DRAWING,
+      replace: true,
+      assert: ['#ord.cap-tip = #one.cap-top'],
+    })) as { asserted: { relation: string; why?: string; holds?: boolean }[] }
+    expect(asserted.asserted).toHaveLength(1)
+    expect(asserted.asserted[0].relation).toBe('#ord.cap-tip = #one.cap-top')
+    expect(asserted.asserted[0].why).toContain('this is not a relation')
+    expect(asserted.asserted[0].why).toContain('Write it as <node>.<anchor> = <node>.<anchor>')
+    expect(asserted.asserted[0].holds).toBeUndefined()
 
     // Ink, font and advance anchors on a node with no text point to the box anchors.
     for (const anchor of ['ink-top', 'cap-top', 'advance-start']) {
@@ -589,6 +841,59 @@ describe('story-d2bee21c what a measurement reports', () => {
     expect(declared.node.fontSize).toBe(40)
   })
 
+  it('test_UAT_AC2397_the_production_measurer_measures_in_the_sites_draft_page_and_closes', async () => {
+    // The production `browserMeasurer`, over a scripted driver: the page it
+    // opens is the site's own draft on this deployment's origin — the page that
+    // carries the site's `@font-face` rules — and the browser is always let go.
+    const answer = (): RawMeasurement => ({
+      ...wordmark(),
+      fonts: [{ ...FONT, requested: 'system-ui, -apple-system, sans-serif', resolved: 'sans-serif', generic: true }],
+    })
+    const direct = scriptedDriver(answer)
+    const measure = browserMeasurer({
+      slug: 'acme studio',
+      origin: `${ORIGIN}/builder/some/page`,
+      driverFactory: direct.factory,
+    })
+    expect(await measure(A_DRAWING)).toEqual(answer())
+    expect(direct.log.made).toBe(1)
+    expect(direct.log.opened).toEqual([`${ORIGIN}/preview/acme%20studio/draft/`])
+    expect(direct.log.queried).toEqual([measureScript(A_DRAWING)])
+    expect(direct.log.closed).toBe(1)
+
+    // A page that fails mid-measurement still closes, and the failure surfaces.
+    const failing = scriptedDriver(() => {
+      throw new Error('the page crashed')
+    })
+    await expect(
+      browserMeasurer({ slug: 'acme', origin: ORIGIN, driverFactory: failing.factory })(A_DRAWING),
+    ).rejects.toThrow('the page crashed')
+    expect(failing.log.closed).toBe(1)
+
+    // Through measure_drawing: the drawing the site stores is what the page is
+    // handed, and the requested and resolved faces the page reports reach the model.
+    site = makeMemorySite()
+    const live = scriptedDriver(answer)
+    const ops = l1Operations(
+      site.slug,
+      site.opts,
+      {},
+      browserMeasurer({ slug: site.slug, origin: ORIGIN, driverFactory: live.factory }),
+    )
+    await ops.write_image({ name: 'wordmark', svg: A_DRAWING })
+    const out = (await ops.measure_drawing({ drawing: 'wordmark' })) as Measured
+    expect(live.log.opened).toEqual([`${ORIGIN}/preview/${encodeURIComponent(site.slug)}/draft/`])
+    expect(live.log.queried).toEqual([measureScript((await assetBytes('wordmark.svg'))!)])
+    expect(live.log.closed).toBe(live.log.made)
+    expect(out.fonts).toHaveLength(1)
+    expect(out.fonts[0]).toMatchObject({
+      requested: 'system-ui, -apple-system, sans-serif',
+      resolved: 'sans-serif',
+      generic: true,
+    })
+    expect(out.fonts[0].requested).not.toBe(out.fonts[0].resolved)
+  })
+
   it('test_UAT_AC2398_unidd_nodes_by_path_defs_skipped_degenerate_flagged', async (ctx) => {
     const MIXED =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50">' +
@@ -613,6 +918,88 @@ describe('story-d2bee21c what a measurement reports', () => {
     // The empty text is present, flagged, not missing.
     expect(byRef(out, '#e')).toBeDefined()
     expect(byRef(out, '#e').degenerate).toBe(true)
+  })
+
+  it('test_UAT_AC2398_a_node_whose_box_cannot_be_read_is_omitted_and_named_in_warnings', async () => {
+    // A box that cannot be read at all is the one case a node does not appear
+    // (Reconciliation Decision, AC-2398): it is left out of `nodes` and named in
+    // `warnings` by its reference, so it is still never silently missing.
+    // Exercised on the shipped script in a scripted page, because no element the
+    // drawing validator admits fails `getBBox()` in Chromium on demand.
+    const root = svgRoot([
+      { tag: 'rect', id: 'kept', attrs: { x: '0', y: '0', width: '10', height: '10' } },
+      {
+        tag: 'g',
+        id: 'ghost',
+        unreadable: true,
+        children: [{ tag: 'rect', id: 'inner', attrs: { x: '0', y: '0', width: '4', height: '4' } }],
+      },
+      { tag: 'path', attrs: { d: 'M0 0 L10 10' }, unreadable: true },
+      { tag: 'text', id: 'e', attrs: { x: '0', y: '45', 'font-family': 'Satoshi', 'font-size': '10' } },
+    ])
+    const { ops, driver } = await scriptedPageSurface('ghosts', root)
+    const out = (await ops.measure_drawing({ drawing: 'ghosts' })) as Measured & { warnings: string[] }
+    expect(driver.log.closed).toBe(driver.log.made)
+
+    const refs = out.nodes.map((n) => n.ref)
+    expect(refs).toEqual(['0', '#kept', '#inner', '#e'])
+    expect(refs).not.toContain('#ghost')
+    expect(refs).not.toContain('0.2')
+    expect(out.warnings).toContain('#ghost has no measurable box.')
+    expect(out.warnings).toContain('0.2 has no measurable box.')
+    // An unreadable parent does not take its readable children with it.
+    expect(byRef(out, '#inner').kind).toBe('rect')
+    // An empty node is still present and flagged rather than omitted.
+    expect(byRef(out, '#e').degenerate).toBe(true)
+    expect(out.warnings.filter((w) => w.includes('#e'))).toEqual([])
+  })
+
+  it('test_UAT_AC2411_a_measurement_stops_at_200_nodes_and_120_glyphs_and_says_so', async () => {
+    expect(MEASURE_NODE_LIMIT).toBe(200)
+    expect(MEASURE_GLYPH_LIMIT).toBe(120)
+    const rects = (n: number): Spec[] =>
+      Array.from({ length: n }, (_, i) => ({
+        tag: 'rect',
+        id: `r${i}`,
+        attrs: { x: String(i), y: '0', width: '1', height: '1' },
+      }))
+    const NODE_CAP = 'the drawing has more than 200 nodes; the first 200 are reported.'
+    type Out = Measured & { warnings: string[] }
+
+    // The root and 200 rects: 201 nodes, so the first 200 — the root first, in
+    // document order — and a warning that says it stopped.
+    const over = await scriptedPageSurface('crowd', svgRoot(rects(200)))
+    const crowd = (await over.ops.measure_drawing({ drawing: 'crowd' })) as Out
+    expect(crowd.nodes).toHaveLength(MEASURE_NODE_LIMIT)
+    expect(crowd.nodes[0].ref).toBe('0')
+    expect(crowd.nodes.at(-1)!.ref).toBe('#r198')
+    expect(crowd.nodes.map((n) => n.ref)).not.toContain('#r199')
+    expect(crowd.warnings).toContain(NODE_CAP)
+
+    // Exactly at the cap: all 200 reported, and nothing to warn about.
+    const at = await scriptedPageSurface('full', svgRoot(rects(199)))
+    const full = (await at.ops.measure_drawing({ drawing: 'full' })) as Out
+    expect(full.nodes).toHaveLength(200)
+    expect(full.nodes.at(-1)!.ref).toBe('#r198')
+    expect(full.warnings).toEqual([])
+
+    // Glyphs: a 130-character run reports its first 120 and says so; a
+    // 120-character run reports all of them and says nothing.
+    const text = (id: string, length: number): Spec => ({
+      tag: 'text',
+      id,
+      attrs: { x: '0', y: '10', 'font-family': 'Satoshi', 'font-size': '10' },
+      text: 'a'.repeat(length),
+    })
+    const glyphs = await scriptedPageSurface('long', svgRoot([text('long', 130), text('fits', 120)]))
+    const long = (await glyphs.ops.measure_drawing({ drawing: 'long' })) as Out
+    const glyphsOf = (ref: string) => (byRef(long, ref).glyphs as unknown as unknown[]).length
+    expect(glyphsOf('#long')).toBe(MEASURE_GLYPH_LIMIT)
+    expect(glyphsOf('#fits')).toBe(120)
+    expect(long.warnings).toContain('#long has 130 characters; the first 120 are reported.')
+    expect(long.warnings.filter((w) => w.includes('#fits'))).toEqual([])
+    expect(long.warnings).not.toContain(NODE_CAP)
+    for (const run of [over, at, glyphs]) expect(run.driver.log.closed).toBe(run.driver.log.made)
   })
 })
 
@@ -773,6 +1160,72 @@ describe('story-d2bee21c relate and solve', () => {
     // Each refusal is its own sentence.
     expect(new Set(messages).size).toBe(messages.length)
   })
+
+  it('test_UAT_AC2401_in_a_real_browser_a_solve_under_scale_2_lands_when_written', async (ctx) => {
+    // The scale `solve` divides by is the one the shipped script reads off the
+    // real transform, and the `from` it adds to is the authored attribute.
+    const drawing = (bigY: string) =>
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100">' +
+      `<text id="one" x="0" y="62" font-family="${SITE_FONT}" font-size="62">1</text>` +
+      `<g transform="scale(2)"><text id="big" x="120" y="${bigY}" font-family="${SITE_FONT}" font-size="20">B</text></g>` +
+      '</svg>'
+    const ops = await written('scaled', drawing('20'))
+    if (!browser) ctx.skip(`no browser: ${why}`)
+
+    type Solved = { node: string; attr: string; value: number; from: number; axis: string; delta: number }
+    const before = (await ops.relate({ drawing: 'scaled', a: '#big.baseline', b: '#one.baseline' })) as {
+      delta: number
+    }
+    // Authored at y=20 under scale(2), so its baseline sits at 40 in root space.
+    expect(before.delta).toBeCloseTo(22, 2)
+    const s = (await ops.solve({ drawing: 'scaled', so: '#big.baseline', equals: '#one.baseline' })) as Solved
+    expect(s).toMatchObject({ node: '#big', attr: 'y', axis: 'y' })
+    expect(s.from).toBeCloseTo(20, 3)
+    expect(s.delta).toBeCloseTo(22, 2)
+    // Half the root-space correction, because one local unit is two root units.
+    expect(s.value).toBeCloseTo(31, 2)
+
+    await ops.write_image({ name: 'scaled', svg: drawing(String(s.value)), replace: true })
+    const after = (await ops.relate({ drawing: 'scaled', a: '#big.baseline', b: '#one.baseline' })) as {
+      delta: number
+    }
+    expect(Math.abs(after.delta)).toBeLessThan(0.01)
+  })
+
+  it('test_UAT_AC2402_in_a_real_browser_rotate_and_a_list_valued_x_are_refused', async (ctx) => {
+    // The skew flag and the authored attributes are the shipped script's,
+    // read off a real rotate(10) and a real per-glyph x list.
+    const DRAWING =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100">' +
+      `<text id="one" x="0" y="62" font-family="${SITE_FONT}" font-size="62">1</text>` +
+      `<g transform="rotate(10)"><text id="tilt" x="200" y="50" font-family="${SITE_FONT}" font-size="10">T</text></g>` +
+      `<text id="glyphs" x="1 2 3" y="90" font-family="${SITE_FONT}" font-size="10">abc</text>` +
+      `<text id="plain" x="100" y="90" font-family="${SITE_FONT}" font-size="10">p</text>` +
+      '</svg>'
+    const ops = await written('refusals', DRAWING)
+    if (!browser) ctx.skip(`no browser: ${why}`)
+
+    const refusal = async (request: Record<string, unknown>) => {
+      try {
+        await ops.solve({ drawing: 'refusals', ...request })
+      } catch (error) {
+        return (error as Error).message
+      }
+      throw new Error(`solve ${JSON.stringify(request)} returned a value instead of refusing`)
+    }
+    const rotated = await refusal({ so: '#tilt.baseline', equals: '#one.baseline' })
+    expect(rotated).toMatch(/'#tilt' is inside a rotated or skewed transform/)
+    expect(rotated).toMatch(/adjust the transform by hand/)
+    const listed = await refusal({ so: '#glyphs.left', equals: '#one.left' })
+    expect(listed).toMatch(/'#glyphs' carries x="1 2 3", which is a list rather than one number/)
+    // The same drawing's untransformed, single-valued text solves normally.
+    const ok = (await ops.solve({ drawing: 'refusals', so: '#plain.baseline', equals: '#one.baseline' })) as {
+      node: string
+      attr: string
+      from: number
+    }
+    expect(ok).toMatchObject({ node: '#plain', attr: 'y', from: 90 })
+  })
 })
 
 describe('story-d2bee21c recorded relations and assert', () => {
@@ -815,6 +1268,41 @@ describe('story-d2bee21c recorded relations and assert', () => {
     await ops.write_image({ name: 'plain', svg: A_DRAWING })
     const plain = (await ops.measure_drawing({ drawing: 'plain' })) as { recorded: unknown[] }
     expect(plain.recorded).toEqual([])
+  })
+
+  it('test_UAT_AC2403_a_recorded_comment_with_a_misspelt_anchor_is_not_a_recorded_relation', async () => {
+    // Reconciliation Decision (AC-2403): a comment is a recorded relation only
+    // when both sides parse as `<node>.<anchor>` with an anchor from the set. A
+    // relation-shaped comment with a misspelt anchor is an ordinary comment and
+    // is not reported — unlike `assert`, where every stated entry comes back.
+    // An unknown NODE with a valid anchor is still reported, with a why.
+    const comments =
+      '<!-- #ord.cap-tip = #one.cap-top -->' +
+      '<!-- #ord.cap-top = #one.captop + 2 -->' +
+      '<!-- #gone.top = #one.top -->' +
+      '<!-- #ord.cap-top = #one.cap-top -->'
+    const svg = A_DRAWING.replace('<text', `${comments}<text`)
+    expect(recordedRelations(svg)).toEqual([
+      { a: '#gone.top', b: '#one.top', offset: 0 },
+      { a: '#ord.cap-top', b: '#one.cap-top', offset: 0 },
+    ])
+
+    const measurer = fakeMeasurer(moved(wordmark(), '#ord', 0, 3.6))
+    site = makeMemorySite()
+    const ops = l1Operations(site.slug, site.opts, {}, measurer.measure)
+    await ops.write_image({ name: 'wordmark', svg })
+    // The drawing is accepted with every comment intact.
+    expect(await assetBytes('wordmark.svg')).toBe(svg)
+
+    const out = (await ops.measure_drawing({ drawing: 'wordmark' })) as {
+      recorded: { relation: string; delta?: number; holds?: boolean; why?: string }[]
+    }
+    expect(out.recorded.map((r) => r.relation)).toEqual(['#gone.top = #one.top', '#ord.cap-top = #one.cap-top'])
+    expect(out.recorded[0].why).toMatch(/no node called '#gone'/)
+    expect(out.recorded[1]).toMatchObject({ holds: true })
+    for (const entry of out.recorded) {
+      expect(entry.relation).not.toMatch(/cap-tip|captop/)
+    }
   })
 
   it('test_UAT_AC2404_assert_always_writes_and_reports_each_relation_against_the_written_drawing', async () => {
@@ -990,4 +1478,99 @@ describe('story-d2bee21c the operations on the consultant surface', () => {
     // Nothing about the site changed.
     expect(await siteSnapshot()).toBe(before)
   })
+})
+
+describe('story-d2bee21c what a session is given, through the real host', () => {
+  afterEach(() => {
+    setModelClient(null)
+    resetAiHost()
+    while (workspaces.length > 0) rmSync(workspaces.pop()!, { recursive: true, force: true })
+  })
+
+  /** One consultant turn that writes the wordmark, measures it, and answers. */
+  async function measuringTurn(slug: string, fidelity: HostDeps['fidelity']) {
+    const cwd = workspace(slug)
+    const deps = await hostFor(cwd, fidelity)
+    const client = scriptedClient([
+      calls('write_image', { name: 'wordmark', svg: A_DRAWING }),
+      calls('measure_drawing', { drawing: 'wordmark' }),
+      says('Measured.'),
+    ])
+    setModelClient(client)
+    await turnIn(cwd, slug, deps, 'Measure the wordmark.')
+    expect(client.seen.length).toBeGreaterThanOrEqual(3)
+    return { client, offered: client.seen[0].tools.map((t) => t.name) }
+  }
+
+  it('test_UAT_AC2410_with_fidelity_deps_the_session_measures_through_the_same_browser', async () => {
+    const slug = 'studio'
+    const driver = scriptedDriver(() => wordmark())
+    const fidelitySlugs: string[] = []
+    const { client, offered } = await measuringTurn(slug, (s: string) => {
+      fidelitySlugs.push(s)
+      return {
+        slug: s,
+        origin: ORIGIN,
+        references: memoryReferenceStore(),
+        driverFactory: driver.factory,
+        guardedDriver: () => driver.factory,
+      }
+    })
+
+    // Both consumers of the browser are composed: the picture and the measurement.
+    expect(offered).toContain('screenshot')
+    expect(offered).toEqual(expect.arrayContaining(['measure_drawing', 'relate', 'solve', 'write_image']))
+    expect(fidelitySlugs.length).toBeGreaterThan(0)
+    for (const s of fidelitySlugs) expect(s).toBe(slug)
+
+    // The measurement handed to the model came through the fidelity deps' driver…
+    const measured = lastToolResult(client.seen[2])
+    expect(measured).toContain('#ord')
+    expect(measured).toContain('#swash')
+    expect(measured).not.toMatch(/no browser/)
+    // …which rendered the site's own draft page, once, and was let go.
+    expect(driver.log.opened).toEqual([`${ORIGIN}/preview/${slug}/draft/`])
+    expect(driver.log.queried).toHaveLength(1)
+    expect(driver.log.queried[0]).toContain('id=\\"ord\\"')
+    expect(driver.log.closed).toBe(driver.log.made)
+  }, 120000)
+
+  it('test_UAT_AC2410_without_fidelity_deps_the_session_is_offered_measurement_that_refuses', async () => {
+    const { client, offered } = await measuringTurn('studio', null)
+
+    // Neither consumer has a browser: no picture is offered…
+    expect(offered).not.toContain('screenshot')
+    // …and the measuring operations are, and say why they cannot run.
+    expect(offered).toEqual(expect.arrayContaining(['measure_drawing', 'relate', 'solve', 'write_image']))
+    const refused = lastToolResult(client.seen[2])
+    expect(refused).toMatch(/no browser/)
+    expect(refused).toMatch(/cannot be measured/)
+    expect(refused).not.toContain('#ord')
+  }, 120000)
+
+  it('test_UAT_AC2407_the_write_image_description_the_model_is_handed_gives_the_rules', async () => {
+    const slug = 'studio'
+    const cwd = workspace(slug)
+    const deps = await hostFor(cwd, null)
+    const client = scriptedClient([says('Ready.')])
+    setModelClient(client)
+    await turnIn(cwd, slug, deps, 'Hello.')
+
+    // What the model client was actually sent, not the declaration it came from.
+    const tool = client.seen[0].tools.find((t) => t.name === 'write_image')
+    expect(tool).toBeDefined()
+    const text = tool!.description
+    expect(text).toMatch(/ONE `<text>` with `<tspan>` children/)
+    expect(text).toMatch(/never several `<text>` elements/)
+    expect(text).toMatch(/`system-ui`, `-apple-system` and a bare `sans-serif` are not faces/)
+    expect(text).toMatch(/Name a real font/)
+    expect(text).toMatch(/Give a node an `id` when you mean to position it precisely/)
+    // The `assert` parameter, as described in the schema the model is handed.
+    const schema = tool!.input_schema as { properties: Record<string, { description?: string }> }
+    expect(schema.properties.assert).toBeDefined()
+    const assertDoc = schema.properties.assert.description ?? ''
+    expect(assertDoc).toMatch(/<node>\.<anchor> = <node>\.<anchor>/)
+    expect(assertDoc).toMatch(/never blocks the write/)
+    expect(assertDoc).toMatch(/costs a render, and nothing else does/)
+  }, 120000)
 })

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -275,6 +275,29 @@ describe('the session’s words are read from one configuration file, validated 
     expect(changed).toContain('since: 7')
     expect(changed).not.toMatch(/\{\w+\}/)
 
+    // THE MODEL RECEIVES EXACTLY THE DECLARED TEXT. Every static entry of the
+    // selected order reaches the model verbatim and in declared order, and every
+    // static reminder line reaches it verbatim: the words the model reads are the
+    // words the configuration file declares.
+    const system = systemText(seen[0])
+    const declared = (primingConfig(true).priming as { name?: string; text?: unknown }[]).filter(
+      (e): e is { name: string; text: string } => typeof e.text === 'string',
+    )
+    expect(declared.map((e) => e.name)).toEqual([ROLE_ENTRY, PRODUCT_ENTRY, PURPOSE_ENTRY])
+    let previous = -1
+    for (const entry of declared) {
+      const at = system.indexOf(entry.text)
+      expect(at, `${entry.name} reaches the model verbatim, after the entry before it`).toBeGreaterThan(
+        previous,
+      )
+      previous = at
+    }
+    const declaredReminders = (primingConfig(true).reminders as { text?: unknown }[])
+      .map((e) => e.text)
+      .filter((t): t is string => typeof t === 'string')
+    expect(declaredReminders.length).toBeGreaterThan(0)
+    for (const line of declaredReminders) expect(reminder).toContain(line)
+
     // VALIDATED AT START-UP through the framework's loader, naming the entry.
     const lib = ai as {
       rolesFromMapping: (m: unknown, o: unknown) => unknown
@@ -344,6 +367,54 @@ describe('the session’s words are read from one configuration file, validated 
     const missing = refused(() => consultantRole(ai, siteOnly, true))
     expect(missing.name).toBe('PrimingConfigError')
     expect(missing.message).toMatch(/km-landscape|km\.landscape/)
+  }, 180_000)
+
+  it('test_UAT_AC2374_opening_a_session_whose_order_names_an_unregistered_provider_fails_naming_the_entry_and_asks_the_model_nothing', async () => {
+    // THROUGH THE HOST, not the loader. The host is given a corpus seam (so it
+    // selects the order WITH a knowledge base) that registers nothing, so the
+    // selected order names `km.landscape` and nobody registered it. The library
+    // is the real one; its loader is wrapped only so the test can see the error
+    // it raised, because `openSession` reports the message, not the object.
+    const real = ai as { rolesFromMapping: (m: unknown, o: unknown) => unknown }
+    const raised: Error[] = []
+    const lib = {
+      ...ai,
+      rolesFromMapping: (mapping: unknown, options: unknown) => {
+        try {
+          return real.rolesFromMapping(mapping, options)
+        } catch (err) {
+          raised.push(err as Error)
+          throw err
+        }
+      },
+    }
+    const unbound = {
+      ...(await deps({ delta: null })),
+      lib: lib as HostDeps['lib'],
+      priming: async () => {},
+    } as HostDeps
+    const client = scriptedClient([says('Should never be asked.')])
+    setModelClient(client)
+
+    const opened = await openSession(SLUG, { cwd }, unbound)
+
+    // The session is not built, and says why: a priming configuration error
+    // naming the entry whose provider is missing.
+    expect(opened.ready).toBe(false)
+    expect(raised).toHaveLength(1)
+    expect(raised[0].name).toBe('PrimingConfigError')
+    expect(raised[0].message).toMatch(/"km-landscape"/)
+    expect(opened.error).toBe(raised[0].message)
+
+    // A turn on it is refused too, and no request ever reached the model.
+    let refused: unknown
+    try {
+      for await (const _e of streamPrompt(opened.sessionId, 'Hello', { cwd }, unbound)) void _e
+    } catch (err) {
+      refused = err
+    }
+    expect(refused).toBeInstanceOf(Error)
+    expect(client.seen).toHaveLength(0)
   }, 180_000)
 })
 
@@ -516,4 +587,58 @@ describe('the per-turn reminder is assembled from its configured entries', () =>
     expect(deltaOnly.endsWith(`\n\n${DELTA}`)).toBe(true)
     expect(deltaOnly).not.toMatch(/list_changes/)
   }, 180_000)
+})
+
+// ── AC-2374: a placeholder with no value is left exactly as written ──────────
+//
+// LAST IN THE FILE ON PURPOSE. It loads a fresh copy of `roles.ts` over a
+// configuration file whose templates carry a mistyped slot, which needs the
+// module registry reset; nothing after it may depend on the instances the
+// earlier tests share.
+
+describe('a template slot with no value reaches the prompt as itself', () => {
+  it('test_UAT_AC2374_a_placeholder_with_no_value_is_left_exactly_as_written', async () => {
+    const shipped = primingDocument.templates
+    const siteTemplate = `${shipped['site-line']} Mistyped: {slgu}.`
+    const changeTemplate = `${shipped['change-signal']} Cursor: {cursor}.`
+    vi.resetModules()
+    vi.doMock('../tools/generate/src/cli/ai/priming.json', async (importOriginal) => {
+      const actual = await importOriginal<{ default: typeof primingDocument }>()
+      return {
+        ...actual,
+        default: {
+          ...actual.default,
+          templates: {
+            ...actual.default.templates,
+            'site-line': siteTemplate,
+            'change-signal': changeTemplate,
+          },
+        },
+      }
+    })
+    try {
+      const fresh = await import('../tools/generate/src/cli/ai/roles')
+
+      // The slot with a value is filled; the one with none is left verbatim,
+      // braces and all, rather than blanked.
+      const line = fresh.siteLine(SLUG)
+      expect(line).toBe(siteTemplate.replace('{slug}', SLUG))
+      expect(line).toContain('Mistyped: {slgu}.')
+      expect(line).not.toContain('{slug}')
+
+      const signal = fresh.changeSignal({ since: { at: 7, changes: 3 } })
+      expect(signal).toContain('3 changes')
+      expect(signal).toContain('since: 7')
+      expect(signal).toContain('Cursor: {cursor}.')
+      expect(signal).not.toMatch(/\{(changes|plural|at)\}/)
+
+      // And that is what the turn's reminder carries.
+      const reminder = fresh.consultantReminder(SLUG, { at: 7, changes: 3 })
+      expect(reminder.startsWith(line)).toBe(true)
+      expect(reminder).toContain(signal!)
+    } finally {
+      vi.doUnmock('../tools/generate/src/cli/ai/priming.json')
+      vi.resetModules()
+    }
+  })
 })

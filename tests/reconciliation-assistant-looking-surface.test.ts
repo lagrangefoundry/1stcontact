@@ -45,7 +45,9 @@ import { syntheticCapture, syntheticL1, syntheticMultiState } from './support/re
 import { siteSeed } from './support/site-seed'
 import { fakeBrowser } from './support/fake-puppeteer'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
-import type { ModelRequest } from './support/scripted-model-client'
+import type { ModelRequest, ModelStep } from './support/scripted-model-client'
+import { FakeCaptureDriver } from './support/fake-capture-driver'
+import { createPlaywrightDriver } from '../tools/generate/src/cli/capture/playwright-driver'
 
 /**
  * **The assistant can see** (story-58b2cec4) — the read-only looking surface and
@@ -679,18 +681,43 @@ describe('every picture is named one way, and resolves to what it names', () => 
  * One consultant turn in which the model calls `screenshot` on the draft and
  * then answers — through the real host, with the looking surface composed.
  */
-async function screenshotTurn() {
+async function screenshotTurn(more: ModelStep[] = []) {
   const slug = 'studio'
   const cwd = workspace(slug)
   const shot = await png(solid(60, 40, 77))
   const deps = await hostFor(cwd, null)
   const store = deps.store
-  deps.fidelity = (s: string) =>
-    looking(store, s, memoryReferenceStore(), () => shot).deps
-  const client = scriptedClient([calls('screenshot', { of: { kind: 'draft' } }), says('I see it.')])
+  const browsers: ReturnType<typeof eyes>[] = []
+  deps.fidelity = (s: string) => {
+    const surface = looking(store, s, memoryReferenceStore(), () => shot)
+    browsers.push(surface.browser)
+    return surface.deps
+  }
+  // The host's own audit sink still receives every record; this only listens in.
+  const audit: { operation: string; effect: string }[] = []
+  const fileSink = deps.audit
+  deps.audit = (record) => {
+    audit.push(record.asObject() as { operation: string; effect: string })
+    fileSink?.(record)
+  }
+  const client = scriptedClient([
+    calls('screenshot', { of: { kind: 'draft' } }),
+    ...more,
+    says('I see it.'),
+  ])
   setModelClient(client)
   const events = await turnIn(cwd, slug, deps, 'Look at the draft.')
-  return { client, events, shot }
+  const launches = () => browsers.reduce((n, b) => n + b.launches(), 0)
+  return { client, events, shot, audit, launches }
+}
+
+/** The LAST `tool_result` on a request — the one the model is answering. */
+function lastToolResultIn(req: ModelRequest | undefined): { content: unknown } | undefined {
+  return (req?.messages ?? [])
+    .filter((m) => m.role === 'user')
+    .flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+    .filter((b) => (b as { type?: string }).type === 'tool_result')
+    .at(-1) as { content: unknown } | undefined
 }
 
 describe('a screenshot reaches the model as an image', () => {
@@ -719,6 +746,50 @@ describe('a screenshot reaches the model as an image', () => {
     expect(image.source.data.startsWith(PNG_BASE64_HEAD)).toBe(true)
     const decoded = await decodePng(base64ToBytes(image.source.data), 'sent')
     expect([decoded.width, decoded.height]).toEqual([60, 40])
+  }, 120000)
+
+  it('test_UAT_AC2031_no_text_carries_the_base64_the_toolbox_audits_and_validates_and_other_results_stay_text', async () => {
+    const { client, audit, launches } = await screenshotTurn([
+      calls('list_pages', {}),
+      calls('screenshot', { of: { kind: 'draft', colour: 'red' } }),
+    ])
+    expect(client.seen.length).toBe(4)
+
+    // The picture: no text block carries its base64 — it is shown, not described.
+    const result = lastToolResultIn(client.seen[1])
+    expect(Array.isArray(result?.content)).toBe(true)
+    const blocks = result!.content as ContentBlock[]
+    const image = blocks.find((b) => b.type === 'image') as { source: { data: string } }
+    expect(image.source.data.startsWith(PNG_BASE64_HEAD)).toBe(true)
+    const texts = blocks
+      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+      .map((b) => b.text)
+    expect(texts.length).toBeGreaterThan(0)
+    for (const text of texts) {
+      expect(text).not.toContain(image.source.data)
+      expect(text).not.toContain(PNG_BASE64_HEAD)
+    }
+
+    // The screenshot was run through the Toolbox, which wrote an audit record.
+    const shots = audit.filter((r) => r.operation === 'screenshot')
+    expect(shots.length).toBeGreaterThanOrEqual(1)
+    for (const r of shots) expect(r.effect).toBe('read')
+
+    // A non-picture tool's result reaches the model as text, unchanged.
+    const listed = lastToolResultIn(client.seen[2])
+    expect(typeof listed?.content).toBe('string')
+    expect(listed!.content as string).toContain('home')
+    expect(listed!.content as string).not.toContain(PNG_BASE64_HEAD)
+    expect(audit.map((r) => r.operation)).toContain('list_pages')
+
+    // An invalid argument is refused by the Toolbox's validation, as text,
+    // before the operation runs: no second browser was leased.
+    const invalid = lastToolResultIn(client.seen[3])
+    expect(typeof invalid?.content).toBe('string')
+    expect(invalid!.content as string).toContain('colour')
+    expect(invalid!.content as string).not.toContain('screenshot failed')
+    expect(invalid!.content as string).not.toContain(PNG_BASE64_HEAD)
+    expect(launches()).toBe(1)
   }, 120000)
 
   it('test_UAT_AC2032_large_pictures_are_reduced_to_1024_by_averaging_and_say_so', async () => {
@@ -1003,4 +1074,66 @@ describe('no looking operation changes the site', () => {
     expect([...new Set(audit.map((a) => a.operation))].sort()).toEqual(LOOKING_OPS)
     for (const record of audit) expect(record.effect).toBe('read')
   }, 60000)
+})
+
+// ── the browser budget is the Worker's, not the shared surface's ─────────────
+
+describe('the 1c CLI has no browser budget', () => {
+  it('test_UAT_AC2373_the_shared_declaration_names_no_ceiling_and_the_node_host_makes_41_looks', async () => {
+    // The shared declaration — which the unmetered `1c` CLI also uses — and its
+    // overview say nothing of a ceiling: no 40, no budget, no ceiling.
+    const ceiling = /\b40\b|forty|budget|ceiling/i
+    expect(JSON.stringify(FIDELITY_DECLARATION)).not.toMatch(ceiling)
+    const overview = (FIDELITY_DECLARATION as { overview?: unknown }).overview
+    expect(typeof overview).toBe('string')
+    expect((overview as string).length).toBeGreaterThan(0)
+    expect(overview as string).not.toMatch(ceiling)
+
+    // The CLI's own runtime, given an origin, composes the looking surface over
+    // the raw local browser factory: nothing wraps it to count leases.
+    const slug = 'studio'
+    const cwd = workspace(slug)
+    const cli = await nodeDeps({ cwd, origin: ORIGIN })
+    expect(cli.fidelity).toBeTypeOf('function')
+    const own = cli.fidelity!(slug)
+    expect(own.driverFactory).toBe(createPlaywrightDriver)
+    expect(Object.keys(own)).not.toContain('budget')
+
+    // Through the real Node host, 41 live looks in one turn — one past the
+    // Worker's ceiling — with only the local browser swapped for a counting fake.
+    const shot = await png(solid(16, 12, 33))
+    let looks = 0
+    class CountingDriver extends FakeCaptureDriver {
+      override async screenshot(): Promise<Uint8Array> {
+        looks += 1
+        return shot
+      }
+    }
+    const deps = await hostFor(cwd, (s: string) => ({
+      ...cli.fidelity!(s),
+      driverFactory: async () => new CountingDriver(),
+    }))
+    const LOOKS = 41
+    const client = scriptedClient([
+      ...Array.from({ length: LOOKS }, () => calls('screenshot', { of: { kind: 'draft' } })),
+      says('I have looked forty-one times.'),
+    ])
+    setModelClient(client)
+    await turnIn(cwd, slug, deps, 'Keep looking at the draft.')
+
+    expect(looks).toBe(LOOKS)
+    expect(client.seen.length).toBe(LOOKS + 1)
+    for (let n = 1; n <= LOOKS; n++) {
+      const result = lastToolResultIn(client.seen[n])
+      expect(Array.isArray(result?.content), `look ${n}`).toBe(true)
+      const blocks = result!.content as ContentBlock[]
+      expect(blocks.some((b) => b.type === 'image'), `look ${n}`).toBe(true)
+      const text = blocks
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
+      expect(text, `look ${n}`).not.toMatch(/BUDGET|^Error:/)
+      expect(text).toContain('16×12')
+    }
+  }, 180000)
 })

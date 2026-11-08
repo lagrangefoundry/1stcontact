@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { sessionImageDescriber, sessionTextDescriber } from '../apps/control-app/src/ai'
+import * as aiLib from '../apps/control-app/src/generated/ai-workers.js'
 import {
   describe as describeMaterial,
   DOCUMENT_DIGEST_SYSTEM,
@@ -54,6 +55,9 @@ function systemText(req: ModelRequest): string {
 
 type Block = { type: string; [k: string]: unknown }
 
+/** The AI library is untyped JavaScript. */
+type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
+
 /** The content blocks of the request's user message ([] when it is a plain string). */
 function userBlocks(req: ModelRequest): Block[] {
   const user = req.messages.find((m) => m.role === 'user')
@@ -75,6 +79,44 @@ function decode(b64: string): Uint8Array {
 
 const PNG_A = decode(PNG_A_B64)
 const PNG_B = decode(PNG_B_B64)
+
+/**
+ * A minimal JPEG (SOI, a JFIF APP0 segment, EOI). Nothing on the describer path
+ * decodes the pixels, so the bytes only need to be distinct from the PNGs and to
+ * be declared as a different media type — which is what the wire assertion is
+ * about: the block's `media_type` is the upload's own, not a hard-coded PNG.
+ */
+const JPEG_B = new Uint8Array([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
+  0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+])
+const JPEG_B_B64 = btoa(String.fromCharCode(...JPEG_B))
+
+/**
+ * Every `SessionManager` the describers construct, captured as it opens a session.
+ *
+ * NO PRODUCTION SEAM IS NEEDED, and none is added. `describerSession` builds its
+ * manager over `lib.memoryJunctions()` and keeps it in a closure, but the manager
+ * keeps its junction store on a public field and its open sessions in `_sessions`.
+ * Wrapping the shared class's `createSession` hands the test the very instance the
+ * describer is using — so "no session remains" is read off the real junction store,
+ * not inferred from a fresh session id answering cleanly.
+ */
+function captureManagers(): { managers: Untyped[]; restore: () => void } {
+  const proto = (aiLib as unknown as Untyped).SessionManager.prototype
+  const original = proto.createSession
+  const managers: Untyped[] = []
+  proto.createSession = function (this: Untyped, ...args: unknown[]) {
+    if (!managers.includes(this)) managers.push(this)
+    return original.apply(this, args)
+  }
+  return { managers, restore: () => void (proto.createSession = original) }
+}
+
+/** The sessions whose junction still exists on a manager's junction store. */
+function openJunctions(manager: Untyped): string[] {
+  return [...manager.junctions.discover()]
+}
 
 beforeAll(async () => {
   await APPLIED
@@ -118,9 +160,11 @@ describe('story-4cabde9a — describer sessions on the AI host (REQ-207)', () =>
       { bytes: PNG_A, filename: 'IMG_4821.png', contentType: 'image/png' },
       { describeText, describeImage },
     )
+    // The second image is a JPEG, so the block's media type is shown to be the
+    // upload's own rather than a constant that happens to match a PNG.
     await ingestUpload(
       store,
-      { bytes: PNG_B, filename: 'IMG_4822.png', contentType: 'image/png' },
+      { bytes: JPEG_B, filename: 'IMG_4822.jpg', contentType: 'image/jpeg' },
       { describeText, describeImage },
     )
 
@@ -149,15 +193,19 @@ describe('story-4cabde9a — describer sessions on the AI host (REQ-207)', () =>
     // An image goes as an image block carrying the uploaded bytes, image FIRST,
     // with one instruction line after it.
     const expected = [
-      { b64: PNG_A_B64, req: images.seen[0] },
-      { b64: PNG_B_B64, req: images.seen[1] },
+      { b64: PNG_A_B64, mediaType: 'image/png', req: images.seen[0] },
+      { b64: JPEG_B_B64, mediaType: 'image/jpeg', req: images.seen[1] },
     ]
-    for (const { b64, req } of expected) {
+    for (const { b64, mediaType, req } of expected) {
       const blocks = userBlocks(req)
       expect(blocks[0].type).toBe('image')
       const image = JSON.stringify(blocks[0])
       expect(image).toContain(b64)
-      expect(image).toContain('image/png')
+      expect(image).toContain(mediaType)
+      // EXACTLY the upload's media type, on the wire's own field, and its bytes.
+      const source = blocks[0].source as { type?: unknown; media_type?: unknown; data?: unknown }
+      expect(source.media_type).toBe(mediaType)
+      expect(source.data).toBe(b64)
       const texts = blocks.filter((b) => b.type === 'text')
       expect(texts).toHaveLength(1)
       expect(blocks[blocks.length - 1].type).toBe('text')
@@ -176,8 +224,18 @@ describe('story-4cabde9a — describer sessions on the AI host (REQ-207)', () =>
     const reader = await storeFor(tenant)
     const { ticket: imageTicket } = await reader.get({ uid: firstImage.ticket.uid })
     expect(imageTicket.fields.description_model).toBe(imageModel)
+    // ...and it is the model that was actually ASKED: the `model` field of the
+    // request the fake received, not a label the describer made up beside it.
+    const askedImageModel = (images.seen[0] as unknown as { model?: unknown }).model
+    expect(typeof askedImageModel).toBe('string')
+    expect(imageTicket.fields.description_model).toBe(askedImageModel)
+    expect(imageModel).toBe(askedImageModel)
     const { ticket: docTicket } = await reader.get({ uid: firstDoc.ticket.uid })
     expect(String(docTicket.fields.description_model)).toMatch(/^\S.* \(text-decode\)$/)
+    // The document's recorded describer names the model its request was sent to.
+    const askedDocModel = String((docs.seen[0] as unknown as { model?: unknown }).model)
+    expect(askedDocModel).toMatch(/\S/)
+    expect(docTicket.fields.description_model).toBe(`${askedDocModel} (text-decode)`)
 
     // NO CONVERSATION RECORD: four descriptions created no chat ticket.
     const { tickets: chats } = await reader.query({ predicate: 'type=chat', limit: 'all' })
@@ -223,6 +281,77 @@ describe('story-4cabde9a — describer sessions on the AI host (REQ-207)', () =>
     )
     expect(failed.status).toBe('failed')
     expect(failed.body).toContain('vision model unavailable')
+  })
+
+  it('test_UAT_AC2097_no_describer_session_remains_open_after_a_success_or_a_failure', async () => {
+    // A fresh session id per item means "a later describe answers cleanly" cannot
+    // tell a closed session from a leaked one. So this reads the describer's own
+    // manager: its junction store and its live-session table, while the model is
+    // being called (the session IS open — the observation is not vacuous) and
+    // after the describer has answered or rejected (it is not).
+    const { managers, restore } = captureManagers()
+    try {
+      for (const kind of ['document', 'image'] as const) {
+        for (const outcome of ['success', 'failure'] as const) {
+          const label = `${kind}/${outcome}`
+          const before = managers.length
+          const openDuringCall: string[][] = []
+          const client = scriptedClient([
+            (req) => {
+              const manager = managers[managers.length - 1]
+              openDuringCall.push(manager ? openJunctions(manager) : [])
+              if (outcome === 'failure') throw new Error(`upstream refused the ${label}`)
+              return says('Described\n\nA description.')(req)
+            },
+          ])
+          const call =
+            kind === 'document'
+              ? () => sessionTextDescriber('sk-not-a-real-key', { client })('A short document.')
+              : () => sessionImageDescriber('sk-not-a-real-key', { client })(JPEG_B, 'image/jpeg')
+
+          if (outcome === 'success') {
+            const answered = await call()
+            expect(answered.text, label).toContain('Described')
+          } else {
+            await expect(call(), label).rejects.toThrow(new RegExp(`upstream refused the ${label}`))
+          }
+
+          // This describer built exactly one manager, and opened one session on it.
+          expect(managers.length, label).toBe(before + 1)
+          const manager = managers[managers.length - 1]
+          expect(client.seen, label).toHaveLength(1)
+          // While the model was being asked, exactly one session was open on it...
+          expect(openDuringCall, label).toHaveLength(1)
+          expect(openDuringCall[0], label).toHaveLength(1)
+          expect(openDuringCall[0][0], label).toMatch(/^describe-/)
+          // ...and once the describer has answered or rejected, none is.
+          expect(openJunctions(manager), label).toEqual([])
+          expect(manager._sessions.size, label).toBe(0)
+        }
+      }
+
+      // The same holds through the description step, which turns the failure into
+      // a recorded outcome rather than a rejection.
+      const before = managers.length
+      const failed = await describeMaterial(
+        { bytes: PNG_A, kind: 'image', contentType: 'image/png', filename: 'x.png' },
+        {
+          describeImage: sessionImageDescriber('sk-not-a-real-key', {
+            client: scriptedClient([
+              () => {
+                throw new Error('vision model unavailable')
+              },
+            ]),
+          }),
+        },
+      )
+      expect(failed.status).toBe('failed')
+      expect(managers.length).toBe(before + 1)
+      expect(openJunctions(managers[managers.length - 1])).toEqual([])
+      expect(managers[managers.length - 1]._sessions.size).toBe(0)
+    } finally {
+      restore()
+    }
   })
 
   it('test_UAT_AC2378_image_and_document_describers_never_answer_for_each_other_in_either_build_order', async () => {

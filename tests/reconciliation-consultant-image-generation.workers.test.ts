@@ -409,6 +409,46 @@ describe('story-39c992d3 — the consultant can generate a picture as ordinary m
     expect(noDescriber.map((t) => t.uid)).not.toContain(row.uid)
   })
 
+  it('test_UAT_AC2383_a_generated_picture_carries_its_vocabulary_before_its_bytes_are_attached', async () => {
+    // "FROM ITS FIRST VISIBLE MOMENT": the material is visible to the Library as
+    // soon as the plugin's `create` lands, which is BEFORE `attach`. So stop there
+    // — create through the plugin's own store and attach nothing — and read the
+    // Library through the route table at exactly that instant.
+    const id = 'ac2383-first-moment'
+    const { scope } = await business(id)
+    const tickets = await ticketsFor(id)
+    const scoped = generatedMaterialStore(tickets, () => 'an-image-model', null)
+
+    // The call the plugin makes: a type, a title from the prompt, a body. No fields.
+    const { ticket } = await scoped.create({
+      type: 'material',
+      title: 'A warm bakery at dawn',
+      body: 'Prompt: A warm bakery at dawn',
+    })
+    expect((await tickets.attachments({ uid: ticket.uid })).attachments).toHaveLength(0)
+
+    const rows = await library(scope)
+    expect(rows.map((r) => r.uid)).toEqual([ticket.uid])
+    const item = await libraryItem(scope, ticket.uid)
+    for (const seen of [rows[0], item]) {
+      // Read off the stored fields — `kind` would otherwise fall back to 'document'
+      // and the description fields to null.
+      expect(seen.kind).toBe('image')
+      expect(seen.description_status).toBe('ok')
+      expect(seen.description_model).toBe('an-image-model')
+      expect(seen.origin).toBe(GENERATED_ORIGIN)
+      expect(seen.rights).toBe('owned')
+      expect(seen.republishable).toBe(true)
+      expect(seen.exportable).toBe(false)
+      expect(seen.role).toBe('site')
+    }
+    // And on the stored record itself, not only on the projection.
+    const { ticket: stored } = await tickets.get({ uid: ticket.uid })
+    expect(stored.fields.kind).toBe('image')
+    expect(stored.fields.description_status).toBe('ok')
+    expect(stored.fields.description_model).toBe('an-image-model')
+  })
+
   it('test_UAT_AC2384_a_generated_picture_is_marked_generated_and_selectable_by_origin', async () => {
     const id = 'ac2384-origin'
     const { scope, slug } = await business(id)
@@ -602,7 +642,7 @@ describe('story-39c992d3 — the consultant can generate a picture as ordinary m
     const echoing = (async () => {
       throw new Error(`image provider unreachable with Authorization: Bearer ${key}`)
     }) as unknown as typeof fetch
-    const { raw } = await turn(
+    const { raw, client } = await turn(
       scope,
       slug,
       [
@@ -617,5 +657,27 @@ describe('story-39c992d3 — the consultant can generate a picture as ordinary m
     expect(raw).not.toContain(key)
     expect(raw).toContain(REDACTED)
     expect(raw).toContain('upstream refused')
+    // The tool result the model was handed carries no credential either.
+    expect(toolResults(client).join('\n')).not.toContain(key)
+    resetChatHost()
+
+    // THE IMAGE-PROVIDER ECHO ON ITS OWN, with a model that answers normally, so
+    // nothing else in the turn can be what the assertions are about.
+    const alone = await turn(
+      scope,
+      slug,
+      [calls(IMAGE_TOOL, { prompt: 'a shopfront' }), says('That did not work this time.')],
+      { imageFetch: echoing },
+      withKey,
+    )
+    // The image tool really was called, and really failed at the provider.
+    const results = toolResults(alone.client)
+    expect(results).toHaveLength(1)
+    expect(results[0]).toContain('could not be reached')
+    // Neither the model's tool result nor anything streamed to the person holds it.
+    expect(results[0]).not.toContain(key)
+    expect(alone.raw).not.toContain(key)
+    expect(alone.frames.at(-1)?.kind).toBe('done')
+    expect(await library(scope)).toHaveLength(0)
   })
 })

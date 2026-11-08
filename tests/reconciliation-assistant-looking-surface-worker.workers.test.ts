@@ -14,7 +14,8 @@ import { calls, says, scriptedClient } from './support/scripted-model-client'
 import { fakeBrowser } from './support/fake-puppeteer'
 
 /**
- * **The assistant can see — in the cloud** (story-58b2cec4, AC-2025).
+ * **The assistant can see — in the cloud** (story-58b2cec4, AC-2025; the Worker
+ * twin of AC-2031; AC-2024's no-`BROWSER` branch).
  *
  * REQ-157 names the problem as "in the cloud the assistant has none": the cloud
  * host is where the eyes were missing. So this is asserted where it matters —
@@ -199,6 +200,92 @@ describe('a Worker-hosted consultant with a browser can see', () => {
     const page = browser.log.fulfilled.find((f) => f.url === browser.log.requested[0])
     expect(page?.status).toBe(200)
     expect(page?.contentType).toContain('text/html')
+  })
+})
+
+/** The LAST `tool_result` on request `n` — the one the model is answering. */
+function lastToolResult(
+  client: ReturnType<typeof scriptedClient>,
+  n: number,
+): { content: unknown } | undefined {
+  return client.seen[n]?.messages
+    .filter((m) => m.role === 'user')
+    .flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+    .filter((b) => (b as { type?: string }).type === 'tool_result')
+    .at(-1) as { content: unknown } | undefined
+}
+
+describe('on the Worker a screenshot reaches the model as an image, through the Toolbox', () => {
+  it('test_UAT_AC2031_worker_the_backend_receives_the_image_block_and_the_toolbox_still_validates_and_audits', async () => {
+    const slug = nextSlug('looking-wire')
+    await seedSite(slug)
+
+    const client = scriptedClient([
+      calls('screenshot', { of: { kind: 'draft' } }),
+      calls('list_pages', {}),
+      calls('screenshot', { of: { kind: 'draft', colour: 'red' } }),
+      says('I can see the draft.'),
+    ])
+    setModelClient(client)
+    const browser = eyes()
+    let launched = 0
+    const launch = async () => {
+      launched += 1
+      return browser.launch()
+    }
+    const chat = (path: string, body: unknown) =>
+      route(request(path, body), workerEnv(), { businessId: TENANT }, { launch })
+
+    const opened = await chat('/api/ai/session', { slug })
+    expect(opened.status).toBe(200)
+    const session = (await opened.json()) as { sessionId: string; ready: boolean; error?: string }
+    expect(session.error).toBeUndefined()
+    const turn = await chat('/api/ai/prompt', { sessionId: session.sessionId, text: 'Look at the draft.' })
+    expect(turn.status).toBe(200)
+    await turn.text()
+    expect(client.seen.length).toBe(4)
+
+    // ── The picture: a text block with the size, and an image block. ──
+    const picture = lastToolResult(client, 1)
+    expect(picture).toBeDefined()
+    expect(Array.isArray(picture!.content)).toBe(true)
+    const blocks = picture!.content as { type: string; text?: string; source?: { type: string; media_type: string; data: string } }[]
+    const texts = blocks.filter((b) => b.type === 'text').map((b) => b.text ?? '')
+    expect(texts.join('\n')).toContain('32×24')
+    const image = blocks.find((b) => b.type === 'image')
+    expect(image?.source?.type).toBe('base64')
+    expect(image?.source?.media_type).toBe('image/png')
+    expect(image!.source!.data.startsWith('iVBORw0KGgo')).toBe(true)
+    // No text block carries the base64: it is shown, not described.
+    for (const text of texts) {
+      expect(text).not.toContain(image!.source!.data)
+      expect(text).not.toContain('iVBORw0KGgo')
+    }
+
+    // ── A non-picture tool's result reaches the model as text, unchanged. ──
+    const listed = lastToolResult(client, 2)
+    expect(typeof listed?.content).toBe('string')
+    expect(listed!.content as string).toContain('home')
+    expect(listed!.content as string).not.toContain('"type":"image"')
+
+    // ── An invalid argument is refused by the Toolbox, as text, before any lease. ──
+    const invalid = lastToolResult(client, 3)
+    expect(typeof invalid?.content).toBe('string')
+    expect(invalid!.content as string).toContain('colour')
+    expect(invalid!.content as string).not.toContain('iVBORw0KGgo')
+    expect(launched).toBe(1)
+
+    // ── The call is in the Toolbox's audit trail, flushed to R2 for this session. ──
+    const listedAudit = await env.SITES.list({ prefix: `audit/${TENANT}/${session.sessionId}/` })
+    const records: { operation: string; effect: string }[] = []
+    for (const object of listedAudit.objects) {
+      const body = await env.SITES.get(object.key)
+      records.push(JSON.parse(await body!.text()) as { operation: string; effect: string })
+    }
+    const shots = records.filter((r) => r.operation === 'screenshot')
+    expect(shots.length).toBeGreaterThanOrEqual(1)
+    for (const r of shots) expect(r.effect).toBe('read')
+    expect(records.map((r) => r.operation)).toContain('list_pages')
   })
 })
 
