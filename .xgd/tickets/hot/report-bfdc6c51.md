@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-49607926'
 created_by: xgd
 created_at: '2026-11-08T16:36:14.427476+00:00'
-updated_at: '2026-11-08T16:36:14.427476+00:00'
+updated_at: '2026-11-08T16:46:03.963238+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -46,6 +46,7 @@ fields:
       files:
       - tests/test_UAT_FC_REQ-211_runs_survive_a_capture.test.ts
   fix_iteration: 2
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
