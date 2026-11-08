@@ -2,11 +2,11 @@
 uid: acceptance_criterion-d09c5960
 id: AC-2351
 type: acceptance_criterion
-title: Signing out ends the session and clears the cookie, and succeeds for a caller
-  who is not signed in
+title: Signing out ends our session and clears our cookie whatever admitted the caller,
+  and lands on /sign-in without an Access credential
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T08:23:15.747754+00:00'
-updated_at: '2026-11-08T02:43:47.553990+00:00'
+updated_at: '2026-11-08T02:44:22.335111+00:00'
 completed_at: null
 last_field_updated: title
 status: active
