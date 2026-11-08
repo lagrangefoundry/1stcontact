@@ -5,10 +5,10 @@ type: bundle
 title: REQ-210 + REQ-212 + REQ-213 + REQ-211 + BUG-69 + 4 more
 created_by: xgd
 created_at: '2026-11-08T12:30:04.545337+00:00'
-updated_at: '2026-11-08T17:34:05.783538+00:00'
-completed_at: null
-last_field_updated: regression_anchor_uid
-status: reconciling
+updated_at: '2026-11-08T20:29:51.373596+00:00'
+completed_at: '2026-11-08T20:29:51.373596+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   bundle_type: reconcile
   commits:
