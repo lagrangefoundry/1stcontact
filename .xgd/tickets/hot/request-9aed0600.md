@@ -5,7 +5,7 @@ type: request
 title: 'The user can point: Marked Points on the edit preview'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:58.462451+00:00'
-updated_at: '2026-11-08T20:29:57.325969+00:00'
+updated_at: '2026-11-08T20:30:00.087551+00:00'
 completed_at: '2026-11-08T20:29:57.325969+00:00'
 last_field_updated: status
 status: free_and_reconciled
