@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-49607926'
 created_by: xgd
 created_at: '2026-11-08T16:26:13.531861+00:00'
-updated_at: '2026-11-08T16:26:13.531861+00:00'
+updated_at: '2026-11-08T16:40:15.716315+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-49607926
@@ -37,6 +37,11 @@ fields:
   batch_index: 0
   parent_report_uid: report-b688435f
   anchor_ticket: bundle-0d00566a
+  ruling: declined
+  ruling_reason: 'Rung 1 decided that the code is right: REQ-211 and AC-2449 require
+    a <br> to end a flow, and extract.ts already does this. The fix belonged to the
+    test and was already made inside the rule (test-only commit 3ef55bf62c, gate passing).
+    code_frozen therefore stands and no production file needs to change.'
 ---
 
 # Builder blocked by `code_frozen`
@@ -62,3 +67,7 @@ tests:
 ```
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: declined
+
+Rung 1 decided that the code is right: REQ-211 and AC-2449 require a <br> to end a flow, and extract.ts already does this. The fix belonged to the test and was already made inside the rule (test-only commit 3ef55bf62c, gate passing). code_frozen therefore stands and no production file needs to change.
