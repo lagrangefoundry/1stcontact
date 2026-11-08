@@ -6,7 +6,7 @@ title: bin/access-sim --print-env emits the Access settings that point the Worke
   at the simulator and the SERVICE_TOKEN_IDENTITIES mapping line
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:17:21.192988+00:00'
-updated_at: '2026-11-08T02:04:17.919537+00:00'
+updated_at: '2026-11-08T02:04:26.531823+00:00'
 completed_at: null
 last_field_updated: title
 status: active
@@ -14,8 +14,6 @@ fields:
   story_uid: story-5b5be809
   kind: behavior
   regression_only: false
-  title: bin/access-sim --print-env emits the Access settings that point the Worker
-    at the simulator and the SERVICE_TOKEN_IDENTITIES mapping line
 ---
 
 ## Criterion
