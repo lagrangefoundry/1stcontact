@@ -6,9 +6,9 @@ title: The consultant can generate a raster picture that lands as an ordinary, l
   piece of the client's material
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:41:24.865738+00:00'
-updated_at: '2026-11-08T07:13:43.862479+00:00'
+updated_at: '2026-11-08T10:09:41.760852+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-c0301347
@@ -45,6 +45,7 @@ The image credential (`OPENAI_API_KEY`) is optional. Without it there is no imag
 - **Deploy hook outcomes when the key is absent** (decided at reconciliation, 2026-11-07): REQ-208 says only that the deploy must not fail. The code also tells apart push (key in environment), keep (already stored in Cloudflare) and skip (absent, or the store could not be read), and reports each one, including under a dry run. Formalized as AC-2392 because the operator relies on that output to know whether image generation is live.
 - **`rights` / `republishable` / `exportable` / `role` values** (decided at reconciliation, 2026-11-07): set in the ticket's implementation-decisions section, not in its "What changes" spec. Formalized in AC-2383 because without `republishable: true` a generated picture could never be promoted to a site.
 - **Attach scope** (decided at reconciliation, 2026-11-07): intent says the plugin "cannot write arbitrary tickets". The code also refuses an attach to any ticket it did not create in that session. Formalized in AC-2390 as part of the same guarantee.
+- **When to generate, and how the result is presented, is left to model judgement** (decided at reconciliation, 2026-11-08): REQ-208's "How it behaves" says the assistant does not generate what the client already has, and says what it made and why, as a draft. Nothing in this product instructs that. The adopted plugin's manual (the `imagegen` surface's overview and the `CreateImage` description) says only that generation is slow and costs money and so is not to be done speculatively; it does not tell the model to check the client's existing material first, nor to present the result as a draft with its reasons. The consultant role's priming (`priming.json`) says nothing about generating images. So there is no instruction reaching the model's tool list or system text that an AC could assert, and the behaviour depends on the model's own judgement in conversation. No AC is written for it. Making it a guarantee would need a priming or manual line (product priming, or upstream in the plugin's declaration), which is a production change outside this reconciliation.
 
 No contradictions between intent and code were found.
 
