@@ -270,7 +270,10 @@ describe('story-e674c60a — the deployed workspace, with nothing running locall
     // deliberate. Arranged by removing the object the listing still names.
     const corruptSlug = await seedLocalSite(source, { 'broken.png': new Uint8Array([9, 9, 9]) })
     const row = await env.DB.prepare(
-      'SELECT r2_key FROM site_assets WHERE tenant_id = ? AND slug = ? AND name = ?',
+      // Assets are keyed by the site's id; the (tenant, slug) address resolves
+      // to it through `sites`.
+      'SELECT a.r2_key FROM site_assets a JOIN sites s ON s.id = a.site_id ' +
+        'WHERE s.tenant_id = ? AND s.slug = ? AND a.name = ?',
     )
       .bind(LOCAL, corruptSlug, 'broken.png')
       .first<{ r2_key: string }>()

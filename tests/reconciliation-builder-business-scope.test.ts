@@ -55,7 +55,9 @@ const settle = async (n = 5) => {
   for (let i = 0; i < n; i += 1) await new Promise((r) => setTimeout(r, 0))
 }
 
-const ACCOUNT = { name: 'Robin Owner', email: 'robin@example.test' }
+// Who is signed in. The builder option is `person` (REQ-194): a person's name and
+// address, not the account that pays.
+const PERSON = { name: 'Robin Owner', email: 'robin@example.test' }
 const TWO = [
   { id: 'acct_salon', name: 'Salon', selectable: true, lapse: null },
   { id: 'acct_studio', name: 'Studio', selectable: true, lapse: null },
@@ -145,7 +147,7 @@ afterEach(() => {
 function mountOverNetwork(over: Record<string, unknown> = {}) {
   return mountBuilder(root, {
     businesses: TWO,
-    account: ACCOUNT,
+    person: PERSON,
     storage: memoryStorage(),
     markdownReady: Promise.resolve(),
     ...over,
@@ -160,7 +162,7 @@ function mountInjected(over: Record<string, unknown> = {}) {
   }
   return mountBuilder(root, {
     businesses: TWO,
-    account: ACCOUNT,
+    person: PERSON,
     storage: memoryStorage(),
     markdownReady: Promise.resolve(),
     loadSites: async (id: string | null) => sitesOf[id ?? ''] ?? [],
@@ -236,8 +238,8 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — shell chrome carries the s
     avatar.click()
     const dialog = shellEl.querySelector('.builder-modal') as HTMLElement
     expect(dialog).toBeTruthy()
-    expect(dialog.textContent).toContain(ACCOUNT.email)
-    expect(dialog.textContent).toContain(ACCOUNT.name)
+    expect(dialog.textContent).toContain(PERSON.email)
+    expect(dialog.textContent).toContain(PERSON.name)
     const rows = [...dialog.querySelectorAll('.builder-account__business-name')].map((r) => r.textContent)
     expect(rows).toEqual(['Salon', 'Studio', `Gone${CONFIG.BUSINESS_LAPSED_SUFFIX}`])
     const text = dialog.textContent!.toLowerCase()
@@ -250,7 +252,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — shell chrome carries the s
 
     // Exactly one business: the name, no control.
     root = document.body.appendChild(document.createElement('div'))
-    const one = mountInjected({ businesses: [TWO[0]], account: { name: null, email: 'solo@example.test' } })
+    const one = mountInjected({ businesses: [TWO[0]], person: { name: null, email: 'solo@example.test' } })
     await settle()
     const single = root.querySelector('.builder-business') as HTMLElement
     expect(single.querySelector('select')).toBeNull()
@@ -420,7 +422,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — an account with nothing se
 
     // The avatar still opens the account surface.
     ;(shellEl.querySelector(`[data-action="${CONFIG.ACCOUNT_ACTION_ID}"]`) as HTMLButtonElement).click()
-    expect(shellEl.querySelector('.builder-modal')!.textContent).toContain(ACCOUNT.email)
+    expect(shellEl.querySelector('.builder-modal')!.textContent).toContain(PERSON.email)
     app.destroy()
 
     // Non-vacuity: with a selectable business the same default DOES ask for sites.
@@ -455,7 +457,7 @@ describe('story-e674c60a — the account surface explains a lapse', () => {
       { id: 'missing', name: 'Missing', selectable: false },
     ]
     const host = document.body.appendChild(document.createElement('div'))
-    openAccountSurface({ host, account: ACCOUNT, businesses, selected: 'live' })
+    openAccountSurface({ host, person: PERSON, businesses, selected: 'live' })
 
     const rows = new Map(
       [...document.querySelectorAll('.builder-account__business')].map((row) => [

@@ -484,6 +484,16 @@ describe('story-e674c60a builder origin', () => {
         ok: false,
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
+      // The Library's change stream, which tells every open Library that the set
+      // moved. Probed in its REJECTION shape — a cursor that is not an integer is
+      // refused on the request's own arguments, before a store is opened or a
+      // stream held open — because a cached refusal here would stop a Library
+      // ever being told its material changed.
+      {
+        route: '/api/material/changes',
+        url: '/api/material/changes?since=not-a-cursor',
+        ok: false,
+      },
       // And the other correction the Library makes ([[REQ-213]]) — what a piece
       // of material is FOR. Probed in the same rejection shape, and it reaches
       // one for the same reason its sibling does: the uid and the role are

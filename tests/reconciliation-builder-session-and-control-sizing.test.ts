@@ -79,7 +79,9 @@ const rejects = () => async () => {
   throw new TypeError('Failed to fetch')
 }
 
-const ACCOUNT = { name: 'Robin Owner', email: 'robin@example.test' }
+// Who is signed in: the builder's `person` option and the `/api/businesses`
+// `person` half (REQ-194) — a person's name and address, not the paying account.
+const SIGNED_IN = { name: 'Robin Owner', email: 'robin@example.test' }
 const TWO = [
   { id: 'acct_salon', name: 'Salon', selectable: true, lapse: null },
   { id: 'acct_studio', name: 'Studio', selectable: true, lapse: null },
@@ -88,7 +90,8 @@ const TWO = [
 const PERSON = {
   id: 'usr_1',
   email: 'alice@example.test',
-  displayName: 'Alice Adams',
+  // A name is a record, not a column (REQ-193): the list reads `name.displayName`.
+  name: { displayName: 'Alice Adams' },
   status: 'active',
   invitedAt: '2026-09-01T10:00:00.000Z',
   firstSeenAt: null,
@@ -107,7 +110,9 @@ function peopleTransport(calls?: string[]) {
     saveStatus: async () => ({}),
     grant: async () => ({}),
     revoke: async () => {},
-    invite: async () => ({ created: true, person: { ...PERSON } }),
+    add: async () => ({ created: true, person: { ...PERSON } }),
+    invite: async () => ({ results: [{ id: PERSON.id, status: 'sent' }] }),
+    inviteDraft: async () => ({ from: 'Salon <hello@example.test>', subject: 'Join us', body: 'Hello' }),
     fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteSlug: 'acct_new' }),
   }
 }
@@ -230,7 +235,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — an ended session says so',
     const calls: string[] = []
     const app = mountBuilder(root, {
       businesses: TWO,
-      account: ACCOUNT,
+      person: SIGNED_IN,
       storage: memoryStorage(),
       markdownReady: Promise.resolve(),
       loadSites: async (id: string | null) =>
@@ -254,11 +259,14 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — an ended session says so',
     expect(app.scope.getSite()).toBe('salon-site')
 
     const shellEl = app.shell.element as HTMLElement
-    ;(shellEl.querySelector('.builder-people__invite') as HTMLElement).click()
+    // A dialog holding half-typed work: Contacts' "Add a contact", whose address
+    // box is the first thing the operator types into.
+    ;(shellEl.querySelector('.builder-people__add') as HTMLElement).click()
     await settle()
     const dialog = shellEl.querySelector('.builder-modal') as HTMLElement
-    expect(dialog, 'the invite dialog did not open inside the shell').toBeTruthy()
-    const typed = dialog.querySelector('input') as HTMLInputElement
+    expect(dialog, 'the add-contact dialog did not open inside the shell').toBeTruthy()
+    const typed = dialog.querySelector('.builder-people__add-email') as HTMLInputElement
+    expect(typed, 'the add-contact dialog has no address box').toBeTruthy()
     typed.value = 'half-typed@example.test'
 
     // Several calls are refused, from several places.
@@ -328,11 +336,11 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — only a refused session cou
       // ── AN ORIGIN THAT MERELY FAILED (500) ─────────────────────────────────
       globalThis.fetch = (async () => json({ error: 'down' }, 500)) as never
       const loaded = await loadOrSignOut(root, () => Promise.all([fetchBusinesses(), fetchAiStatus()]))
-      expect(loaded).toEqual([{ account: null, businesses: [] }, { ai: true, message: null }])
+      expect(loaded).toEqual([{ person: null, businesses: [] }, { ai: true, message: null }])
       const [biz, aiStatus] = loaded as [Handle, Handle]
       const failed = mountBuilder(root, {
         businesses: biz.businesses,
-        account: biz.account,
+        person: biz.person,
         aiStatus,
         storage: memoryStorage(),
         markdownReady: Promise.resolve(),
@@ -357,7 +365,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — only a refused session cou
       root.replaceChildren()
       const emptyListing = mountBuilder(root, {
         businesses: TWO,
-        account: ACCOUNT,
+        person: SIGNED_IN,
         sites: [{ slug: 'stale-site', latest: null }],
         storage: memoryStorage(),
         markdownReady: Promise.resolve(),
@@ -376,7 +384,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — only a refused session cou
       globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
         const url = String(input)
         const rest = url.replace(/^\/b\/[^/]+/, '')
-        if (rest === '/api/businesses') return json({ account: ACCOUNT, businesses: TWO })
+        if (rest === '/api/businesses') return json({ person: SIGNED_IN, businesses: TWO })
         if (rest === '/api/status') return json({ ai: true })
         if (rest.startsWith('/api/sites')) return json([{ slug: 'salon-site', latest: 1 }])
         if (rest.startsWith('/api/ai/session')) {
@@ -396,11 +404,11 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — only a refused session cou
         const opened = await loadOrSignOut(root, () => Promise.all([fetchBusinesses(), fetchAiStatus()]))
         expect(opened).not.toBeNull()
         const [b, s] = opened as [Handle, Handle]
-        expect(b.account).toEqual(ACCOUNT)
+        expect(b.person).toEqual(SIGNED_IN)
         expect(b.businesses).toHaveLength(2)
         live = mountBuilder(root, {
           businesses: b.businesses,
-          account: b.account,
+          person: b.person,
           aiStatus: s,
           storage,
           markdownReady: Promise.resolve(),
@@ -582,6 +590,12 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the chrome controls share 
     expect(facets.length).toBeGreaterThan(0)
     const invite = one('.builder-people__invite')
     const fulfil = one('.builder-people__fulfil')
+    const add = one('.builder-people__add')
+    // Invite opens its composer only over a selection: tick the one contact.
+    const tick = one('.builder-people__check') as HTMLInputElement
+    tick.click()
+    await settle()
+    expect((invite as HTMLButtonElement).disabled, 'Invite stays disabled over a selection').toBe(false)
 
     // Open both dialogs, collecting their footer buttons and every class emitted.
     const dialogButtons: Array<{ el: HTMLElement; label: string; affirmative: boolean }> = []
@@ -592,8 +606,11 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the chrome controls share 
       }
     }
     sweep()
+    // Each Contacts dialog and its affirmative: Add a contact, the Invite composer
+    // (whose affirmative names the count it sends), and Provision a business.
     for (const [opener, affirm] of [
-      [invite, 'Invite'],
+      [add, 'Add'],
+      [invite, 'Send 1'],
       [fulfil, 'Provision'],
     ] as const) {
       opener.click()
@@ -628,7 +645,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the chrome controls share 
       byLabel('Close').click()
       await settle()
     }
-    expect(dialogButtons).toHaveLength(4)
+    expect(dialogButtons).toHaveLength(6)
 
     // ── EVERY `builder-*` CLASS EMITTED IS MATCHED BY A BUILDER RULE ─────────
     expect(emitted.has('builder-modal__btn')).toBe(true)

@@ -82,7 +82,9 @@ function stubJwks(): void {
 }
 
 interface Payload {
-  account: { name: string | null; email: string } | null
+  // The signed-in half is `person` on the wire (REQ-194): it carries a person's
+  // display name and primary address, not the account that pays.
+  person: { name: string | null; email: string | null } | null
   businesses: Array<{
     id: string
     name: string
@@ -128,10 +130,11 @@ describe('story-e674c60a — the businesses endpoint', () => {
     stubJwks()
     const email = 'rec-e674-owner@example.test'
     const live = await invite({ email, accountName: 'Live Salon', displayName: 'Robin Owner', endsAt: null })
+    // A second business on the SAME account: a business belongs to an account,
+    // and every person on it is a member by construction.
     const lapsed = await provisionBusiness(identityEnv(), {
-      accountUserId: live.user.id,
+      accountId: live.user.account_id,
       name: 'Lapsed Studio',
-      email,
     })
     // Push the second business's grant into the past — "access expired".
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
@@ -146,8 +149,9 @@ describe('story-e674c60a — the businesses endpoint', () => {
     expect(response.headers.get('cache-control')).toContain('no-store')
     const body = (await response.json()) as Payload
 
-    // The signed-in account, in the same answer.
-    expect(body.account).toEqual({ name: 'Robin Owner', email })
+    // Who is signed in, in the same answer.
+    expect(body.person).toEqual({ name: 'Robin Owner', email })
+    expect(body).not.toHaveProperty('account')
 
     // Exactly the caller's memberships — the lapsed one included, not filtered.
     const byId = new Map(body.businesses.map((b) => [b.id, b]))
@@ -178,6 +182,7 @@ describe('story-e674c60a — the businesses endpoint', () => {
     expect(open.status).toBe(200)
     expect(open.headers.get('cache-control')).toContain('no-store')
     const openBody = (await open.json()) as Payload
+    expect(openBody.person).toBeNull()
     expect(openBody.businesses).toHaveLength(1)
     expect(openBody.businesses[0]).toMatchObject({ id: PLATFORM, selectable: true, lapse: null })
   })

@@ -22,6 +22,8 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+// The component scope is declared once (AC-960); a specifier is composed from it.
+import { WEBUI_SCOPE } from '../tools/generate/src/cli/webui'
 import { UPLOAD_AREAS } from '../apps/control-app/src/builder/config.js'
 
 let createLibraryPanel: (opts?: Record<string, unknown>) => never
@@ -164,8 +166,8 @@ beforeAll(async () => {
   if (WEBUI_INSTALLED) {
     ;({ createLibraryPanel } = await import('../apps/control-app/src/builder/library.js'))
     ;({ saveMaterialRole } = await import('../apps/control-app/src/builder/api.js'))
-    ;({ setSanitizer } = await import('@lagrangefoundry/webui-chat'))
-    ;({ setParser } = await import('@lagrangefoundry/webui-markdown'))
+    ;({ setSanitizer } = await import(`${WEBUI_SCOPE}/webui-chat`))
+    ;({ setParser } = await import(`${WEBUI_SCOPE}/webui-markdown`))
   }
   globalThis.ResizeObserver ??= class {
     observe() {}
