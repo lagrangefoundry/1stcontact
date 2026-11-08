@@ -6,16 +6,18 @@ title: 'The builder is private: only granted identities reach it, on every addre
   it answers on'
 created_by: xgd
 created_at: '2026-08-31T09:31:03.958986+00:00'
-updated_at: '2026-11-08T01:43:03.931766+00:00'
+updated_at: '2026-11-08T01:43:04.187950+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
   capability_uid: capability-3606e35b
   story_kind: upgrade
   story_points: 3
-  updated_by: bundle-87be4669
+  updated_by:
+  - bundle-87be4669
+  - bundle-4164b433
   uat_coverage: pass
 ---
 
