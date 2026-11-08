@@ -263,6 +263,19 @@ export function generatedMaterialStore(
   }
 }
 
+/** Every occurrence of `find` in `text`, matched without regard to case, becomes `replacement`. */
+function replaceIgnoringCase(text: string, find: string, replacement: string): string {
+  const haystack = text.toLowerCase()
+  const needle = find.toLowerCase()
+  let out = ''
+  let from = 0
+  for (let at = haystack.indexOf(needle); at !== -1; at = haystack.indexOf(needle, from)) {
+    out += text.slice(from, at) + replacement
+    from = at + needle.length
+  }
+  return out + text.slice(from)
+}
+
 /** The operations the model can call, whose failures it reads. */
 const IMAGE_OPERATIONS = ['create_image', 'edit_image'] as const
 
@@ -279,13 +292,17 @@ const IMAGE_OPERATIONS = ['create_image', 'edit_image'] as const
  * ratios the generator does offer) still reach the model.
  */
 function vendorless(surface: Untyped, names: string[]): void {
-  const words = [...new Set(names.filter((n) => n.length > 0))]
+  // Longest first, so a model id that contains the vendor name is replaced whole.
+  const words = [...new Set(names.filter((n) => n.length > 0))].sort((a, b) => b.length - a.length)
   if (words.length === 0) return
-  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-  const backendPhrase = new RegExp(`Backend\\s+"(?:${escaped})"`, 'gi')
-  const bare = new RegExp(escaped, 'gi')
-  const scrub = (text: string): string =>
-    text.replace(backendPhrase, 'This generator').replace(bare, 'the generator')
+  const scrub = (text: string): string => {
+    let out = text
+    for (const word of words) {
+      out = replaceIgnoringCase(out, `Backend "${word}"`, 'This generator')
+    }
+    for (const word of words) out = replaceIgnoringCase(out, word, 'the generator')
+    return out
+  }
 
   for (const op of IMAGE_OPERATIONS) {
     const original = surface[op]
