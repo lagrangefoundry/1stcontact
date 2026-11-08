@@ -5,10 +5,10 @@ type: bug
 title: capabilities.js is a syntax error — no behavior module client code runs
 created_by: REQ-212
 created_at: '2026-09-10T20:23:03.804692+00:00'
-updated_at: '2026-09-16T02:48:49.665180+00:00'
+updated_at: '2026-11-08T20:38:08.875427+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   severity: high
   priority: high
@@ -24,6 +24,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.154
+  bundled_in: bundle-7ba3af93
 ---
 
 # `capabilities.js` is a syntax error — no behavior module has run since 2026-09-05

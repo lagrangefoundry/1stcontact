@@ -5,10 +5,10 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-09-11T22:09:21.439112+00:00'
+updated_at: '2026-11-08T20:38:21.674721+00:00'
 completed_at: null
-last_field_updated: body
-status: ready_to_reconcile
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   epic_parent: epic-34760bf1
@@ -27,6 +27,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.159
+  bundled_in: bundle-7ba3af93
 ---
 
 ## The gap
