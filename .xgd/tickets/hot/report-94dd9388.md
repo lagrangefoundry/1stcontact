@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-49607926'
 created_by: xgd
 created_at: '2026-11-08T18:54:11.548694+00:00'
-updated_at: '2026-11-08T18:54:11.548694+00:00'
+updated_at: '2026-11-08T19:22:20.645067+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -82,6 +82,7 @@ fields:
       rung3: 'Decided here: the AC-2464 tests stand unchanged; the test harness iteration
         6 changed must stop making the mirrored builds wait on an unrelated repo lock
         and stop mirroring a concurrent build''s transient tree.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 7
