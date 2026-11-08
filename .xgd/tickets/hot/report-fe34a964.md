@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-4cabde9a'
 created_by: xgd
 created_at: '2026-11-08T05:54:51.048354+00:00'
-updated_at: '2026-11-08T05:54:51.048354+00:00'
+updated_at: '2026-11-08T06:10:36.757551+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -99,6 +99,7 @@ fields:
       or test_UAT_AC1792_ or test_UAT_AC1793_ or test_UAT_AC1794_ or test_UAT_AC1688_
       or test_UAT_AC1689_ or test_UAT_AC1691_ or test_UAT_AC1692_ or test_UAT_AC1695_
       or test_UAT_AC1696_ or test_UAT_AC1699_
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
