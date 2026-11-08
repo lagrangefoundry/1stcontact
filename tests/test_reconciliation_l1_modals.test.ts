@@ -354,14 +354,21 @@ describe('story-e214a00d — what the renderer emits', () => {
     }
     expect(dd.getElementById('opener')!.getAttribute('data-l1-opens')).toBe('p')
     expect(dd.getElementById('closer')!.getAttribute('data-l1-closes')).toBe('p')
-    for (const attr of ['data-l1-opens', 'data-l1-closes', 'aria-controls', 'aria-expanded']) {
+    for (const attr of ['data-l1-opens', 'data-l1-closes', 'aria-controls', 'aria-haspopup', 'aria-expanded']) {
       expect(ed.querySelectorAll(`[${attr}]`)).toHaveLength(0)
     }
-    // The panel renders in flow and visible: same element and class, no shell.
+    // The panel keeps its element and class, and (REQ-215) the covering shell,
+    // its declared id, role="dialog" and the overlay stylesheet ship in both
+    // channels; only the script and the acting attributes are withheld.
     const ep = ed.getElementById('p')!
     expect(ep.className).toBe(dd.getElementById('p')!.className)
-    expect(ed.querySelector('[data-l1-dialog]')).toBeNull()
-    expect(edit.css).not.toContain('l1-dlg')
+    expect(ep.getAttribute('role')).toBe('dialog')
+    const shell = ed.querySelector('[data-l1-dialog="p"]')!
+    expect(shell).not.toBeNull()
+    expect(shell.classList.contains('l1-dlg')).toBe(true)
+    expect(shell.firstElementChild).toBe(ep)
+    expect(shell.hasAttribute('data-l1-open')).toBe(false)
+    expect(edit.css).toContain(L1_DIALOG_CSS)
   })
 
   it('test_UAT_AC2437_a_reveal_on_a_panel_is_not_emitted_while_a_reveal_inside_it_is', () => {
