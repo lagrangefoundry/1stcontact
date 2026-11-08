@@ -201,8 +201,6 @@ function fillNames(el){
   v=el.getAttribute('aria-labelledby');
   if(v){var r=document.getElementById(v);if(r)out.push(textOf(r))}
   v=el.getAttribute('placeholder');if(v)out.push(v);
-  v=el.getAttribute('name');if(v)out.push(v);
-  if(el.id)out.push(el.id);
   return out}
 function fingerprint(){
   var s='';try{s=document.documentElement.outerHTML}catch(e){}
@@ -278,10 +276,11 @@ try{setter=Object.getOwnPropertyDescriptor(proto,'value').set}catch(e){}
 // A menu is chosen by the words a person reads on it, and only falls back to
 // the value the markup carries — which is a developer's word, not a reader's.
 if(target.tagName==='SELECT'){
-  var want=norm(S.value),chosen=-1;
-  for(var oi=0;oi<target.options.length;oi++){
-    var opt=target.options[oi];
-    if(norm(opt.textContent)===want||norm(opt.value)===want){chosen=oi;break}}
+  var want=norm(S.value),chosen=-1,oi;
+  for(oi=0;oi<target.options.length;oi++){
+    if(norm(target.options[oi].textContent)===want){chosen=oi;break}}
+  if(chosen<0)for(oi=0;oi<target.options.length;oi++){
+    if(norm(target.options[oi].value)===want){chosen=oi;break}}
   if(chosen<0)return refuse('no-match',
     "'"+matched+"' has no choice called '"+S.value+"'.");
   try{target.selectedIndex=chosen}catch(e){}}
@@ -291,8 +290,7 @@ else{
 try{target.dispatchEvent(new Event('input',{bubbles:true}));
 target.dispatchEvent(new Event('change',{bubbles:true}))}catch(e){}
 var landed=target.tagName==='SELECT'
-  ?(norm(target.options[target.selectedIndex]&&target.options[target.selectedIndex].textContent)===norm(S.value)
-    ||norm(target.value)===norm(S.value))
+  ?target.selectedIndex===chosen
   :String(target.value)===String(S.value);
 if(!landed)return refuse('inert',
   "'"+matched+"' did not take that value — it still reads '"+String(target.value)+"'.");
