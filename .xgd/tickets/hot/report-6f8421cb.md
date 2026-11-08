@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-5281f009'
 created_by: xgd
 created_at: '2026-11-08T21:18:33.042149+00:00'
-updated_at: '2026-11-08T21:18:33.042149+00:00'
+updated_at: '2026-11-08T21:25:27.846595+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-5281f009
@@ -41,6 +41,7 @@ fields:
       criterion) or AC-1665 (orphaned acceptance criterion) or test_UAT_AC1655 or
       test_UAT_AC1656 or test_UAT_AC1657 or test_UAT_AC1660 or test_UAT_AC1661 or
       test_UAT_AC1662 or test_UAT_AC1663 or test_UAT_AC1664 or test_UAT_AC1665
+  batches_pending: false
 ---
 
 {
