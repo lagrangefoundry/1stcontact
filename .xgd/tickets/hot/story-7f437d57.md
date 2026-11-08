@@ -6,9 +6,9 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-11-08T14:17:35.872545+00:00'
+updated_at: '2026-11-08T14:22:39.171917+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -16,9 +16,7 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: pass
-  updated_by:
-  - bundle-4164b433
-  - bundle-0d00566a
+  updated_by: bundle-0d00566a
 ---
 
 ## Story
