@@ -306,7 +306,10 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2086 — a capture states its file count i
     expect(labels).not.toContain('File')
     for (const kept of [
       'Kind',
-      'What it is for',
+      // The role descriptor is `required` (REQ-213), so the fields component
+      // labels it with its required marker even where, as on a capture, the row
+      // is read-only.
+      'What it is for *',
       'Where it came from',
       'Rights',
       'Can appear on the site',

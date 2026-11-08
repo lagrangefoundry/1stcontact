@@ -363,7 +363,8 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-1717 — the file itself, and the record r
     const rights = doc.querySelector('.builder-library__rights')!
     expect(reader.compareDocumentPosition(rights) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
-    // THE RECORD: every field displayed, none editable, placement under *Placed on*.
+    // THE RECORD: every field displayed, placement under *Placed on*, and — this
+    // being an upload — none editable but *What it is for* (REQ-213).
     const named = (name: string) => rights.querySelector(`.fields-row[data-field="${name}"]`)!
     expect(named('filename').textContent).toContain('guidelines.pdf')
     expect(named('kind').textContent).toContain('document')
@@ -374,17 +375,22 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-1717 — the file itself, and the record r
     expect(named('placed_on').textContent).toContain('Placed on')
     expect(named('source_url')).toBeTruthy()
     expect(rights.textContent).not.toContain('Used on')
-    for (const row of rights.querySelectorAll('.fields-row')) {
-      expect(row.classList.contains('is-editable'), row.getAttribute('data-field') ?? '').toBe(false)
+    const editable = [...rights.querySelectorAll('.fields-row.is-editable')].map((row) =>
+      row.getAttribute('data-field'),
+    )
+    expect(editable).toEqual(['role'])
+    for (const c of rights.querySelectorAll('.fields-value-editable, input, select, textarea')) {
+      expect(c.closest('.fields-row')?.getAttribute('data-field'), c.outerHTML).toBe('role')
     }
-    expect(rights.querySelectorAll('.fields-value-editable, input, select, textarea')).toHaveLength(0)
 
-    // NOTHING ON THE PANE LETS A CLIENT ASSERT RIGHTS: outside the description,
-    // no control on the detail edits anything.
+    // NOTHING ON THE PANE LETS A CLIENT ASSERT RIGHTS: outside the description
+    // and an upload's role, no control on the detail edits anything.
     const controls = [...doc.querySelectorAll('input, select, textarea, [contenteditable="true"]')]
     for (const c of controls) {
-      expect(c.closest('.fields-row[data-field="body"]'), c.outerHTML).toBeTruthy()
+      expect(['body', 'role'], c.outerHTML).toContain(c.closest('.fields-row')?.getAttribute('data-field'))
     }
+    expect(named('rights').classList.contains('is-editable')).toBe(false)
+    expect(named('republishable').classList.contains('is-editable')).toBe(false)
 
     // A KIND NOTHING CAN RENDER: the download alone, no reader, no picture.
     const font = await open(panel, 'a-font')

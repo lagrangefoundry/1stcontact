@@ -277,16 +277,22 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-1718 — the description is the one editab
       /Nothing has read this yet/i,
     )
 
-    // EXACTLY ONE FIELD OF THE PANE ACCEPTS EDITING, AND IT IS THE DESCRIPTION.
-    // Counted across the WHOLE detail — the rights block is on this pane too, and
-    // a count taken inside the description block alone would pass whatever the
-    // rights block did.
+    // ON AN UPLOAD EXACTLY TWO FIELDS OF THE PANE ACCEPT EDITING: THE DESCRIPTION
+    // AND *What it is for* (REQ-213). Counted across the WHOLE detail — the rights
+    // block is on this pane too, and a count taken inside the description block
+    // alone would pass whatever the rights block did.
     const editableRows = [...detail.querySelectorAll('.fields-row.is-editable')]
-    expect(editableRows.map((row) => row.getAttribute('data-field'))).toEqual(['body'])
+    expect(editableRows.map((row) => row.getAttribute('data-field'))).toEqual(['role', 'body'])
+    const rightsEditable = [...detail.querySelectorAll('.builder-library__rights .fields-row.is-editable')]
+    expect(rightsEditable.map((row) => row.getAttribute('data-field'))).toEqual(['role'])
     expect(detail.querySelector('.builder-library__description .fields')).toBeTruthy()
+    const bodyRow = detail.querySelector(
+      '.builder-library__description .fields-row.is-editable[data-field="body"]',
+    ) as HTMLElement
+    expect(bodyRow).toBeTruthy()
 
     // COMMIT IT THE WAY A CLIENT DOES — type, then leave the field.
-    ;(editableRows[0].querySelector('.fields-value-editable') as HTMLElement).click()
+    ;(bodyRow.querySelector('.fields-value-editable') as HTMLElement).click()
     const control = detail.querySelector(
       '.builder-library__description textarea',
     ) as HTMLTextAreaElement
