@@ -6,10 +6,10 @@ title: Two behaviors may declare the same top-level name and the composed bundle
   parses and every behavior runs
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T21:32:28.945392+00:00'
-updated_at: '2026-11-08T21:32:28.945392+00:00'
+updated_at: '2026-11-08T21:40:04.883125+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
