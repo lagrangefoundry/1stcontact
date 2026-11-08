@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-58b2cec4'
 created_by: xgd
 created_at: '2026-11-08T04:56:02.431653+00:00'
-updated_at: '2026-11-08T04:56:02.431653+00:00'
+updated_at: '2026-11-08T05:04:18.786772+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -50,6 +50,7 @@ fields:
         (router.ts:3506-3512), and dev-open scope is { businessId: TENANT_ID } (scope.ts:391-394);
         the three-argument call disagrees, so the test changes.'
       rung3: Assertions stand unchanged; only the call shape is corrected.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 4
