@@ -7,10 +7,10 @@ title: Steps run in order, the first failure stops the run, and the shutter open
   width and check_fidelity's value gates read the same driven state
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T21:43:34.238551+00:00'
-updated_at: '2026-11-08T21:43:34.238551+00:00'
+updated_at: '2026-11-08T22:57:53.749254+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
