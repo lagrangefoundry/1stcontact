@@ -5,9 +5,9 @@ type: story
 title: 'Material Description: What The System Understands A File To Be'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:21:12.885489+00:00'
-updated_at: '2026-11-01T03:47:00.237296+00:00'
+updated_at: '2026-11-08T05:42:10.186489+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -66,10 +66,13 @@ Four kinds of file are understood in four different ways:
 - **Anything else** is still stored and still listed, with an account of why it could not be
   read.
 
-The document digest is written by a **lightweight session** on the platform's own AI host, not by
-a second path to a model: no tools, no priming beyond a fixed digest instruction, a session that
-leaves no conversation record behind, and one session per document, closed afterwards — also when
-describing fails.
+Documents and images are both described by a **lightweight session** on the platform's own AI
+host, not by a second path to a model: no tools, no priming beyond a fixed digest instruction (one
+for documents, one for images), a session that leaves no conversation record behind, and one
+session per item, closed afterwards — also when describing fails. An image travels to the model
+as an image content block beside a one-line instruction. The two describers are registered
+separately on the host, so a document is never answered under the image instruction or an image
+under the document one.
 
 Titles are derived rather than asked for, and a title the *author* wrote beats one inferred
 from the text: a portable document's own declared title is preferred over its first line, and
@@ -93,7 +96,7 @@ is missing.
 
 **In scope**: what each kind of file yields (digest body plus, for documents, full text), the
 six outcomes and the recorded describer, the title each description carries, the bounded body and
-bounded full text, the describer session's shape, and the never-throws contract.
+bounded full text, the describer sessions' shape (documents and images), and the never-throws contract.
 
 **Out of scope**, each covered by its own story: the ingestion pipeline that stores the bytes,
 settles the content type and creates the record (STORY-140); the guard in front of material
@@ -112,12 +115,11 @@ capture bundle, which belongs with capture ingestion.
   the retrieval handle for every kind of material.
 - Description is the platform's concern, not the ticket store's: the store holds bytes and
   metadata, and turning a PDF into prose is product behaviour.
-- The image describer is a configured seam. The intent records that the platform's own AI host
-  surface is text-only today, so the image path reaches a vision model separately; the intent
-  further records (2026-08-31) that this consolidates onto the AI host's own surface when that
-  surface grows image content, at which point only what sits behind the seam changes. No
-  acceptance criterion here asserts which model or which path is used, so that consolidation
-  cannot falsify this story.
+- The image describer is a configured seam. Until REQ-207 it reached a vision model directly,
+  because the AI host's session surface was text-only; REQ-207 (bundle-c0301347) consolidates it
+  onto the host's own session surface now that the surface carries image content, exactly as the
+  2026-08-31 intent foresaw, and only what sits behind the seam changed. No acceptance criterion
+  here asserts which model is used.
 - The per-image ceiling for *looking at* an image is far below the per-file ceiling for
   *storing* one. A file between the two is kept whole and simply not looked at, which is why
   this is an outcome rather than a refusal.
@@ -138,6 +140,13 @@ capture bundle, which belongs with capture ingestion.
   The no-describer outcome remains one of the six and remains reachable by a caller that hands in
   a document describer but no image describer, as defence in depth; it is no longer a criterion
   of its own.
+
+- **REQ-207 (bundle-c0301347)** moved image description onto the same describer session the
+  document digest uses: the two describers share one session shape and differ only in their
+  instruction and in the shape of the turn's content. Each is registered on the host under its own
+  name, because a shared name would let the one built second silently answer for the first. The
+  platform no longer carries its own direct dependency on a model provider's SDK for this step.
+  None of this changes what a description is, its outcomes, or the never-throws contract.
 
 ## Reconciliation Decisions
 
