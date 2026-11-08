@@ -809,16 +809,24 @@ describe('story-44d0a572 — Marked Points on the edit render', () => {
     pointer('pointerup', 300, 300)
     expect((markOf('A') as HTMLElement).style.left).toBe('20px')
 
-    // The next point placed starts again at Point A.
+    // Until the next render the greyed marks are still on screen and still hold
+    // their letters, so a point placed now is the only live one but takes the
+    // lowest letter no mark on screen uses — C, not A.
     box.set('')
     clickAt(copy, 400, 30)
-    expect(controller.list().map((p: { label: string }) => p.label)).toEqual(['A'])
-    expect(box.get().trim()).toBe('[Point A]')
+    expect(controller.list().map((p: { label: string }) => p.label)).toEqual(['C'])
+    expect(box.get().trim()).toBe('[Point C]')
+    expect(controller.expand('[Point A]')).toBe('[Point A]')
 
     // The next render removes every mark, greyed ones included, and advances the number.
     controller.bind(doc)
     expect(doc.querySelectorAll('.fc-point')).toHaveLength(0)
+    expect(controller.list()).toEqual([])
+    // With every mark gone, lettering starts again at Point A.
+    box.set('')
     clickAt(copy, 50, 20)
+    expect(controller.list().map((p: { label: string }) => p.label)).toEqual(['A'])
+    expect(box.get().trim()).toBe('[Point A]')
     const next = controller.expand('[Point A]')
     expect(next).toMatch(new RegExp(`render:\\s+page home, render ${firstOrdinal + 1}`))
   })
