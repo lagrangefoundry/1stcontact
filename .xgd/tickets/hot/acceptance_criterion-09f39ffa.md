@@ -6,9 +6,9 @@ title: A reminder entry whose condition does not hold is absent from the turn to
   with its separator, and the assembly is bounded by a declared 60,000-character budget
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T05:11:04.211270+00:00'
-updated_at: '2026-11-08T05:11:04.211270+00:00'
+updated_at: '2026-11-08T05:11:13.890624+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-a58a0974
@@ -18,7 +18,7 @@ fields:
 
 ## Criterion
 
-- **A condition that does not hold drops its entry whole.** Any entry whose content depends on a runtime condition renders nothing when the condition is absent: the site changed, the corpus grew, a knowledge base exists. The entry is dropped **together with its separator**, so the assembled text has no empty section, no placeholder residue, and no doubled or trailing separator. This is the only mechanism by which a conditional line is left out. There is no separate guard that edits a string afterwards. (The reminder's two signals are the case AC-2109 pins.)
+- **A condition that does not hold drops its entry whole.** A provider entry whose condition does not hold answers nothing. Examples: the site has not changed, or the corpus has not grown. The entry is then dropped **together with its separator**, so the assembled text has no empty section, no placeholder residue, and no doubled or trailing separator. This is the only mechanism by which a conditional line is left out. There is no separate guard that edits a string afterwards. (The reminder's two signals are the case AC-2109 pins. A session without a knowledge base is handled by the second declared order, AC-2374, not by a drop.)
 - **The budget is declared, not inherited.** The session's assembled priming is capped at **60,000 characters**, a number this host declares rather than the framework's 200,000-character default. A real consultant session with a knowledge base and the shipped corpus primes well under it, leaving headroom for the client's landscape, which is the part that grows.
 - **Overflow is loud.** A configuration whose assembled priming exceeds the cap stops the session with an error **naming the entry** that crossed it. No truncated priming is produced and no turn runs on one.
 
