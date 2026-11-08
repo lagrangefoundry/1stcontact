@@ -6,10 +6,10 @@ title: The whole priming list — system prompt, landscape, purpose, how to sear
   the manual — sits before a single cache boundary declared at its end
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T05:11:22.278084+00:00'
-updated_at: '2026-11-08T05:11:22.278084+00:00'
+updated_at: '2026-11-08T08:04:01.723193+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
