@@ -5,7 +5,7 @@ type: request
 title: 'Account dialog: sign-out control'
 created_by: martin-github@westhead.me
 created_at: '2026-09-07T21:42:25.156652+00:00'
-updated_at: '2026-11-08T03:28:32.148885+00:00'
+updated_at: '2026-11-08T03:28:34.778955+00:00'
 completed_at: '2026-11-08T03:28:32.148885+00:00'
 last_field_updated: status
 status: free_and_reconciled
