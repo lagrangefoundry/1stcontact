@@ -116,6 +116,12 @@ function shellEnv(overrides: Record<string, string> = {}): Record<string, string
   delete env.CF_ACCESS_CLIENT_ID
   delete env.CF_ACCESS_CLIENT_SECRET
   delete env.CLOUDFLARE_API_TOKEN
+  // An inherited account id or API base would decide account resolution and the
+  // API the script talks to before the scenario under test ever got a say —
+  // e.g. an operator's CLOUDFLARE_ACCOUNT_ID silently "disambiguates" the
+  // several-accounts case. Each scenario sets these explicitly when it means to.
+  delete env.CLOUDFLARE_ACCOUNT_ID
+  delete env.CLOUDFLARE_API_BASE
   return { ...env, ...overrides }
 }
 
