@@ -6,10 +6,10 @@ title: An image name matching several pictures is refused listing each exact nam
   matching none is refused pointing to the creation handle, Library name and list_assets
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T23:03:31.765201+00:00'
-updated_at: '2026-11-08T23:03:31.765201+00:00'
+updated_at: '2026-11-08T23:45:25.646774+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
