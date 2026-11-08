@@ -16,7 +16,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { run } from '../tools/generate/src/cli'
-import { withDistAssetsLock } from './support/fs-lock'
+import { DIST_ASSETS_LOCK_OPTIONS, withDistAssetsLock } from './support/fs-lock'
 import { checkImportGraph } from '../tools/generate/src/cli/assets'
 import { CommandError } from '../tools/generate/src/cli/errors'
 
@@ -89,7 +89,9 @@ describe('story-e674c60a — the asset build emits and verifies the import graph
     printed = lines.join('\n')
     map = JSON.parse(fs.readFileSync(IMPORT_MAP, 'utf8'))
     staged = fs.mkdtempSync(path.join(os.tmpdir(), 'ac2464-'))
-  }, 180_000)
+    // The build itself, plus the most the lock may make it wait for another
+    // suite's build of this checkout's served tree.
+  }, DIST_ASSETS_LOCK_OPTIONS.staleMs + 180_000)
 
   afterAll(() => {
     if (staged) fs.rmSync(staged, { recursive: true, force: true })
@@ -205,6 +207,14 @@ function lexists(p: string): boolean {
 }
 
 /**
+ * The siblings a real `1c assets` creates beside the served tree and removes
+ * again. Another suite may be building this checkout while a mirror is made, so
+ * these come and go mid-walk; and the mirror's own build makes its own, which a
+ * refusal case reads as evidence. The mirror never inherits the repo's.
+ */
+const TRANSIENT = new Set(['dist-assets.staging', 'dist-assets.retired'])
+
+/**
  * `to` as a real directory tree mirroring `from`, with only the files linked.
  * The build lists directories by `Dirent.isDirectory()`, which is false for a
  * symlink, so a directory it walks must hold real subdirectories.
@@ -212,6 +222,7 @@ function lexists(p: string): boolean {
 function deepLink(from: string, to: string): void {
   fs.mkdirSync(to, { recursive: true })
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+    if (TRANSIENT.has(e.name)) continue
     const s = path.join(from, e.name)
     const d = path.join(to, e.name)
     if (e.isDirectory() && e.name !== 'node_modules') deepLink(s, d)
@@ -222,9 +233,11 @@ function deepLink(from: string, to: string): void {
 /**
  * Make `rel` the mirror's own: each ancestor becomes a real directory whose
  * other children stay symlinks, and the immediate parent is mirrored deeply.
- * A file is copied from the repo; a directory is created empty.
+ * A file is copied from the repo; a directory is created empty. An `output` is a
+ * file the build writes whole before anything reads it, created empty: a real
+ * build of this checkout may be rewriting the repo's copy, so it is never read.
  */
-function own(root: string, rel: string, kind: 'file' | 'dir'): string {
+function own(root: string, rel: string, kind: 'file' | 'dir' | 'output'): string {
   const parts = rel.split('/')
   let cur = root
   let src = REPO
@@ -235,7 +248,9 @@ function own(root: string, rel: string, kind: 'file' | 'dir'): string {
     fs.unlinkSync(cur)
     if (i === ancestors.length - 1) return deepLink(src, cur)
     fs.mkdirSync(cur)
-    for (const e of fs.readdirSync(src)) fs.symlinkSync(path.join(src, e), path.join(cur, e))
+    for (const e of fs.readdirSync(src)) {
+      if (!TRANSIENT.has(e)) fs.symlinkSync(path.join(src, e), path.join(cur, e))
+    }
   })
   const target = path.join(root, rel)
   if (lexists(target)) {
@@ -243,6 +258,7 @@ function own(root: string, rel: string, kind: 'file' | 'dir'): string {
     else fs.rmSync(target, { recursive: true, force: true })
   }
   if (kind === 'file') fs.copyFileSync(path.join(REPO, rel), target)
+  else if (kind === 'output') fs.writeFileSync(target, '')
   else fs.mkdirSync(target, { recursive: true })
   return target
 }
@@ -261,7 +277,7 @@ function mirror(): { base: string; root: string; served: string } {
   fs.mkdirSync(root)
   for (const e of fs.readdirSync(REPO)) fs.symlinkSync(path.join(REPO, e), path.join(root, e))
   // Everything the build writes, so nothing it writes reaches the real repo.
-  own(root, 'packages/framework/src/modules/module-assets.ts', 'file')
+  own(root, 'packages/framework/src/modules/module-assets.ts', 'output')
   own(root, 'apps/control-app/src/generated', 'dir')
   const served = own(root, 'apps/control-app/dist-assets', 'dir')
   for (const [rel, body] of Object.entries(PREVIOUS)) {
@@ -291,7 +307,9 @@ async function assetsIn(root: string): Promise<unknown> {
   console.log = () => {}
   process.chdir(root)
   try {
-    await withDistAssetsLock(REPO, () => run(['assets']))
+    // No lock: the mirror owns every path this build writes, none of which is
+    // the repo's served tree, so there is nothing of the repo's to guard.
+    await run(['assets'])
     return undefined
   } catch (err) {
     return err
