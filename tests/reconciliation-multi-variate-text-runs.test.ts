@@ -312,17 +312,30 @@ describe('AC-2449 capture records which text runs share an inline flow', () => {
       expect(sentence[0]!.textFlow).toBe('Serving ')
       expect(runByText(c, '19')?.verticalAlign).toBe('super')
 
-      // A <br> starts a new flow.
+      // Control: two inline spans under one <p> with no break between them DO
+      // share a flow — so a run below that carries no flow id is a flow of one,
+      // not a capture that forgot to record flows.
+      const plain = runByText(c, 'Plain words')
+      const more = runByText(c, 'and more of them')
+      expect(plain?.inlineGroup).toBeTruthy()
+      expect(more?.inlineGroup).toBe(plain!.inlineGroup)
+
+      // A <br> starts a new flow. Each line of p.broken is then a flow of ONE
+      // run, and a single-run flow records no flow membership at all (types.ts:
+      // "a single-run flow carries none of them") — had the <br> not ended the
+      // flow, the two lines would share a defined flow id like the control above.
       const first = runByText(c, 'First captured line')
       const second = runByText(c, 'second captured line')
-      expect(first?.inlineGroup).toBeDefined()
-      expect(second?.inlineGroup).toBeDefined()
-      expect(second!.inlineGroup).not.toBe(first!.inlineGroup)
+      expect(first).toBeDefined()
+      expect(second).toBeDefined()
+      expect(first!.inlineGroup).toBeUndefined()
+      expect(second!.inlineGroup).toBeUndefined()
 
-      // A flex row's blockified links are not one flow.
+      // A flex row's blockified links are not one flow: each link is its own
+      // single-run flow, so none carries a flow id (and none shares one).
       const links = ['Home', 'About', 'Contact'].map((t) => runByText(c, t))
-      const groups = links.map((l) => l?.inlineGroup).filter((g) => g !== undefined)
-      expect(new Set(groups).size).toBe(groups.length)
+      expect(links.every(Boolean)).toBe(true)
+      expect(links.map((l) => l!.inlineGroup)).toEqual([undefined, undefined, undefined])
     },
     120000,
   )
