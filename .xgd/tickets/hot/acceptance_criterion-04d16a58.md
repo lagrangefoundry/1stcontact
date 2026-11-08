@@ -6,10 +6,10 @@ title: A copy field that addresses no run is refused, naming the field, with no 
   write
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:28:33.562063+00:00'
-updated_at: '2026-11-08T13:28:33.562063+00:00'
+updated_at: '2026-11-08T13:51:39.033849+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1e340c9a
   kind: behavior
