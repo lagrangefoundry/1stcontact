@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-39: BUG-59 + BUG-63 + REQ-204 + 
   + BUG-64)'
 created_by: xgd
 created_at: '2026-11-08T01:38:28.960420+00:00'
-updated_at: '2026-11-08T02:44:47.492198+00:00'
+updated_at: '2026-11-08T02:54:51.216893+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -226,7 +226,7 @@ fields:
       but nothing requires the fields to be laid out inside the dialog. This adds
       a layout AC, checked in a real browser, to the same modal. No new capability
       bucket.
-    story_uid: null
+    story_uid: STORY-146
     target_story_ids:
     - STORY-146
     acceptance_criteria_changes:
