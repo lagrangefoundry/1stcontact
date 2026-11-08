@@ -1,9 +1,9 @@
 {
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
-  "generated_at": "2026-11-08T12:20:31.057976+00:00",
-  "ticket_count": 1041,
-  "rebuild_epoch": 1794140431.041455,
+  "generated_at": "2026-11-08T20:31:16.486319+00:00",
+  "ticket_count": 1056,
+  "rebuild_epoch": 1794169876.471264,
   "tickets": {
     "report-9e9f839a": {
       "id": "REPORT-1071",
@@ -13990,6 +13990,242 @@
         "subject_uid": "report-31234d67",
         "report_kind": "overlap_resolution"
       }
+    },
+    "report-62bb21e1": {
+      "id": "REPORT-1291",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:10.458302+00:00",
+      "created_at": "2026-11-08T20:31:10.458302+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: framework_value_system (level=ac)",
+      "fields": {
+        "subject_uid": "capability-6e088083",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-6440ca34": {
+      "id": "REPORT-1320",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T20:31:10.632775+00:00",
+      "created_at": "2026-11-08T20:31:10.632775+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: l1_reproduction_pipeline (level=uat)",
+      "fields": {
+        "subject_uid": "capability-2049c9ec",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 2,
+        "needs_review_count": 0
+      }
+    },
+    "report-6549691f": {
+      "id": "REPORT-1315",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T20:31:10.808825+00:00",
+      "created_at": "2026-11-08T20:31:10.808825+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: framework_substrate (level=ac)",
+      "fields": {
+        "subject_uid": "capability-ae9d65d6",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 2,
+        "needs_review_count": 0
+      }
+    },
+    "report-666132a3": {
+      "id": "REPORT-1283",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:11.054198+00:00",
+      "created_at": "2026-11-08T20:31:11.054198+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: capability-modules (level=ac)",
+      "fields": {
+        "subject_uid": "capability-ce902be4",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-6a9c04b4": {
+      "id": "REPORT-1296",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:11.227064+00:00",
+      "created_at": "2026-11-08T20:31:11.227064+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: reproduction-gate-3probe (level=uat)",
+      "fields": {
+        "subject_uid": "capability-8108afab",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-728bd245": {
+      "id": "REPORT-1327",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T20:31:11.398506+00:00",
+      "created_at": "2026-11-08T20:31:11.398506+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c_capture_diff_fidelity (level=ac)",
+      "fields": {
+        "subject_uid": "capability-aa030c83",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 2,
+        "needs_review_count": 0
+      }
+    },
+    "report-7622967a": {
+      "id": "REPORT-1293",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:11.566713+00:00",
+      "created_at": "2026-11-08T20:31:11.566713+00:00",
+      "completed_at": null,
+      "title": "UAT Coverage: framework_value_system",
+      "fields": {
+        "subject_uid": "capability-6e088083",
+        "report_kind": "uat_coverage_check",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-784ccee5": {
+      "id": "REPORT-1294",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:11.809020+00:00",
+      "created_at": "2026-11-08T20:31:11.809020+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: reproduction-gate-3probe (level=story)",
+      "fields": {
+        "subject_uid": "capability-8108afab",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-78885f0c": {
+      "id": "REPORT-1301",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:12.003433+00:00",
+      "created_at": "2026-11-08T20:31:12.003433+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c CLI Argument Parsing & Output Hygiene (level=uat)",
+      "fields": {
+        "subject_uid": "capability-ac7ca849",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-82fa8c87": {
+      "id": "REPORT-1295",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:12.177368+00:00",
+      "created_at": "2026-11-08T20:31:12.177368+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: reproduction-gate-3probe (level=ac)",
+      "fields": {
+        "subject_uid": "capability-8108afab",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-88eb3839": {
+      "id": "REPORT-1326",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T20:31:12.420532+00:00",
+      "created_at": "2026-11-08T20:31:12.420532+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c_capture_diff_fidelity (level=story)",
+      "fields": {
+        "subject_uid": "capability-aa030c83",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 1,
+        "needs_review_count": 2
+      }
+    },
+    "report-9ec102e2": {
+      "id": "REPORT-1331",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:12.594870+00:00",
+      "created_at": "2026-11-08T20:31:12.594870+00:00",
+      "completed_at": null,
+      "title": "Regression quality: pass (0 tests, 0 failed)",
+      "fields": {
+        "subject_uid": "6667f6e1",
+        "report_kind": "quality"
+      }
+    },
+    "report-9ef29339": {
+      "id": "REPORT-1286",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-08T20:31:12.766776+00:00",
+      "created_at": "2026-11-08T20:31:12.766776+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: reproduction-module-treatments (level=story)",
+      "fields": {
+        "subject_uid": "capability-938f26ec",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-9f821d26": {
+      "id": "REPORT-1316",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T20:31:12.942216+00:00",
+      "created_at": "2026-11-08T20:31:12.942216+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: framework_substrate (level=uat)",
+      "fields": {
+        "subject_uid": "capability-ae9d65d6",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 2,
+        "needs_review_count": 0
+      }
+    },
+    "report-a349e0aa": {
+      "id": "REPORT-1314",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-08T20:31:13.196973+00:00",
+      "created_at": "2026-11-08T20:31:13.196973+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: framework_substrate (level=story)",
+      "fields": {
+        "subject_uid": "capability-ae9d65d6",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 4,
+        "needs_review_count": 1
+      }
     }
   },
   "by_type": {
@@ -14500,7 +14736,22 @@
       "report-5ebffa3e",
       "report-5fe95c00",
       "report-61900387",
-      "report-62424f5c"
+      "report-62424f5c",
+      "report-62bb21e1",
+      "report-6440ca34",
+      "report-6549691f",
+      "report-666132a3",
+      "report-6a9c04b4",
+      "report-728bd245",
+      "report-7622967a",
+      "report-784ccee5",
+      "report-78885f0c",
+      "report-82fa8c87",
+      "report-88eb3839",
+      "report-9ec102e2",
+      "report-9ef29339",
+      "report-9f821d26",
+      "report-a349e0aa"
     ],
     "comment": [
       "comment-fe2ff8e0",
@@ -16511,7 +16762,10 @@
         "report-ba2f9c42",
         "report-bb8835f4",
         "report-d4ff5ada",
-        "report-1706ff8a"
+        "report-1706ff8a",
+        "report-6a9c04b4",
+        "report-784ccee5",
+        "report-82fa8c87"
       ],
       "capability-2049c9ec": [
         "report-01a7f3a5",
@@ -16524,7 +16778,8 @@
         "report-bc9e7a68",
         "report-eef4fefa",
         "report-0cb0a92d",
-        "report-4c0d7532"
+        "report-4c0d7532",
+        "report-6440ca34"
       ],
       "STORY-80": [
         "report-01b49bbb",
@@ -16598,7 +16853,9 @@
         "report-e60a608f",
         "report-e88e23cb",
         "report-ee4e4822",
-        "report-5cbad5d1"
+        "report-5cbad5d1",
+        "report-62bb21e1",
+        "report-7622967a"
       ],
       "report-892c217e": [
         "report-0302ec15",
@@ -16699,7 +16956,8 @@
         "report-faa78d91",
         "report-00cb70b9",
         "report-1ba06894",
-        "report-1d7527b2"
+        "report-1d7527b2",
+        "report-78885f0c"
       ],
       "capability-aa030c83": [
         "report-0954436b",
@@ -16710,7 +16968,9 @@
         "report-ac65464a",
         "report-c8f1b3ce",
         "report-e87798af",
-        "report-5fe95c00"
+        "report-5fe95c00",
+        "report-728bd245",
+        "report-88eb3839"
       ],
       "story-82eb6908": [
         "report-0a245f78",
@@ -16796,7 +17056,8 @@
         "report-af1720a5",
         "report-d7764c73",
         "report-f479b749",
-        "report-5ebffa3e"
+        "report-5ebffa3e",
+        "report-9ef29339"
       ],
       "capability-ae9d65d6": [
         "report-1d179736",
@@ -16809,7 +17070,10 @@
         "report-a879079c",
         "report-b528236c",
         "report-de58083e",
-        "report-0911f3ec"
+        "report-0911f3ec",
+        "report-6549691f",
+        "report-9f821d26",
+        "report-a349e0aa"
       ],
       "f5e08d21": [
         "report-1d22d7da",
@@ -16877,7 +17141,8 @@
         "report-e3913d26",
         "report-fc297865",
         "report-02071078",
-        "report-248c0b33"
+        "report-248c0b33",
+        "report-666132a3"
       ],
       "story-c490f1cf": [
         "report-2f686536",
@@ -17080,7 +17345,8 @@
       ],
       "6667f6e1": [
         "report-31234d67",
-        "report-522db694"
+        "report-522db694",
+        "report-9ec102e2"
       ],
       "regression-6667f6e1": [
         "report-61900387"
@@ -17328,7 +17594,20 @@
         "report-4c0d7532",
         "report-503fe1b7",
         "report-5cbad5d1",
-        "report-5ebffa3e"
+        "report-5ebffa3e",
+        "report-62bb21e1",
+        "report-6440ca34",
+        "report-6549691f",
+        "report-666132a3",
+        "report-6a9c04b4",
+        "report-728bd245",
+        "report-784ccee5",
+        "report-78885f0c",
+        "report-82fa8c87",
+        "report-88eb3839",
+        "report-9ef29339",
+        "report-9f821d26",
+        "report-a349e0aa"
       ],
       "reconciliation_test": [
         "report-01b49bbb",
@@ -17435,7 +17714,8 @@
         "report-f4befb40",
         "report-fbdb7d5f",
         "report-fce6fcb0",
-        "report-522db694"
+        "report-522db694",
+        "report-9ec102e2"
       ],
       "test_naming_check": [
         "report-03f0f316",
@@ -17618,7 +17898,8 @@
         "report-0911f3ec",
         "report-1706ff8a",
         "report-429febbc",
-        "report-5fe95c00"
+        "report-5fe95c00",
+        "report-7622967a"
       ],
       "reconciliation_review": [
         "report-4393e3ba",
@@ -18230,7 +18511,11 @@
         "report-248c0b33",
         "report-292d4308",
         "report-3738aebe",
-        "report-5cbad5d1"
+        "report-5cbad5d1",
+        "report-784ccee5",
+        "report-88eb3839",
+        "report-9ef29339",
+        "report-a349e0aa"
       ],
       "uat": [
         "report-01a7f3a5",
@@ -18260,7 +18545,11 @@
         "report-feb7be57",
         "report-02071078",
         "report-2131c6a0",
-        "report-5ebffa3e"
+        "report-5ebffa3e",
+        "report-6440ca34",
+        "report-6a9c04b4",
+        "report-78885f0c",
+        "report-9f821d26"
       ],
       "ac": [
         "report-0954436b",
@@ -18291,7 +18580,12 @@
         "report-ef3cb592",
         "report-1d7527b2",
         "report-4c0d7532",
-        "report-503fe1b7"
+        "report-503fe1b7",
+        "report-62bb21e1",
+        "report-6549691f",
+        "report-666132a3",
+        "report-728bd245",
+        "report-82fa8c87"
       ]
     },
     "violations": {
@@ -18396,7 +18690,15 @@
         "report-3738aebe",
         "report-429febbc",
         "report-503fe1b7",
-        "report-5ebffa3e"
+        "report-5ebffa3e",
+        "report-62bb21e1",
+        "report-666132a3",
+        "report-6a9c04b4",
+        "report-7622967a",
+        "report-784ccee5",
+        "report-78885f0c",
+        "report-82fa8c87",
+        "report-9ef29339"
       ],
       "1": [
         "report-1956d8ad",
@@ -18409,17 +18711,23 @@
         "report-ef3cb592",
         "report-feb7be57",
         "report-1ba06894",
-        "report-4c0d7532"
+        "report-4c0d7532",
+        "report-88eb3839"
       ],
       "2": [
         "report-0911f3ec",
-        "report-5cbad5d1"
+        "report-5cbad5d1",
+        "report-6440ca34",
+        "report-6549691f",
+        "report-728bd245",
+        "report-9f821d26"
       ],
       "8": [
         "report-0cb0a92d"
       ],
       "4": [
-        "report-292d4308"
+        "report-292d4308",
+        "report-a349e0aa"
       ],
       "7": [
         "report-5fe95c00"
@@ -18536,7 +18844,19 @@
         "report-503fe1b7",
         "report-5cbad5d1",
         "report-5ebffa3e",
-        "report-5fe95c00"
+        "report-5fe95c00",
+        "report-62bb21e1",
+        "report-6440ca34",
+        "report-6549691f",
+        "report-666132a3",
+        "report-6a9c04b4",
+        "report-728bd245",
+        "report-7622967a",
+        "report-784ccee5",
+        "report-78885f0c",
+        "report-82fa8c87",
+        "report-9ef29339",
+        "report-9f821d26"
       ],
       "1": [
         "report-02113cbd",
@@ -18545,7 +18865,11 @@
         "report-a1c346dc",
         "report-c1bbead2",
         "report-0911f3ec",
-        "report-0cb0a92d"
+        "report-0cb0a92d",
+        "report-a349e0aa"
+      ],
+      "2": [
+        "report-88eb3839"
       ]
     },
     "anchor_uid": {
@@ -19752,7 +20076,22 @@
     "REPORT-1288": "report-5ebffa3e",
     "REPORT-1329": "report-5fe95c00",
     "REPORT-1333": "report-61900387",
-    "REPORT-1275": "report-62424f5c"
+    "REPORT-1275": "report-62424f5c",
+    "REPORT-1291": "report-62bb21e1",
+    "REPORT-1320": "report-6440ca34",
+    "REPORT-1315": "report-6549691f",
+    "REPORT-1283": "report-666132a3",
+    "REPORT-1296": "report-6a9c04b4",
+    "REPORT-1327": "report-728bd245",
+    "REPORT-1293": "report-7622967a",
+    "REPORT-1294": "report-784ccee5",
+    "REPORT-1301": "report-78885f0c",
+    "REPORT-1295": "report-82fa8c87",
+    "REPORT-1326": "report-88eb3839",
+    "REPORT-1331": "report-9ec102e2",
+    "REPORT-1286": "report-9ef29339",
+    "REPORT-1316": "report-9f821d26",
+    "REPORT-1314": "report-a349e0aa"
   },
   "backlinks_index": {
     "request-d05379d0": {
