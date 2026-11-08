@@ -6,10 +6,10 @@ title: The session's priming entries and reminders are read from one configurati
   file, and a malformed configuration stops start-up with an error naming the entry
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T05:10:52.989879+00:00'
-updated_at: '2026-11-08T05:10:52.989879+00:00'
+updated_at: '2026-11-08T05:40:14.829839+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
