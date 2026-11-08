@@ -100,6 +100,15 @@ export interface ImageLibrary {
    * added later would be a second shape for callers to learn.
    */
   read(image: StoredImage, opts: { original: boolean }): Promise<Uint8Array>
+  /**
+   * Which namespaces this library holds, when it knows.
+   *
+   * So a refusal can say what this host has instead of pointing at a namespace
+   * it does not hold: the local `1c` has the site's assets and no Library, and
+   * a not-found there must not send the caller looking in the Library. Absent
+   * means unknown, and the refusal keeps naming every place a picture can be.
+   */
+  readonly holds?: readonly StoredImageWhere[]
 }
 
 /** Every spelling one picture answers to, canonical name first. */
@@ -142,8 +151,11 @@ export function resolveStoredImage(name: string, images: readonly StoredImage[])
 export function mergeImageLibraries(
   parts: Partial<Record<StoredImageWhere, ImageLibrary>>,
 ): ImageLibrary {
-  const entries = Object.entries(parts) as [StoredImageWhere, ImageLibrary][]
+  const entries = (Object.entries(parts) as [StoredImageWhere, ImageLibrary | undefined][]).filter(
+    (entry): entry is [StoredImageWhere, ImageLibrary] => entry[1] !== undefined,
+  )
   return {
+    holds: entries.map(([where]) => where),
     async list() {
       const lists = await Promise.all(entries.map(([, library]) => library.list()))
       return lists.flat()

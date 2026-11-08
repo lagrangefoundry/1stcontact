@@ -153,6 +153,13 @@ export class PictureSourceError extends Error {
  * surface's `ENVIRONMENT` refusal already means for a deployment with no browser.
  */
 export class PictureEnvironmentError extends Error {
+  /**
+   * The surface's declared `ENVIRONMENT` code, read by the Toolbox's failure
+   * renderer off the thrown instance — the convention `PageInteractionError`
+   * carries `INTERACTION_FAILED` by — so the model reads this as the same
+   * "cannot do that here; carry on" refusal a deployment with no browser gives.
+   */
+  readonly code = 'ENVIRONMENT'
   constructor(message: string) {
     super(message)
     this.name = 'PictureEnvironmentError'
@@ -350,6 +357,16 @@ async function storedImage(library: ImageLibrary, source: PictureSource): Promis
   // whatever made it, which is the case this whole capability is for — so the
   // refusal names the two listings a caller actually has and the one place a
   // Library handle comes from, rather than a verb that is not there.
+  //
+  // A HOST WITH NO LIBRARY SAYS SO ([[REQ-218]]) rather than sending the caller
+  // to look under a Library name it cannot answer for — the local `1c` holds the
+  // site's own assets and nothing else, and the library it was given says which.
+  if (library.holds && !library.holds.includes('library')) {
+    throw new PictureNotFoundError(
+      `no stored picture called '${name}'. This host holds no Library pictures, only ` +
+        `the site's own assets; name one by its filename or by anything list_assets shows.`,
+    )
+  }
   throw new PictureNotFoundError(
     `no stored picture called '${name}'.` +
       (images.length === 0
