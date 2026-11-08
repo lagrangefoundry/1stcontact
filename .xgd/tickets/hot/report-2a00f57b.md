@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-49607926'
 created_by: xgd
 created_at: '2026-11-08T17:06:26.435461+00:00'
-updated_at: '2026-11-08T17:06:26.435461+00:00'
+updated_at: '2026-11-08T17:18:34.391164+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -66,6 +66,7 @@ fields:
         edited.
     test_scope: test_UAT_AC2418_ or test_UAT_AC960_ or test_UAT_AC961_ or test_UAT_AC977_
       or test_UAT_FC_BUG-71_ or test_UAT_FC_REQ-210_ or test_UAT_FC_BUG-72_
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 4 (re-plan after validator rejection)
