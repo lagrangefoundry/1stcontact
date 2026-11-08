@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Mark Points toggle exists only in Edit mode and reassigns the preview click
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:45:42.875491+00:00'
-updated_at: '2026-11-08T12:45:42.875491+00:00'
+updated_at: '2026-11-08T13:05:19.540768+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-44d0a572
   kind: behavior
