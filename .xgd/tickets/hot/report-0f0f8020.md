@@ -5,9 +5,9 @@ type: report
 title: 'Regression success: 18 caught (reconciliation)'
 created_by: xgd
 created_at: '2026-11-08T01:07:58.352962+00:00'
-updated_at: '2026-11-08T01:07:58.352962+00:00'
+updated_at: '2026-11-08T01:12:25.436314+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 fields:
   report_kind: regression_success
   subject_uid: bundle-7988e925
@@ -36,6 +36,8 @@ fields:
     - apps/control-app/src/identity.ts:1228-1260
 ---
 
+This reconciliation run caught and resolved 18 regressions in BUNDLE-38: 11 in the operator terms-of-service gate (AC-2132–AC-2142) and 7 in the contact pipeline/membership axes (AC-2203–AC-2210), most likely from REQ-203's change to `admit` and the terms gate. All 18 share one fix plan, which traced the failures to the identity UAT files failing to collect or crashing their workerd isolate, not failing an assertion; severities rate the behavior each UAT guards, led by the critical AC-2133 refusal of API and asset requests from people who have not accepted the terms.
+
 [
   {
     "id": "reg-001",
@@ -50,8 +52,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "A signed-in person who had not yet accepted the terms was not reliably shown the terms page with an agree control at the page they asked for, so they could not start signing up.",
+    "severity": "high"
   },
   {
     "id": "reg-002",
@@ -66,8 +68,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Assets, scripts and API calls from a person who had not accepted the terms were not reliably refused with a plain-text 403, so an unaccepted session could reach the builder's data.",
+    "severity": "critical"
   },
   {
     "id": "reg-003",
@@ -82,8 +84,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Terms-gate responses could be cached or indexed, so a shared cache or search engine could hold the interstitial in place of the real page.",
+    "severity": "medium"
   },
   {
     "id": "reg-004",
@@ -98,8 +100,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "The terms page was not proven to show every paragraph of the terms text with no external resources, so a person might agree to text they could not fully see.",
+    "severity": "medium"
   },
   {
     "id": "reg-005",
@@ -114,8 +116,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "The terms page was not proven to offer only an agree control, or to record nothing when someone declined, so a non-acceptance could be stored as consent.",
+    "severity": "medium"
   },
   {
     "id": "reg-006",
@@ -130,8 +132,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Accepting the terms was not reliably recorded with the current version and time, so a person who agreed could stay stuck at the gate.",
+    "severity": "high"
   },
   {
     "id": "reg-007",
@@ -146,8 +148,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "An acceptance not posted as JSON (or not posted at all) was not reliably refused with 415/405, so a cross-site form post could record consent the person never gave.",
+    "severity": "medium"
   },
   {
     "id": "reg-008",
@@ -162,8 +164,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "After accepting the terms, the same builder URLs did not reliably answer normally, so a new member could stay locked out of the builder.",
+    "severity": "high"
   },
   {
     "id": "reg-009",
@@ -178,8 +180,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "GET /terms was not reliably readable by every admitted person or did not show the acceptance date, so members could not re-read what they agreed to.",
+    "severity": "low"
   },
   {
     "id": "reg-010",
@@ -194,8 +196,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Bumping the terms version did not reliably re-prompt people who had accepted an earlier version, so existing members could keep working under terms they never saw.",
+    "severity": "high"
   },
   {
     "id": "reg-011",
@@ -210,8 +212,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Loopback dev-open mode was not reliably serving the builder without the terms check, which blocks local development but no deployed user.",
+    "severity": "low"
   },
   {
     "id": "reg-012",
@@ -226,8 +228,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Member status was not reliably tied to terms acceptance alone, so a contact could show as a Member without signing up, or as not a Member after signing up.",
+    "severity": "high"
   },
   {
     "id": "reg-013",
@@ -242,8 +244,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "A new contact did not reliably start at pipeline stage Lead, so the Contacts tab could put freshly added contacts in the wrong stage.",
+    "severity": "medium"
   },
   {
     "id": "reg-014",
@@ -258,8 +260,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Inviting a contact did not reliably move them to Invited without making them a Member, skip contacts refused for having no address, and keep the first invite time, so the pipeline could misreport who was invited.",
+    "severity": "medium"
   },
   {
     "id": "reg-015",
@@ -274,8 +276,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Accepting the terms did not reliably make a contact a Member on their own action while leaving their pipeline stage alone, so sign-ups could need an operator step or lose their stage.",
+    "severity": "high"
   },
   {
     "id": "reg-016",
@@ -290,8 +292,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "The pipeline stage was not reliably read from its stored value instead of being inferred from timestamps, so the Contacts tab could show stages that disagree with what was recorded.",
+    "severity": "medium"
   },
   {
     "id": "reg-017",
@@ -306,8 +308,8 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "Contacts written without a stage were not reliably stored at Lead, or the seeded operator at Invited; the backfill half was later aligned to running code because the database was wiped, not migrated.",
+    "severity": "low"
   },
   {
     "id": "reg-018",
@@ -322,7 +324,7 @@ fields:
     ],
     "fix_plan_summary": "# Fix Plan \u2014 Iteration 6\n\n## Hypothesis\nAC-2254's only UAT lives in `tests/reconciliation-identity-accounts.workers.test.ts`, and that file contributes no results to the scoped run. Every one of its tests is missing from the report, while the suite exits 1 with 0 failed tests. So the file fails at collection, or crashes its workerd isolate, rather than failing an assertion. The likeliest cause is the module-level eager `import.meta.glob(['../apps/**','../packages/**','../tools/**'], {query:'?raw",
     "resolved": true,
-    "description": null,
-    "severity": null
+    "description": "The Contacts tab's pipeline-stage and access filters did not reliably narrow the list on their own and combined, so an operator could not list 'invited and never came' or 'signed up and never asked'.",
+    "severity": "low"
   }
 ]
