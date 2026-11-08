@@ -5,10 +5,10 @@ type: request
 title: 'The assistant''s eyes in the builder: mount the fidelity surface on the Worker'
 created_by: CHAT-43
 created_at: '2026-09-08T01:17:40.528379+00:00'
-updated_at: '2026-09-16T02:48:45.642441+00:00'
+updated_at: '2026-11-08T03:44:16.249433+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -21,6 +21,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.134
+  bundled_in: bundle-c0301347
 ---
 
 ## What changes

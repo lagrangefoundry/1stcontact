@@ -6,10 +6,10 @@ title: 'Email deliverability: a derived plain-text part, a per-template sending 
   and a named sender'
 created_by: CHAT-42
 created_at: '2026-09-07T22:21:01.960360+00:00'
-updated_at: '2026-09-16T02:48:43.837797+00:00'
+updated_at: '2026-11-08T03:44:13.576086+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -30,6 +30,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.133
+  bundled_in: bundle-c0301347
 ---
 
 **Design ref:** [[CHAT-42]]. Follows [[REQ-196]] (the sender), [[REQ-197]] (the

@@ -6,10 +6,10 @@ title: Priming hardwires system-KB document ids; corpus membership must come fro
   the build
 created_by: CHAT-44
 created_at: '2026-09-08T22:01:47.769621+00:00'
-updated_at: '2026-09-16T02:48:46.743668+00:00'
+updated_at: '2026-11-08T03:44:19.415893+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -22,6 +22,7 @@ fields:
     working_sha_history: []
   version: 0.2.138
   story_points: 3
+  bundled_in: bundle-c0301347
 ---
 
 # Priming hardwires three system-KB document ids; one of them is no longer in the corpus
