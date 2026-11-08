@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-39c992d3'
 created_by: xgd
 created_at: '2026-11-08T06:57:36.645080+00:00'
-updated_at: '2026-11-08T07:04:00.885804+00:00'
+updated_at: '2026-11-08T07:09:21.950402+00:00'
 completed_at: null
-last_field_updated: conformance_verdict
+last_field_updated: files_touched
 fields:
   report_kind: mode_override
   subject_uid: story-39c992d3
@@ -34,15 +34,10 @@ fields:
   files_touched:
   - apps/control-app/src/imagegen.ts
   unnamed_files_touched: []
-  trust_boundary_touched: true
-  trust_boundary_matches:
-  - 'apps/control-app/src/imagegen.ts: +  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g,
-    ''\\$&'')).join(''|'')'
-  - 'apps/control-app/src/imagegen.ts: +  const backendPhrase = new RegExp(`Backend\\s+"(?:${escaped})"`,
-    ''gi'')'
-  - 'apps/control-app/src/imagegen.ts: +  const bare = new RegExp(escaped, ''gi'')'
+  trust_boundary_touched: false
+  trust_boundary_matches: []
   trust_boundary_notes: []
-  trust_boundary_mismatch: true
+  trust_boundary_mismatch: false
   conformance_verdict: fail
   conformance_findings:
   - item: 5
@@ -72,13 +67,26 @@ Production code is unfrozen for apps/control-app/src/imagegen.ts only (override 
 
 ```diff
 diff --git a/apps/control-app/src/imagegen.ts b/apps/control-app/src/imagegen.ts
-index 9eb999d5e3..c87640b8ed 100644
+index 9eb999d5e3..5717dc632f 100644
 --- a/apps/control-app/src/imagegen.ts
 +++ b/apps/control-app/src/imagegen.ts
-@@ -263,6 +263,48 @@ export function generatedMaterialStore(
+@@ -263,6 +263,65 @@ export function generatedMaterialStore(
    }
  }
  
++/** Every occurrence of `find` in `text`, matched without regard to case, becomes `replacement`. */
++function replaceIgnoringCase(text: string, find: string, replacement: string): string {
++  const haystack = text.toLowerCase()
++  const needle = find.toLowerCase()
++  let out = ''
++  let from = 0
++  for (let at = haystack.indexOf(needle); at !== -1; at = haystack.indexOf(needle, from)) {
++    out += text.slice(from, at) + replacement
++    from = at + needle.length
++  }
++  return out + text.slice(from)
++}
++
 +/** The operations the model can call, whose failures it reads. */
 +const IMAGE_OPERATIONS = ['create_image', 'edit_image'] as const
 +
@@ -95,13 +103,17 @@ index 9eb999d5e3..c87640b8ed 100644
 + * ratios the generator does offer) still reach the model.
 + */
 +function vendorless(surface: Untyped, names: string[]): void {
-+  const words = [...new Set(names.filter((n) => n.length > 0))]
++  // Longest first, so a model id that contains the vendor name is replaced whole.
++  const words = [...new Set(names.filter((n) => n.length > 0))].sort((a, b) => b.length - a.length)
 +  if (words.length === 0) return
-+  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-+  const backendPhrase = new RegExp(`Backend\\s+"(?:${escaped})"`, 'gi')
-+  const bare = new RegExp(escaped, 'gi')
-+  const scrub = (text: string): string =>
-+    text.replace(backendPhrase, 'This generator').replace(bare, 'the generator')
++  const scrub = (text: string): string => {
++    let out = text
++    for (const word of words) {
++      out = replaceIgnoringCase(out, `Backend "${word}"`, 'This generator')
++    }
++    for (const word of words) out = replaceIgnoringCase(out, word, 'the generator')
++    return out
++  }
 +
 +  for (const op of IMAGE_OPERATIONS) {
 +    const original = surface[op]
@@ -124,7 +136,7 @@ index 9eb999d5e3..c87640b8ed 100644
  /** What a caller may substitute, so the capability is provable with no key. */
  export interface ImageSurfaceOptions {
    /**
-@@ -340,7 +382,9 @@ export function imageSurface(
+@@ -340,7 +399,9 @@ export function imageSurface(
    if (surfaces.length === 0) return null
  
    const surface = surfaces[0]
