@@ -2050,7 +2050,7 @@ body {
   background: var(--shell-bg);
   color: var(--shell-fg);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--builder-control-font-size);
 }
 
 .builder-people__tolist,
