@@ -17,12 +17,13 @@ fields:
   story_points: 3
   commits:
   - working_sha: e6bbe46f22d899a4e211059d934f73ad7dbae5bf
-    reconcile_sha: null
+    reconcile_sha: 143f021fe193a5dbcd906e23a83fa164352076d1
     main_sha: null
     working_sha_history: []
   - working_sha: d34bbba54dffa767b6c2bdc8ac63785fee9158ff
-    reconcile_sha: null
+    reconcile_sha: 1d1c2ee5049bbeeca2f4690012e1ca70af96178c
     main_sha: null
+    working_sha_history: []
   version: 0.2.130
 ---
 
