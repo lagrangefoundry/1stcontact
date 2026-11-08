@@ -6,9 +6,9 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-11-01T03:13:21.004724+00:00'
+updated_at: '2026-11-08T03:03:57.617564+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -60,9 +60,13 @@ In scope:
   turn ends. No user message is added for it. Rejoining never holds the pane: the operator
   can switch to another site straight away. A rejoined turn's writes reload the page beside
   the conversation exactly as a turn sent from the pane does. A conversation with no turn
-  in progress is never rejoined. A rejoin that fails costs only the rest of that reply and
-  is not reported: the transcript already painted stays put and the pane stays usable. A
-  pane given a transport that cannot rejoin still mounts and simply shows the transcript.
+  in progress is never rejoined: the origin reports a conversation live only while one of
+  its turns is still open, so a conversation whose turns have all closed, and an empty
+  one, opens with an idle composer showing Send rather than Stop, and a message typed
+  there is sent and answered rather than queued behind a turn that is not running. A
+  rejoin that fails costs only the rest of that reply and is not reported: the transcript
+  already painted stays put and the pane stays usable. A pane given a transport that
+  cannot rejoin still mounts and simply shows the transcript.
 - **Composing state per conversation.** An unsent, half-typed message belongs to the
   conversation it was typed into: leave for another site and come back and it is still
   there, and the other site's composer is not holding it.
@@ -153,6 +157,20 @@ Out of scope:
   rather than a second one. The re-fetch is the workspace's business and its failure is
   isolated from the turn: one that throws is swallowed and the assistant's answer still
   arrives in full.
+- **Whether a conversation is live is the session library's answer, taken as given
+  (BUG-64).** Opening a conversation reports `live` exactly as the session manager's
+  transcript read returns it, from the same fold that produced the turns and the cursor.
+  It is no longer re-derived from a second read of the log; that derivation compared a
+  count's `.length` (undefined) with the record count and so was true for every
+  conversation with any records. A conversation with no records at all never reached it
+  and was always reported not live, which is why a brand-new site was never affected and
+  the defect appeared from the second page load onward.
+- **What a phantom live turn cost (BUG-64).** The pane's submit is "queue while streaming,
+  otherwise send", and the builder supplies no queue handler, so a message typed while the
+  pane wrongly believed a turn was running was accepted, rendered as a pending bubble and
+  then dropped permanently; the rejoin meanwhile tailed a quiet conversation for the
+  watcher's full ten-minute timeout. Correcting the flag removes both; the queue-while-
+  streaming gate itself is unchanged and still applies to a genuinely live turn.
 
 ## Reconciliation Decisions
 
@@ -252,6 +270,33 @@ Out of scope:
 - **Residual risk is not a criterion.** BUG-46 records that a turn still lives in one
   isolate's memory, so an eviction mid-turn still loses it. That is a known gap with no
   behaviour to claim, and it belongs to the host's storage, not to this pane.
+
+*Recorded 2026-11-07, reconciling BUNDLE-39 (bundle-4164b433), item 7 (BUG-64).*
+
+- **"Not rejoined" now covers a quiet conversation that has history, not only an empty
+  one.** BUG-64 found every conversation with any recorded turn reported as live, so the
+  pane rejoined a turn that was not running, showed Stop, and queued — and, with no queue
+  behind it in the builder, dropped — what the operator typed. BUG-46's criterion only
+  exercised a genuinely open turn, where the wrong answer was accidentally right. AC-2094
+  is restated to say when a conversation is reported live (only while a turn is open;
+  never once all its turns have closed; never when it is empty), and a new criterion pins
+  the panel half: a settled conversation opens idle and a typed message is sent and
+  answered.
+  *Rationale:* BUG-64 states both halves and tests them in separate suites. A correct flag
+  the panel ignores and a wrong flag the panel obeys are different defects, so each has its
+  own criterion, following the BUG-46 split.
+- **The origin half is stated on AC-2094 as an outcome, though the host story owns the
+  route.** This story claims only which conversations are reported live, so that the "not
+  rejoined" promise is checkable from here; how the flag is computed and the route that
+  returns it stay with the host story.
+  *Rationale:* the defect shipped because no criterion pinned the quiet case at either side.
+- **A genuinely live turn still gates the composer.** BUG-64 asserts this so the gate is
+  not removed along with the wrong flag. It is already covered by AC-2092 and AC-1063 and is
+  not restated.
+- **The dropped-while-queued message is recorded, not claimed.** BUG-64 established that
+  a message queued during a live turn is dropped because the builder supplies no queue
+  handler. Intent does not ask for that behaviour, nor for a fix to it, so it is noted in
+  Technical Context and not written as a criterion.
 
 ## Dependencies
 
