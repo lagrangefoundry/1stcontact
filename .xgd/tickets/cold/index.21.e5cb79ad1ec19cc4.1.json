@@ -2,7 +2,7 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-08T03:34:41.818601+00:00",
-  "ticket_count": 996,
+  "ticket_count": 1011,
   "rebuild_epoch": 1794108881.802496,
   "tickets": {
     "report-9e9f839a": {
@@ -13359,6 +13359,201 @@
         "subject_uid": "report-6440ca34",
         "kind": "note"
       }
+    },
+    "comment-b0cfa884": {
+      "id": "COMMENT-665",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:49.017172+00:00",
+      "created_at": "2026-11-08T03:34:49.017172+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-292d4308",
+        "kind": "note"
+      }
+    },
+    "comment-b1538080": {
+      "id": "COMMENT-670",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:49.257188+00:00",
+      "created_at": "2026-11-08T03:34:49.257188+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-6549691f",
+        "kind": "note"
+      }
+    },
+    "comment-c6d45ce4": {
+      "id": "COMMENT-639",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:49.420218+00:00",
+      "created_at": "2026-11-08T03:34:49.420218+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-666132a3",
+        "kind": "note"
+      }
+    },
+    "comment-c9f3833f": {
+      "id": "COMMENT-655",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:49.581244+00:00",
+      "created_at": "2026-11-08T03:34:49.581244+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-1ba06894",
+        "kind": "note"
+      }
+    },
+    "comment-ca6a2286": {
+      "id": "COMMENT-634",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:49.740599+00:00",
+      "created_at": "2026-11-08T03:34:49.740599+00:00",
+      "completed_at": null,
+      "title": "Claude response for overlap_resolution report",
+      "fields": {
+        "subject_uid": "report-d00ee952",
+        "kind": "note"
+      }
+    },
+    "comment-d4856411": {
+      "id": "COMMENT-628",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:49.968929+00:00",
+      "created_at": "2026-11-08T03:34:49.968929+00:00",
+      "completed_at": null,
+      "title": "Claude response for overlap_survey report",
+      "fields": {
+        "subject_uid": "report-56449702",
+        "kind": "note"
+      }
+    },
+    "comment-d66b900e": {
+      "id": "COMMENT-661",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:50.133815+00:00",
+      "created_at": "2026-11-08T03:34:50.133815+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-2131c6a0",
+        "kind": "note"
+      }
+    },
+    "comment-d7aa42c4": {
+      "id": "COMMENT-669",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:50.295145+00:00",
+      "created_at": "2026-11-08T03:34:50.295145+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-a349e0aa",
+        "kind": "note"
+      }
+    },
+    "comment-e2968639": {
+      "id": "COMMENT-638",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:50.529170+00:00",
+      "created_at": "2026-11-08T03:34:50.529170+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-248c0b33",
+        "kind": "note"
+      }
+    },
+    "comment-e2dabe5e": {
+      "id": "COMMENT-646",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:50.688093+00:00",
+      "created_at": "2026-11-08T03:34:50.688093+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-5cbad5d1",
+        "kind": "note"
+      }
+    },
+    "comment-e607de3a": {
+      "id": "COMMENT-654",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:50.848065+00:00",
+      "created_at": "2026-11-08T03:34:50.848065+00:00",
+      "completed_at": null,
+      "title": "Claude response for uat_coverage_check report",
+      "fields": {
+        "subject_uid": "report-1706ff8a",
+        "kind": "note"
+      }
+    },
+    "comment-e68e8108": {
+      "id": "COMMENT-647",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:51.009838+00:00",
+      "created_at": "2026-11-08T03:34:51.009838+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-62bb21e1",
+        "kind": "note"
+      }
+    },
+    "comment-eb30f85e": {
+      "id": "COMMENT-683",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:51.239887+00:00",
+      "created_at": "2026-11-08T03:34:51.239887+00:00",
+      "completed_at": null,
+      "title": "Claude response for uat_coverage_check report",
+      "fields": {
+        "subject_uid": "report-5fe95c00",
+        "kind": "note"
+      }
+    },
+    "comment-f04ed3ea": {
+      "id": "COMMENT-664",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:51.401145+00:00",
+      "created_at": "2026-11-08T03:34:51.401145+00:00",
+      "completed_at": null,
+      "title": "Claude response for uat_coverage_check report",
+      "fields": {
+        "subject_uid": "report-429febbc",
+        "kind": "note"
+      }
+    },
+    "comment-f1a8f7ab": {
+      "id": "COMMENT-643",
+      "type": "comment",
+      "status": null,
+      "updated_at": "2026-11-08T03:34:51.562161+00:00",
+      "created_at": "2026-11-08T03:34:51.562161+00:00",
+      "completed_at": null,
+      "title": "Claude response for capability_validation report",
+      "fields": {
+        "subject_uid": "report-c6018598",
+        "kind": "note"
+      }
     }
   },
   "by_type": {
@@ -14348,7 +14543,22 @@
       "comment-a981cbff",
       "comment-aa659c05",
       "comment-aa970572",
-      "comment-ac475a4b"
+      "comment-ac475a4b",
+      "comment-b0cfa884",
+      "comment-b1538080",
+      "comment-c6d45ce4",
+      "comment-c9f3833f",
+      "comment-ca6a2286",
+      "comment-d4856411",
+      "comment-d66b900e",
+      "comment-d7aa42c4",
+      "comment-e2968639",
+      "comment-e2dabe5e",
+      "comment-e607de3a",
+      "comment-e68e8108",
+      "comment-eb30f85e",
+      "comment-f04ed3ea",
+      "comment-f1a8f7ab"
     ],
     "chat": [
       "chat-0e338704",
@@ -16323,6 +16533,51 @@
       ],
       "report-6440ca34": [
         "comment-ac475a4b"
+      ],
+      "report-292d4308": [
+        "comment-b0cfa884"
+      ],
+      "report-6549691f": [
+        "comment-b1538080"
+      ],
+      "report-666132a3": [
+        "comment-c6d45ce4"
+      ],
+      "report-1ba06894": [
+        "comment-c9f3833f"
+      ],
+      "report-d00ee952": [
+        "comment-ca6a2286"
+      ],
+      "report-56449702": [
+        "comment-d4856411"
+      ],
+      "report-2131c6a0": [
+        "comment-d66b900e"
+      ],
+      "report-a349e0aa": [
+        "comment-d7aa42c4"
+      ],
+      "report-248c0b33": [
+        "comment-e2968639"
+      ],
+      "report-5cbad5d1": [
+        "comment-e2dabe5e"
+      ],
+      "report-1706ff8a": [
+        "comment-e607de3a"
+      ],
+      "report-62bb21e1": [
+        "comment-e68e8108"
+      ],
+      "report-5fe95c00": [
+        "comment-eb30f85e"
+      ],
+      "report-429febbc": [
+        "comment-f04ed3ea"
+      ],
+      "report-c6018598": [
+        "comment-f1a8f7ab"
       ]
     },
     "report_kind": {
@@ -17360,7 +17615,22 @@
         "comment-a981cbff",
         "comment-aa659c05",
         "comment-aa970572",
-        "comment-ac475a4b"
+        "comment-ac475a4b",
+        "comment-b0cfa884",
+        "comment-b1538080",
+        "comment-c6d45ce4",
+        "comment-c9f3833f",
+        "comment-ca6a2286",
+        "comment-d4856411",
+        "comment-d66b900e",
+        "comment-d7aa42c4",
+        "comment-e2968639",
+        "comment-e2dabe5e",
+        "comment-e607de3a",
+        "comment-e68e8108",
+        "comment-eb30f85e",
+        "comment-f04ed3ea",
+        "comment-f1a8f7ab"
       ],
       "change": [
         "comment-19fcc79b",
@@ -18847,7 +19117,22 @@
     "COMMENT-677": "comment-a981cbff",
     "COMMENT-633": "comment-aa659c05",
     "COMMENT-657": "comment-aa970572",
-    "COMMENT-676": "comment-ac475a4b"
+    "COMMENT-676": "comment-ac475a4b",
+    "COMMENT-665": "comment-b0cfa884",
+    "COMMENT-670": "comment-b1538080",
+    "COMMENT-639": "comment-c6d45ce4",
+    "COMMENT-655": "comment-c9f3833f",
+    "COMMENT-634": "comment-ca6a2286",
+    "COMMENT-628": "comment-d4856411",
+    "COMMENT-661": "comment-d66b900e",
+    "COMMENT-669": "comment-d7aa42c4",
+    "COMMENT-638": "comment-e2968639",
+    "COMMENT-646": "comment-e2dabe5e",
+    "COMMENT-654": "comment-e607de3a",
+    "COMMENT-647": "comment-e68e8108",
+    "COMMENT-683": "comment-eb30f85e",
+    "COMMENT-664": "comment-f04ed3ea",
+    "COMMENT-643": "comment-f1a8f7ab"
   },
   "backlinks_index": {
     "request-d05379d0": {
