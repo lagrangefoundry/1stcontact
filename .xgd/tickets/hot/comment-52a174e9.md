@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-32
 created_by: xgd
 created_at: '2026-11-04T18:56:20.615072+00:00'
-updated_at: '2026-11-05T23:34:53.462855+00:00'
+updated_at: '2026-11-08T20:31:13.046944+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -843,5 +843,109 @@ I checked the BUG-359 session's five open questions ("Implementation defaults") 
 I've also brought my summary up to date; it had fallen 19 exchanges behind.
 
 Shall I write these answers into BUG-359's Implementation defaults so its session can start coding?
+
+<!-- xgd-turn id="6ebda50e-74e2-4352-8f5f-adce9251a14f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T19:44:33.485007+00:00" -->
+#### You
+Please take a look at BUG-385 there is a problem on prod associated with container execution of turns.
+
+I also had a question related: response time is a parameter we care about - are all AI calls firing up a new container? I understand that the long running work needs that but short dialog doesn't. Not suggesting a change (yet) lets definitely stabilize first but there maybe a desirable optimization here somewhere?
+
+<!-- xgd-turn id="6ebda50e-74e2-4352-8f5f-adce9251a14f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T19:49:24.023448+00:00" -->
+#### Claude
+Reading BUG-385's evidence against the container code now; next I'm checking whether the runtime's intercept API needs a newer compatibility date.
+
+Pulling the production container's own logs for the failing turns to see which call actually failed.Answering the response-time question from the code: each consultant message is one job, and each job gets its own container. Now writing the production findings into BUG-385.
+
+**BUG-385:** I couldn't confirm the root cause from the logs alone, but they rule some things out and point at a likely cause. I've added the findings to BUG-385.
+
+- **It's the platform call that fails, not the model.** Over the last four hours, every log line from the production container is the same `fetch failed`: 6 consultant rounds, 6 abandon steps and 4 shop imports. Abandon steps and shop imports never call the model, so the call that fails is the one to the intercepted platform address. Shop imports are broken on production by the same cause.
+- **Registering the intercept didn't throw an error.** If it had, the message would read "the job's container stopped". Either the method doesn't exist on production and the optional call skipped it silently, or it registered but the binding we hand it doesn't answer.
+- **Likeliest cause: the binding we pass.** We pass `env.PLATFORM`, a service binding from the Worker to itself, which local dev accepts. Cloudflare's docs, and its own `@cloudflare/containers` library, pass a loopback entrypoint, `ctx.exports.PlatformApi({ props })`. That needs a newer compatibility date than our `2025-07-01`.
+- **Ruled out:** the order of the calls (Cloudflare documents either order as fine), and a wrong Worker name in the production binding.
+- **The logs are too thin to settle it.** The container records only "fetch failed" and drops the error's underlying cause, such as connection refused or a timeout.
+
+**Suggested order for the BUG-385 session:**
+1. Log that underlying cause and the URL, remove the optional call, deploy, and read one failure.
+2. If the binding is confirmed, switch to `ctx.exports.PlatformApi(...)` and raise the compatibility date in every environment. Check what else that date changes first.
+
+**Response time:** yes. Every consultant or assistant message is its own job, and every job starts a fresh container, so even "hello" pays a cold start. That means booting the VM, starting Node, and rebuilding the session from storage, all before the model call. A few small calls, like describing an uploaded image or text, still run directly in the Worker.
+
+Agreed on stabilising first. When we come back to it, the two directions I'd weigh:
+- **Keep a job's container warm for a short time after it answers**, so a quick follow-up message reuses it. This stretches architecture item 31 (no container kept awake between jobs) but stays bounded, since the stop alarm from BUG-359 already times idleness.
+- **Run short exchanges directly in the Worker** and send only work that grows with the business to a container. That needs a reliable way to tell short from long *before* the turn runs, and most consultant replies end up using tools, so it's the riskier route.
+
+Before choosing, we should measure the cold start: the turn records already hold time per step, so we can see how much of a reply is startup. Want me to note this on EPIC-32 as an open optimisation?
+
+<!-- xgd-turn id="5db83653-0d72-4f17-96a0-dd6ae8d5efd4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T19:51:41.511303+00:00" -->
+#### You
+ok can lets focus 385 on logging ONLY can you add logging for both of these issues. I will deploy rerun and then we can decide what's next
+
+<!-- xgd-turn id="5db83653-0d72-4f17-96a0-dd6ae8d5efd4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T19:53:12.697010+00:00" -->
+#### Claude
+I shouldn't have changed the title; putting the original back.
+
+I've rescoped BUG-385 to logging only, but I haven't written the code. As the EPIC-32 session I write the tickets and BUG-385's own session does the coding, so that session needs to pick it up before there's anything to deploy.
+
+The body now asks for this logging, with no change in behaviour.
+
+**Why production steps fail with "fetch failed":**
+- **`container_fetch_failed`:** every outbound call the container makes that fails logs its target and whether that's the platform address or an outside host. It also logs the error's underlying cause (such as connection refused or a timeout), which is thrown away today.
+- **`job_step_failed`:** gains the same underlying cause, in both the container and the Worker.
+- **`job_container_intercept`:** whether production's runtime has `interceptOutboundHttp` at all, whether calling it worked or failed, and what kind of binding it was given.
+- **`platform_api_request`:** logs every request that reaches the platform side. If the container logs a failed platform call and no matching request appears, the intercept or its binding is the problem.
+
+**Response time:**
+- **`job_container_step_timing`:** for each step, whether it had to start a new container, how long that took, how long the step's own work took, and the total.
+- **`job_step_queued`:** how long the Workflow took to start the first step after your message, and the gap between one step and the next.
+
+Together these split a reply's time into scheduling, container start and actual work.
+
+No log line includes a token, an authorisation header, a model key, a query string or a request body. The earlier fixes (switching the binding, failing loudly when the intercept is missing, and the abandon step ending the job from the Worker side) are listed under "decide after the logged rerun". Four planned tests cover the new lines.
+
+The ticket is at draft and the title is unchanged. Once BUG-385's session has built and merged it, deploy, send "hello", and those log lines for that job should tell us which way to go.
+
+<!-- xgd-turn id="1a442d2b-45b4-473c-a306-467b0828ed15-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:29:57.806211+00:00" -->
+#### You
+ok log s are in session retriggered what do you see?
+
+<!-- xgd-turn id="1a442d2b-45b4-473c-a306-467b0828ed15-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:31:09.123864+00:00" -->
+#### Claude
+The Worker side has the new logging, but the container's own lines don't have the new `cause` field, so the container may still be running the old image. Checking which image production is on.
+
+Most of the new logging works, but the turn ran a minute before the new container image went live, so the container side is still missing the error's underlying cause. One more message would fill that in, but there's already enough to point at the binding.
+
+**What the logs show for the turn at 20:28 UTC (`turn_389342a6…`):**
+- **The intercept exists on production and registers fine.** `job_container_intercept` shows the method exists, the call returned `registered` for `10.0.0.1:80`, and the binding is a `Fetcher`. That rules out the "method missing, optional call skipped it" theory.
+- **Nothing reached the platform side.** There are zero `platform_api_request` lines for the job, but six container steps (three round attempts, three abandon attempts) each failed within 36–58 ms. So the container's call to `10.0.0.1` is routed somewhere, but never arrives at `PlatformApi`.
+- **The underlying cause isn't logged yet.** The container's `job_step_failed` lines have no `cause` field and there are no `container_fetch_failed` lines. Production's container app moved to its new image (version 3) at **20:29:30**, about a minute after this turn, so the turn ran on the previous image.
+
+**My read:** the intercept is registered against our service binding to the Worker itself (`env.PLATFORM`), and production doesn't deliver to it. Cloudflare's docs and its own container library always pass a loopback entrypoint, `ctx.exports.PlatformApi(...)`, instead. That's still an inference until the container shows the cause; something like "connection refused" or "socket closed" would settle it.
+
+**Response time, from the timing lines:**
+
+| Stage | Time |
+|---|---|
+| Message accepted → Workflow starts the first step | **4.7 s** |
+| Container cold start (start until the health check answers, including the 0.27 s intercept) | **1.6 s** |
+| Each later step on the warm container | about 65 ms of overhead |
+| Wait before each retry | 1 s |
+
+So on this one sample, the Workflow's scheduling costs about three times as much as the container's start. That matters for the optimisation question: keeping containers warm would save at most about 1.6 s, and the bigger win may be in how a turn's Workflow gets started. One sample isn't enough, though; let's gather more once turns actually succeed.
+
+**Side note:** the container app shows 5 healthy instances but 0 active. I think those are Cloudflare's pre-warmed pool rather than leaked job containers; the BUG-359 backstop would stop leaked ones within 5 minutes anyway.
+
+**Next:** send one more message now that version 3 is live, and I'll read the container's cause. BUG-385 is already at `ready_to_reconcile`, so I haven't added these findings to its body. The binding fix will need a new ticket or a decision on reusing this one. Which do you want?
 
 <!-- xgd-chat-end -->

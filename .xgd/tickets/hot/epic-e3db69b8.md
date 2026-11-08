@@ -5,7 +5,7 @@ type: epic
 title: 'Legal: 1st Contact terms & privacy, and standard legal pages for client sites'
 created_by: xgd
 created_at: '2026-10-29T23:34:26.197150+00:00'
-updated_at: '2026-11-07T21:25:07.816862+00:00'
+updated_at: '2026-11-08T18:01:42.552466+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -15,11 +15,47 @@ fields:
   - request-7075ae7f
   - request-51d90ad9
   - request-fc2557ae
+  - request-d71a191f
+  - bug-c960af0a
   chat_comment: comment-02b19238
   session_id: eae99f9b-9f22-4f66-b84e-ccecf31866e1
 ---
 
 # Legal: 1st Contact terms & privacy, and standard legal pages for client sites
+
+## Current design (2026-11-08) — this section wins
+
+The dated updates further down are the history of how we got here. Where any of them differs from this section, this section is right.
+
+**The full design is [[DOC-121]] (Legal documents: design).** This section summarises it; DOC-121 also holds the parts agreed but not yet ticketed: custom documents (title, three kinds — display only, accept once, accept every new version — draft then publish, withdraw) and version history for owners.
+
+**Documents and who they are for**
+- Every business, **1st Contact included**, has the same legal documents, the same Paperwork → Legal mode and the same checks. No exemptions in the legal path ([[REQ-669]]).
+- A business's documents are the **standard** Terms of use and Privacy notice, plus Terms of sale when it sells, plus Member terms when it has signed-in customers. The owner may **add their own sections** (the document stays standard) or **add documents of their own** (1st Contact's Beta Terms) ([[REQ-669]]). If the owner edits a document's text, they own it from then on ("Edited by you").
+- 1st Contact's own documents today: [[DOC-117]] Terms of Service 2026-11-08 and [[DOC-118]] Privacy Notice 2026-11-08 (published), plus [[DOC-78]] Beta Terms. They move from the build into 1st Contact's business records under REQ-669, keeping their uids.
+- **1st Contact's documents are the standard set plus its own sections** ([[DOC-120]], seeded by REQ-669): its clients accept the standard **Member terms** with 1st Contact's platform sections added; its Privacy notice and Terms of sale are the standard ones with its sections added; 1stcontact.io's visitors get the standard Terms of use; the Beta Terms are a document of its own. We maintain one standard set plus 1st Contact's additions, never a second full copy. Writing the split improved the standard text for everyone (2026-11-08): 30-day deletion in the account sections, "we may ask you to confirm who you are, and do not charge" in the UK/EU rights, goods-only wording for Delivery and Returns, wording that also reads correctly on 1st Contact's own site, and a new "Subscriptions and services" section for Terms of sale ([[DOC-119]]).
+
+**The standard text**
+- Modules [[DOC-87]]–[[DOC-116]], published 2026-11-08, are standard text filled in by code from the business's details, never written by AI. The lawyer reviews the library once.
+- The Privacy notice, Terms of use and Member terms are written in **"if" style** ("If you contact us…", "If you join our mailing list…", "If you are in the UK…"), so they **never change when site features or selling regions change**. Only Terms of sale appears with selling and has per-region sections ([[REQ-669]] makes the build enforce this).
+- US, UK and EU in the first release. Standard documents are rebuilt when the site is published; the consultant tells the owner first what changes.
+- The Legal assistant explains and changes business details. It never writes document text and is not a lawyer.
+- 1st Contact's Terms §8 tell owners the documents are a good-faith starting point, not legal advice, place obligations on them, and can be edited or replaced.
+
+**Acceptance and telling people about changes**
+- Signed-in customers **agree** to the Terms and **read** the Privacy notice.
+- A **significant** Terms change: signed-in customers accept again at next sign-in. Wording-only changes ask nothing.
+- A **significant** Privacy change goes **live at publish** (no notice period). It is emailed then to every contact with an email address, and signed-in customers are asked to read it at next sign-in ([[REQ-666]]). Wording-only changes send nothing.
+- We tell people only through contact details we hold. **Contacts do not need an email address** (phone-only enquiries stay). The Privacy notice says "we can only tell you directly if we have a way to contact you". Text messages for phone-only contacts are later work.
+- Records we keep after deletion keep **name, email address and billing address** (7-year payment records), so the person can still be reached ([[DOC-37]] §6.3).
+
+**Checkout:** one line above the pay button, no tick box, linking the live Terms of sale and Privacy notice; the versions are recorded on the order and the confirmation email links that exact Terms of sale. No Buy button without a published Terms of sale and the seller's legal name, address and contact email ([[REQ-666]]).
+
+**Children:** [[REQ-640]] (portal page), [[REQ-665]] (client documents, Legal mode), [[REQ-666]] (checkout, acceptance, change notices), [[REQ-669]] (1st Contact through the same pipeline, owner-added sections). Sign-in per business: [[REQ-668]].
+
+**1st Contact's Legal pane** (resolved 2026-11-08, recorded on REQ-666): it shows only 1st Contact's own documents; the standard library lives in doc tickets maintained in this epic and reaches businesses through the build.
+
+**Still open:** the split of 1st Contact's current Terms and Privacy Notice into standard text plus its own added sections (drafted here, seeded by REQ-669); lawyer review before paid launch.
 
 ## Why
 
@@ -175,4 +211,29 @@ Shaped with the operator in this epic's chat, prompted by EPIC-9's finding that 
 - The Legal assistant answers questions and changes business details only; it cannot edit document text.
 - Signed-in customers are a coming feature (mailing lists, subscriptions, members-only content), not just the portal.
 
-**Still to do in this session:** draft the first module texts as doc tickets (base per region, contact form, shop, mailing list, signed-in customers, embedded media). **Open:** whether 1st Contact's own acceptance page should stop requiring a tick for the Privacy Notice.
+**Done 2026-11-08:** the first module texts were drafted (by REQ-665) and published after rewriting; see Current design. ~~Still to do: draft the first module texts~~ as doc tickets (base per region, contact form, shop, mailing list, signed-in customers, embedded media). **Resolved 2026-11-08:** the Privacy notice is "I have read", asked again only after a significant change, for every business including 1st Contact (REQ-669).
+
+
+## Update 2026-11-08: privacy changes, and Terms of Service 2026-11-08 drafted
+
+- **[[DOC-117]] Terms of Service 2026-11-08 (`legal_status: draft`)**: DOC-84 plus a new §8 subsection, "Legal documents we provide for your site" (operator, 2026-11-08): offered in good faith and not legal advice; they are the owner's documents and place obligations on them, which they must read and understand; they can be edited or replaced with the owner's own, after which keeping them accurate is the owner's job; while standard, we keep them up to date and tell the owner before changes appear. Not published: publishing makes every client accept again, so it waits for the decisions below.
+- **Resolved 2026-11-08 (see Current design):** (1) client privacy notices written with conditional wording ("If you join our mailing list…") so site feature changes never change the notice or trigger a mass email; (2) dropping REQ-666's 30-day wait (material privacy changes go live at publish, with the email sent at the same time); (3) keeping an email address in every record we retain (including the 7-year payment record), so everyone whose data we hold can be told about a change.
+
+
+- **Published 2026-11-08 (operator: no live sites or clients, publish without holding back):** [[DOC-117]] Terms of Service 2026-11-08 and [[DOC-118]] Privacy Notice 2026-11-08. Both: retained payment records keep **name, email address and billing address** (the email so the buyer can be contacted about a dispute and told about changes). DOC-118 §10: significant changes are emailed to everyone we hold an email for; "we can only tell you directly if we have a way to contact you". DOC-117 was corrected in place before any deploy or acceptance.
+- **Decided:** contacts do **not** require an email (phone-only enquiries and owner-entered contacts stay). People are told through the contact details held: email, text message once texts exist, otherwise the dated page.
+- **Resolved 2026-11-08, REQ-669:** 1st Contact's own documents and checks through the same pipeline as every other business (operator: "we eat our own dog food").
+
+
+## Update 2026-11-08 (later): the "if" library published, REQ-669 filed
+
+- **Module library published** (DOC-87–116, operator: publish without holding back). Privacy and Terms-of-use modules rewritten in "if" style ("If you contact us…", "If you join our mailing list…", "If you are in the UK…") with trigger `always` and region `any`, so site features never change those documents or set off a privacy email. Only Terms of sale follows selling and region. DOC-99 adds 1st Contact's own 7-year payment record (name, email, billing address); DOC-107 says changes are emailed and "we can only tell you directly if we have a way to contact you"; DOC-116 says important member-terms changes are accepted at next sign-in.
+- **[[REQ-666]]:** appended the operator's decision to drop the 30-day notice period (new privacy version live at publish, email sent then, signed-in customers asked to read it at next sign-in, significant changes only). Its 1st Contact and no-Terms-of-sale corrections were already in its body.
+- **[[REQ-669]] — 1st Contact's own documents through the same pipeline, and owner-added sections** (draft, 20 pts): owner-added sections that keep a document Standard; owner-only documents (Beta Terms); 1st Contact's documents moved from the build into its business's records in one cutover, existing uids kept; no platform exemptions in the legal path; the library build refuses feature- or region-triggered privacy/terms modules.
+- **Next in this epic:** draft the split of 1st Contact's current Terms and Privacy Notice into standard text plus 1st Contact's added sections, for REQ-669 to seed.
+
+
+- **2026-11-08:** [[BUG-383]] filed: legal footer links always present on every web page (the renderer must never silently drop them), a consultant rule that it never writes legal text, pages or links, and `/legal/` reserved. REQ-669 gained item 7–9: legal pages publish on their own, and standard-text revisions are announced to owners 14 days before they take effect. Terms: "legal documents" in the builder, "legal pages" on sites.
+
+
+- **2026-11-08:** answered [[REQ-669]]'s five implementation questions in its body (Member terms for every business, never accepted Terms of use, rebuild from published definitions, one-off seed command per environment, the added-sections sentence at the cutover; item 2 built in [[DOC-121]] §7's shape). [[TODO-23]] reminds the operator of the features not yet ticketed.

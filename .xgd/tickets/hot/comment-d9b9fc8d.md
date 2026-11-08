@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-11-08T00:29:31.835695+00:00'
+updated_at: '2026-11-08T19:25:27.969467+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7176,5 +7176,186 @@ bin/copy-site --from dev:martin@westhead.me:"Lauren Owens Jewelry Test 1" --to p
 This replaces production's conversations with dev's, so the message you typed in production at 00:17 will be lost. `landed` should then show `replaced` rather than `kept`. Reload the builder afterwards.
 
 The plain-text success message hides this: it said "copied" when nothing was written for the conversation that matters. Only `--json` shows the counts.
+
+<!-- xgd-turn id="05bcb36d-4f80-4a81-9dd7-0bb828467b37-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T19:05:54.268666+00:00" -->
+#### You
+After redeploying to production I get: *The assistant could not be reached: POST /api/ai/session → 500*
+
+**Sunday, November 8 2026**
+
+hello
+
+11:05
+
+*embeddings.bin holds 33792 float(s), which is not a whole number of rows for 86 metadata entr(ies) — the index is corrupt*
+
+11:05
+
+<!-- xgd-turn id="05bcb36d-4f80-4a81-9dd7-0bb828467b37-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T19:07:31.070142+00:00" -->
+#### Claude
+88 rows of vectors against 86 metadata entries: two writers interleaved. BUG-380's test names exactly that corruption, so checking what it covers.
+
+Filing this as a child bug. The cause is clear enough from the code; I'm not fixing it from this epic session.
+
+I've filed **BUG-384** under EPIC-16 (critical, at `draft`).
+
+**What's wrong:** that business's Library search index is damaged. The vector file holds 88 rows, but the list describing them has only 86 entries, so two writes overlapped. BUG-380 (landed this morning) added a self-repair, but it only runs when the index is being updated after a Library change. Opening a session reads the index directly, hits the error and returns a 500. So the consultant for that business can't be reached until something updates the index.
+
+**Possible way round it now (not tested):** add something to that business's Library, for example upload one photo. That should start an index update, and BUG-380's repair should then rebuild the index from the stored materials. Try "hello" again afterwards. If it still fails, tell me which business it is and I'll look at production's logs.
+
+**What BUG-384 asks for:**
+- Any read that finds the index damaged rebuilds it rather than failing. If the rebuild can't finish in time, the session starts without Library search for that turn instead of returning a 500.
+- All index writes for a business go through one coordination point, so writes coming from separate requests can't overlap. A handoff copy sends the Library in batches of 25, one request per batch, which is one way they could overlap now; I haven't confirmed that's what happened here.
+- Tests: a damaged index still lets a session start and is rebuilt exactly once, and two simultaneous Library writes leave a consistent index.
+
+Which business was it? If it's one you copied in with `--handoff`, that supports the overlapping-batches explanation.
+
+<!-- xgd-turn id="87c68b5b-7857-432d-8748-f5196f077789-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T19:09:33.072997+00:00" -->
+#### You
+Lauren Owens Jewelry Test 1 in my account no --handoff but the inventory update broke part way through
+
+<!-- xgd-turn id="87c68b5b-7857-432d-8748-f5196f077789-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T19:10:00.792841+00:00" -->
+#### Claude
+That points to a different writer from the handoff: the shop inventory import. It writes photos into the Library, and each one updates the index. Since BUG-380 the import's photo work runs in the job container while the builder's own requests can also write the index, so an import stopping partway is a likely place for two writers to overlap. Adding this to BUG-384.
+
+I've added this to BUG-384. The likely sequence: the shop import's photo step adds each photo to the Library, and each addition updates the search index. Since BUG-380 that step runs in the job container. When the import stopped partway, it most likely had an index write in progress while another write was also running, either from the builder or from a retried import. BUG-384 now requires:
+- the container's index writes go through the same per-business coordination point as everything else;
+- an import that stops or is retried counts as a writer that can't overlap another;
+- an import stopped partway still leaves a consistent index, and a test checks it.
+
+**For your business now:** the workaround still applies. Add one photo to that business's Library so the index is updated, which should start BUG-380's rebuild. Then say "hello" again. If that photo upload fails too, the index can't be repaired from the builder until BUG-384 lands.
+
+**The import breaking partway is a separate question.** BUG-380 was meant to stop exactly that, so this may be a fault in what BUG-380 landed rather than an old one. If you tell me what you saw (the last status shown, or roughly when it stopped), I'll check production's logs for that business and add what I find to BUG-380's follow-up, or file it if it's new.
+
+<!-- xgd-turn id="e1618344-06c1-46f7-bcf2-0f67a48710ee-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T19:14:07.989995+00:00" -->
+#### You
+ok I tried to rerun the import (thinking that would fix the index) it faild
+I uploaded a photo
+Chat window said I had to reload the builder
+I hit reload and now see:
+
+The builder did not start.
+
+**What failed:** could not load https://app.1stcontact.io/builder/main.js
+
+**GET /api/sites:** unreachable (Load failed)
+
+An asset the builder imports is missing. Run `1c assets`, then restart the builder — the assets manifest is read at startup.
+
+The document loaded; its client did not. Full detail is in the browser console.
+
+<!-- xgd-turn id="e1618344-06c1-46f7-bcf2-0f67a48710ee-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T19:16:14.367514+00:00" -->
+#### Claude
+Checking whether production is answering at all.
+
+Only "canceled" events, which is what a reload does to in-flight requests. No Worker errors. Checking whether your reload's requests for `main.js` and `/api/sites` reached the Worker at all.
+
+My filter edit didn't apply; re-querying with a correct filter.
+
+Your photo upload worked: production's logs show it rebuilt the index at 19:12:33 UTC, logged as `kb_index_rebuilt`. The consultant should be reachable again.
+
+**Reload the builder once more.** The "builder did not start" page wasn't a server problem:
+- Your reload fetched `/builder/main.js` at 19:12:49 and got a 200, and the builder's other files came back with 200s too.
+- The `/api/sites` request the page mentions never reached the server.
+- The page's hint to run `1c assets` is meant for dev and doesn't apply to production.
+
+So something dropped between your browser and Cloudflare for a moment. If a second reload shows the same page, open the browser console and send me the first red error.
+
+Then say "hello". If that still fails, tell me what it says.
+
+**What I've recorded:** BUG-384 now notes that adding a Library item rebuilds a damaged index, while opening a session doesn't. That's the gap the ticket closes.
+
+**I haven't looked at your second import failure yet.** When was it, and what did the import panel say? I'll check the logs for that run. The import breaking partway is where the damage started, and BUG-380 was meant to stop that.
+
+<!-- xgd-turn id="4959622f-b12f-4ed2-bcb5-27e0d459f48a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T19:22:14.916346+00:00" -->
+#### You
+Second reload fixed it - what went wrong? Network glitch?
+
+<!-- xgd-turn id="4959622f-b12f-4ed2-bcb5-27e0d459f48a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T19:22:58.263291+00:00" -->
+#### Claude
+Probably, but I can't prove it from the server side.
+
+**What the logs show for that failed reload:**
+- Every request that reached production succeeded. `main.js` was served with a 200 at 19:12:49, and the builder's modules followed with 200s about ten seconds later.
+- `/api/sites`, which the error page itself requests to check the server, never reached the Worker.
+- There are no Worker errors anywhere in the window.
+
+So the server answered everything it was asked. One or more requests failed between your browser and Cloudflare. That's what "Load failed" means: the browser gave up on a request at the network level and never received an error status.
+
+**Most likely cause:** the reload happened while the old page still had long-running requests open, including a `/api/changes` that had been waiting about 11 minutes and a pending `await-turn`. The reload cancelled them. A connection dropping at that moment can fail the new page's first requests, and the second reload started clean. The ten-second gap before the modules were fetched also points to something stalling on the connection. I can't tell whether that was your network or Cloudflare's edge.
+
+**Nothing went wrong on our side:** nothing was missing from the deploy, the session was fine, and the index was already rebuilt by then.
+
+The error page's hint to run `1c assets` is misleading in production. That advice only makes sense in dev. Say if you want that tidied up; otherwise I'll leave it.
+
+<!-- xgd-turn id="c564d6bd-3c75-423b-bcdf-4dc20ae79fea-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T19:23:05.669890+00:00" -->
+#### You
+Second reload fixed it - what went wrong? Network glitch?
+
+Oh wait something new:
+**Sunday, November 8 2026**
+
+hello - are we connected?
+
+11:21
+
+*The work stopped before it finished. Press Carry on to pick it up from there.*
+
+Carry on
+
+Please carry on from where you stopped.
+
+11:22
+
+*The work stopped before it finished. Press Carry on to pick it up from there.*
+
+Carry on
+
+<!-- xgd-turn id="c564d6bd-3c75-423b-bcdf-4dc20ae79fea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T19:25:24.244226+00:00" -->
+#### Claude
+Checking production's logs for those two turns (19:21–19:23 UTC).
+
+Checking whether there's a switch to run steps outside the container while BUG-385 is fixed.
+
+Your reload problem was a network glitch, as you guessed. These new "work stopped" messages aren't. **Every consultant turn on production fails right now, for every business.** I've filed **BUG-385** (critical, under EPIC-16).
+
+**What the logs show for both of your turns:**
+- The turn is handed to the new job container, which starts normally.
+- The container's first outgoing request fails with `fetch failed` in about a second. The step is tried three times, then its cleanup step fails the same way.
+- The job is then reported lost, and the builder shows "The work stopped… Press Carry on". Carry on starts a new turn, which fails identically.
+- The model is never called.
+
+**Probable cause, not yet confirmed:** the container sends all its requests to our platform to a fixed internal address, `10.0.0.1`. The Worker has to register an intercept for that address when it starts the container. That registration is written to be skipped silently if the method isn't available (`interceptOutboundHttp?.(…)`). If production's container runtime lacks it, perhaps because our compatibility date (2025-07-01) predates the feature, nothing answers at that address and every request fails. Nothing in our tests exercises that call on the real runtime, which is why it only shows up now. This deploy is the first time the container ran on production.
+
+**BUG-385 asks for:**
+- turns that complete on production;
+- a missing intercept failing loudly with a named error instead of being skipped;
+- step failures that say which request failed and why;
+- the cleanup step still ending the job cleanly from the Worker side;
+- the same settings for dev and the future staging environment.
+
+**No workaround exists.** There's no switch to run turns outside the container; the old in-Worker path was removed when the cutover happened. Until BUG-385 lands, the consultant is down on production. If real customers are using it, you may want to tell them.
+
+**Something else from the same logs:** your `--force` chat copy worked. The session loaded all 168 copied turns from the database and rebuilt its live store from them. It also logged about 30 "malformed turn order" warnings, places where two user or two assistant messages sit back to back in the copied dev conversation. Those were already in the dev transcript, and the session replays them as they are. They may show up as duplicated or odd messages in the chat history, but they don't stop turns.
 
 <!-- xgd-chat-end -->

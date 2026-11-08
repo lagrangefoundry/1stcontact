@@ -5,9 +5,9 @@ type: doc
 title: 'Legal module: Terms of sale — Buyers in the United States (US)'
 created_by: REQ-665
 created_at: '2026-11-07T21:57:14.813304+00:00'
-updated_at: '2026-11-07T21:57:14.813304+00:00'
+updated_at: '2026-11-08T17:03:31.831707+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: legal_module_status
 status: null
 fields:
   doc_kind: architecture
@@ -21,7 +21,7 @@ fields:
   legal_module_note: Notes that US buyers' returns follow the business's returns policy,
     plus any rights their state gives them.
   legal_module_version: '2026-11-07'
-  legal_module_status: draft
+  legal_module_status: published
 ---
 
 ## Buyers in the United States

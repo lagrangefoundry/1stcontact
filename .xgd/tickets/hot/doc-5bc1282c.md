@@ -5,9 +5,9 @@ type: doc
 title: 'Legal module: Terms of use — Who we are'
 created_by: REQ-665
 created_at: '2026-11-07T21:56:14.210774+00:00'
-updated_at: '2026-11-07T21:56:14.210774+00:00'
+updated_at: '2026-11-08T17:03:06.795352+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: legal_module_status
 status: null
 fields:
   doc_kind: architecture
@@ -21,7 +21,7 @@ fields:
   legal_module_note: Says who runs the website and how to contact them, so a visitor
     knows whom the terms are with.
   legal_module_version: '2026-11-07'
-  legal_module_status: draft
+  legal_module_status: published
 ---
 
 ## Who we are

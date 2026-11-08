@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-30
 created_by: xgd
 created_at: '2026-11-01T17:08:12.468071+00:00'
-updated_at: '2026-11-07T19:35:53.263064+00:00'
+updated_at: '2026-11-08T20:28:52.416891+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -771,5 +771,76 @@ I've recorded both answers in REQ-663 and EPIC-30, and replaced REQ-663's open q
    - Existing test businesses with a custom domain but sending switched off are switched on in the same way.
 
 REQ-663's test plan covers both. It also grows from 5 to 8 points, because it now includes changing how domains are connected (REQ-259). Nothing changes in the order of work: it still comes after REQ-660, in parallel with REQ-661 and REQ-662.
+
+<!-- xgd-turn id="8ef8f51e-79bb-4f03-a19d-16443d933918-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:22:24.544530+00:00" -->
+#### You
+ok great, I am looking at the Paperwork implementation some questions and tweaks
+ - please remove SMS/Push text - we don't support that today - confusing to users
+ - Detail: Invitation to help run the business <-- this login link must be a 1c login not a login to the current business
+ - The titles of your messages include the recipients "Cancellation requested (to the team)"  - the recipient set is not changable in these situations but I think it deserves its own field and should appear in the Item level summary Invitation - Contact, New Order - Owner & Delegates etc
+ - All these emails have On | Off - what does it mean to turn them off? Are there use-cases for that? Won't that just break the business?
+
+<!-- xgd-turn id="8ef8f51e-79bb-4f03-a19d-16443d933918-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:24:01.050628+00:00" -->
+#### Claude
+Checking where the delegate invitation's link actually lands, then I'll answer all four.
+
+Answers and recommendations below. All four Paperwork tickets (REQ-660 to REQ-663) are already at `ready_to_reconcile`, so these changes need a new home; there's a proposal for that at the end. I haven't changed anything yet.
+
+**1. Remove SMS/push text.** Agreed. It comes out of the message records, the Detail pane, the Email assistant's tools and its priming. It can come back when there's an SMS or push channel to send through.
+
+**2. "Invitation to help run the business" should sign in to 1st Contact.** Agreed, because a delegate is a 1st Contact user. I couldn't confirm the problem from the code, though. The invitation route builds its link against the 1st Contact business (`requirePlatformTenant`), which looks right. So the wrong-business link is probably in what Paperwork shows or sends for this message: the preview, "Send to me", or the wording. The fix should state the rule plainly: the link signs the person in to 1st Contact and opens that business in the builder, never the business's own client sign-in at `/c/<id>/`. A test would follow a real invitation's link to check it.
+
+**3. Recipients as their own field.** Agreed. Each trigger already has a fixed audience internally (`contact` or `team`); it just isn't shown, so it leaked into labels like "(to the team)". I'd show a fixed **Recipients** field in Detail and in the Items list, for example:
+- Invitation → Contact
+- Invitation to help run the business → Invited person
+- New order → Owner & delegates
+- Order shipped → Buyer
+- Reply to a form → Person who filled in the form
+
+The labels lose their bracketed recipients.
+
+**4. On/Off.** Turning a message off means nothing is sent when its trigger fires. For delegates it's worse: the invitation itself is refused. For almost every message that breaks the business, and sometimes the law:
+- **Sign-in, invitation, delegate invitation, access ended:** off means people can't get in.
+- **New order and cancellation requested:** off means the owner never hears about orders.
+- **Order confirmation:** UK and EU distance-selling rules require one.
+- **"We've updated our privacy notice":** this is how people are told about the change.
+- **"Work is ready":** whether to receive it is a personal choice, and the existing "Stop these emails" link already handles that per person.
+
+The one real use is **Order shipped**, which was already optional in Shop settings before Paperwork took the switch over.
+
+I'd keep On/Off only on messages marked optional. Today that's just **Order shipped**; every other message is always on and shows no switch.
+
+**Where to do this.** These are fixes to landed work, and the four tickets are queued for reconciliation, where the dispatcher can pick them up at any moment. I'd file **one bug ticket** covering all four changes rather than reopening them. Shall I create it?
+
+<!-- xgd-turn id="0f261cea-c4d0-4509-9bd3-ebda03c3277f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:27:56.935697+00:00" -->
+#### You
+**2. "Invitation to help run the business" should sign in to 1st Contact.** Agreed, because a delegate is a 1st Contact user. I couldn't confirm the problem from the code, though. <-- there may not be - just wanted to make sure the design was clear. I have not seen a bug
+
+New ticket please
+
+<!-- xgd-turn id="0f261cea-c4d0-4509-9bd3-ebda03c3277f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:28:50.844452+00:00" -->
+#### Claude
+I've filed **BUG-386, "Paperwork: drop SMS text, show Recipients as a field, On/Off only where optional"**, at draft, medium severity, about 3 points. It's under EPIC-30 and listed among the epic's children.
+
+It covers:
+
+1. **Remove SMS/push text** from the message records, the Detail pane, and the Email assistant's tools and priming.
+2. **Recipients becomes its own field.** It's fixed for each message, can't be edited, and shows in both the Detail pane and the Items list. The labels drop their "(to the team)" endings. The ticket lists the recipients for every message, for example:
+   - Invitation: Invited contact
+   - New order: Owner & delegates
+   - The five order emails to the buyer: Buyer
+   - Reply to a form: Person who filled in the form
+3. **On/Off only where a message is optional.** Today that's just **Order shipped**. Every other message is always on, and any "off" already saved on one of them is cleared so it sends again. If the Email assistant tries to switch one of them off, it's told no and why.
+4. **Delegate invitation, recorded as a design rule, not a bug.** The link signs the person in to 1st Contact and opens that business in the builder, never the business's own client sign-in. The ticket says no defect has been seen and adds a test that follows a real invitation link.
+
+It's ready for its own session to pick up.
 
 <!-- xgd-chat-end -->

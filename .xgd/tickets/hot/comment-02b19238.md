@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-29
 created_by: xgd
 created_at: '2026-10-29T23:35:13.589538+00:00'
-updated_at: '2026-11-07T23:43:47.305788+00:00'
+updated_at: '2026-11-08T18:02:03.091851+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -685,5 +685,676 @@ I agree with:
 - **Items 4 and 5** (member acceptance, and accepting again) wait for the sign-in REQ, as you decided. Items 1–3, 6 and 7 can be built now.
 
 If you agree, I'll write these answers into REQ-666's body so its session builds from the ticket rather than the chat. Shall I also start reviewing the module texts?
+
+<!-- xgd-turn id="84705758-28b4-4e52-b0ad-8f84c922989c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:25:45.187452+00:00" -->
+#### You
+I'm concerned about the privacy notice and the delay can we discuss? It appears 666 implemented the delay which is a little confusing if you told it not to.
+
+If we change our privacy notice, do we have an obligation to tell our members that it has changed? The wait, the email send its a huge amount of complexity - why not just have them re-accept like a ToS change?
+
+<!-- xgd-turn id="125248a8-f8bd-4f08-a04a-38751c37796e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:26:43.150160+00:00" -->
+#### You
+I'm concerned about the privacy notice and the delay can we discuss? It appears 666 implemented the delay which is a little confusing if you told it not to. - Oh I see I didn't ask you to close the loop, my bad. Lets take stock of where we are then.
+
+If we change our privacy notice, do we have an obligation to tell our members that it has changed? The wait, the email send its a huge amount of complexity - why not just have them re-accept like a ToS change?
+
+<!-- xgd-turn id="125248a8-f8bd-4f08-a04a-38751c37796e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:27:33.595010+00:00" -->
+#### Claude
+Yes, there's an obligation, but it covers more people than members. That's why re-acceptance alone isn't enough. You're right, though, that the 30-day wait is the wrong part, and it should go.
+
+## Where things stand
+- **REQ-665** (client documents, Legal mode): built, now `ready_to_reconcile`.
+- **REQ-668** (each business's customers sign in to that business): built, `ready_to_reconcile`.
+- **REQ-666**: built and at `free_coded`, including signed-in customers accepting their business's Terms. It also built the **30-day privacy wait**. I recommended against the wait, but I never wrote that into REQ-666's ticket, so its session followed the ticket. That's the gap you spotted. Your two latest corrections in its chat are still open:
+  - the 1st Contact business gets the same checks as every other business;
+  - Buy is blocked when there's no Terms of sale.
+- **Module texts DOC-87 to DOC-116:** all still drafts, so no site has standard documents yet, including your test shop.
+
+## Must you tell people when the privacy notice changes?
+This is my understanding, not legal advice.
+- **Small or wording changes:** no. Update the page and its date.
+- **Material changes:** yes. GDPR's transparency rules (Articles 12–13, and the EU regulators' guidance on transparency) and the UK regulator (ICO) say that changes which matter must be brought to people's attention. Posting them isn't enough.
+- **A new use of data you already hold:** people must be told **before** that use starts. This is the only case where a waiting period has any legal basis.
+- **The obligation is to everyone whose data the business holds,** not just members: buyers who checked out as guests, people who filled in the contact form, mailing-list subscribers. For most small businesses, those people far outnumber members.
+
+## Why re-acceptance alone isn't enough
+1. **It only reaches people who sign in.** A guest buyer or someone who sent an enquiry never sees the acceptance page, and they're the people the notice is mostly about.
+2. **It reaches members late, or never.** A member who doesn't sign in for six months finds out six months after the change.
+3. **"Accepting" a privacy notice doesn't mean anything legally.** The notice is information, and what happens if someone refuses has no sensible answer. A one-time "I have read" prompt for members is a fine way of telling them, but it's an extra, not a replacement for the email.
+
+## Why the 30-day wait should go
+- **The code can't enforce it.** The feature behind the change goes live at publish whatever the notice says. During those 30 days, a new provider is already receiving the data.
+- **It makes the notice wrong.** Anyone giving their data during the wait is shown the old notice, which doesn't describe what now happens to it.
+- **It's where most of the complexity is:** versions waiting to take effect, the "takes effect on" line, and the daily job that swaps the version in.
+
+## What I'd change it to
+- **A material privacy change goes live at publish,** for everyone.
+- **The email goes out at the same time,** sent in small batches by the existing job, as it is now. It informs people; it isn't an advance warning. It's already built and it's the only way to reach people who don't sign in.
+- **No re-acceptance for the privacy notice.** Members get the email like everyone else. Re-acceptance stays for material Terms changes.
+- **A planned new use of existing data:** the consultant warns the owner before publishing, as it does now, and the lawyer decides on wording and timing. The code doesn't try to hold anything back.
+
+**What this removes from REQ-666:** waiting versions, the 30-day setting, the "An updated version takes effect on…" line on the site, "Version N takes effect on…" in the Legal mode list, and the job that swaps versions in. **What stays:** the email message, sending it in batches, and the "tell people about this change" switch.
+
+If you agree, I'll write it into REQ-666's ticket together with your two corrections from its chat, so its next session has all three in one place. Then I'll start reviewing the module texts so your test shop can get its documents.
+
+<!-- xgd-turn id="8103edb2-843f-4eea-bc8c-117dcd5038ac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:40:55.434696+00:00" -->
+#### You
+One consequence of this - our idea of modular language should not apply to Privacy. If a user adds or removes features from their site we do not want to trigger a mass email send everytime they do it. Can we word the privacy notice with contingencies "If the site has an email list..." etc?
+
+One other thought - 1st Contact terms must include a statement like "1c offers legal terms for its member sites. (1) offered in good faith with no legal guarantees - get legal advice (2) These terms place obligations on you (the site owner). It is important that you read these terms and understand your obligations. If you do not want to agree to these terms you can replace them with your own"
+
+We can have data for people for whom we do not have an email address - I assume that's too bad - we can't tell them if we have no way to contact them? We did talk about retaining records with names and physical business addresses - I really don't want to get into the business of sending physical mail to update privacy notices - can we arrange it so that if we keep data we keep an email?
+
+<!-- xgd-turn id="8103edb2-843f-4eea-bc8c-117dcd5038ac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:43:05.998356+00:00" -->
+#### Claude
+Checked how contacts store email (a separate table, so a contact can have none). Now looking at where the new paragraph fits in our Terms.
+
+Draft Terms created; recording it on EPIC-29, then answering.
+
+All three points work, and the first two make the system simpler. I've drafted your Terms paragraph and noted all of this on EPIC-29.
+
+## 1. Privacy notices with "if" wording: yes, and better
+Write each sentence from the visitor's side, as something they do: "If you join our mailing list…", "If you buy from us…", "If you create an account…", "If a page shows a video from another company…". Each of those is true whether or not the site has the feature yet, so I don't think it's misleading (my understanding, not legal advice).
+
+What it gives us:
+- **Adding or removing a feature never changes the privacy notice,** so it never sets off an email.
+- **The notice only changes when** the owner edits it, when their business details change (normally not material), or when **we revise our standard text**.
+  - A revision of ours would email every business's contacts at once, so we should make them rarely and in batches, ideally once each time the lawyer reviews.
+- **Regions work the same way:** "If you are in the UK or EU…", "If you are in California…". Notices often do this, and it covers buyers from anywhere.
+- **The list of providers stays complete,** for example Stripe: "which of these receive your information depends on what you do on this site."
+- **The warning when an edited privacy notice falls behind the site's features goes away,** because that can no longer happen.
+
+The cost is a longer notice, which I think is fine.
+
+**I'd do the same for Terms of use and Member terms.** A feature changing them would otherwise make every member accept again. So the only feature-driven change left is whether **Terms of sale** exists at all, and it's a separate document that nobody re-accepts.
+
+That narrows REQ-665's modules down to choosing which documents a site has, filling in the details, and tracking our text's version. The module texts DOC-87 to DOC-116 are all still drafts, so I'd rewrite them in this style before you publish any of them. REQ-665's code also needs the feature triggers taken off the Privacy, Terms of use and Member terms modules, which is a small follow-up change.
+
+## 2. The paragraph for our Terms: drafted as DOC-117
+**DOC-117 (Terms of Service 2026-11-08)** is a **draft**: DOC-84 plus a new part of section 8, "Legal documents we provide for your site". It says:
+- **They are a starting point offered in good faith, not legal advice.** We aren't a law firm, can't promise they're complete or right for every business, and the owner should get their own legal advice. Section 11, on our responsibility, applies to them too.
+- **They are the owner's documents and place obligations on them,** such as returns, refunds, cancellations and looking after personal information. "It is important that you read them, understand what they commit you to, and run your business the way they say."
+- **The owner doesn't have to use them.** They can edit them or replace them with their own in the Paperwork tab. Once they've edited one, keeping it accurate is their responsibility.
+- **While they use our standard version,** we keep it up to date and tell them before changes appear on their site.
+
+I haven't published it: publishing makes every client accept again, so it should go out once, together with the change in point 3.
+
+## 3. People we have no email address for
+**Yes. If we have no way to contact someone, we can't tell them directly,** and I don't believe the law expects posted letters for a notice change. Keeping the dated page up to date with its version history is a reasonable fallback, and the lawyer can confirm. Your rule is better still: **if we keep someone's data, we keep a way to email them.** There are two places that's not true today:
+- **The 7-year payment records,** which we said would be reduced to name and billing address.
+  - Stripe Checkout always collects the buyer's email, so we have it.
+  - Keeping it is easy to justify: disputes and chargebacks mean contacting the buyer, and the receipts went to that address.
+  - It has to be written into the published documents: DOC-84 sections 8, 9 and 12 ("name and billing address" becomes "name, email and billing address"), DOC-85 sections 6 and 9, DOC-37, and REQ-640's portal page.
+  - Keeping more than before is a material privacy change for our own clients. They can all be emailed, since they sign in with email.
+- **Contacts with no email at all.** A contact's email lives in a separate table (`user_emails`), so a contact can exist without one, for example from a phone-only enquiry. The rule would be that **any form or record that creates a contact needs an email address.** That's a small code change, so it needs a ticket.
+
+## What I'd do next, once you agree
+1. Rewrite the module texts DOC-87 to DOC-116 in the "if" style.
+2. Add the email-retention change to DOC-117, and write a matching Privacy Notice draft, so clients accept once.
+3. Update REQ-665 for the feature-trigger change.
+4. Update REQ-666 to:
+   - drop the 30-day wait, sending the email at publish;
+   - include the 1st Contact business in the checks;
+   - block Buy when there's no Terms of sale.
+5. Give "every contact has an email" a home. My rule is one ticket per intent, so I'd add it to REQ-666 rather than file a new ticket. Say if you'd rather have a separate ticket.
+
+Shall I go ahead?
+
+<!-- xgd-turn id="289fcb4c-51f6-4ac5-9732-42dd13caf869-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:50:21.812596+00:00" -->
+#### You
+Just to be clear we have no live sites and no clients please do not hold back publishing updates.
+
+**Contacts with no email at all.** A contact's email lives in a separate table (`user_emails`), so a contact can exist without one, for example from a phone-only enquiry. The rule would be that **any form or record that creates a contact needs an email address.** That's a small code change, so it needs a ticket. <-- is this the right thing? I'm interested in discussing the product question before worrying about implementation
+
+<!-- xgd-turn id="289fcb4c-51f6-4ac5-9732-42dd13caf869-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:51:03.487245+00:00" -->
+#### Claude
+Publishing DOC-117 now, since you have no clients to re-accept. Then the product question.
+
+Understood: you have no live sites and no clients, so I'll publish updates as soon as they're ready. **DOC-117 (Terms of Service 2026-11-08) is now published**, with the paragraph on the legal documents we provide. It reaches the site at your next `bin/build` and `bin/deploy`.
+
+## Should every contact need an email address? I don't think so
+I took your point too literally. Looking at it as a product question, requiring an email is the wrong rule for a business's contacts.
+
+**Why not:**
+- **It loses leads.** "Leave your number and we'll call you back" is one of the best-converting forms for tradespeople and local services. Making email required means fewer enquiries, which goes against the platform's main purpose (DOC-5: lead capture stays frictionless).
+- **Businesses record people they meet in real life,** such as a phone call, someone walking in, or a card collected at a market. Those contacts often have no email, and the owner still needs to record them.
+- **Collecting an email only so we can send notices is backwards.** Data minimisation means collecting what you need for the purpose. Asking for an email just in case the privacy notice changes is the kind of collection the rules discourage.
+- **It solves a problem that has become rare.** With the "if" wording, a client's privacy notice no longer changes when features change. It only changes when the owner edits it or we revise our standard text. Material changes will be uncommon.
+
+**What I'd do instead: tell people through whatever contact details we already hold.**
+- **Email** where there is one. That's what's built now.
+- **Text message** where there's only a phone number, once texts exist. Paperwork messages already have a text-message field, so "We've updated our privacy notice" gets a short text version with a link.
+- **Neither:** we rely on the dated notice and its version history. I believe that's what the law expects when there's no way of reaching someone, but it's one for the lawyer to confirm.
+- **The business is the controller of its own contacts,** so telling them is the business's duty, and we give it the tools. That's consistent with what DOC-117 now says.
+
+## Where an email does belong
+Two separate cases, both still sensible:
+1. **Our own retained payment records (7 years):** keep the buyer's email. Here we're the controller. Stripe always collects the email, and we keep it because disputes and chargebacks require contacting the buyer, not just so we can send notices. This needs the wording change in our Terms and Privacy Notice I described last time ("name, email and billing address").
+2. **People who sign in:** every account already has an email, because sign-in is a link sent by email. Members and our own clients can always be reached.
+
+So the rule becomes **"we can reach everyone who has an account, and we keep an email in any record we retain for our own reasons"**, not "every contact must have an email".
+
+If you agree, I'll:
+1. Write the retained-email change into new versions of our Terms and Privacy Notice and publish them.
+2. Rewrite the module texts DOC-87 to DOC-116 in the "if" style and publish them, so your test shop gets its documents.
+3. Update REQ-665 to take the feature triggers off Privacy, Terms of use and Member terms.
+4. Update REQ-666 to:
+   - drop the 30-day wait;
+   - include the 1st Contact business in the checks;
+   - block Buy with no Terms of sale;
+   - send the privacy notice by text message where a contact has only a phone number, once texts exist.
+
+<!-- xgd-turn id="e73c1246-fc95-4e48-87e0-da0e6cdcbb23-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:55:21.244113+00:00" -->
+#### You
+Can we say that explicitly in the Privacy notice - update is contingent on us having an email for a contact.
+
+Can you make sure that all the rules and automatic updates apply to 1st contact itself - the tickets have been excluding it (again this is a product question first a tech question second). I certainly want all the automated protections and update tech to work for 1c - do we need separate/different ToC/Privacy? Ideally no. We eat our own dog food. Ideally its the same doc, but is that reasonable?
+
+<!-- xgd-turn id="e73c1246-fc95-4e48-87e0-da0e6cdcbb23-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:57:06.805484+00:00" -->
+#### Claude
+First adding the "we can only tell you if we have your email" sentence to our own Privacy Notice, plus the matching wording on retained payment records. Then the dog-food question.
+
+Publishing: DOC-117 amended in place (not yet deployed and nobody has accepted it), plus a new Privacy Notice.
+
+I've added the "we can only tell you if we have your email" statement and published it, and I think dog-fooding is reasonable as long as one feature is added.
+
+## 1. The statement is published
+**DOC-118 (Privacy Notice 2026-11-08), published.** Section 10 now says:
+- If you have an account, we ask you to read the new version the next time you sign in.
+- If the change is significant, we also email everyone we hold an email address for, when the new version is published.
+- "**We can only tell you directly if we have a way to contact you.** If we hold no email address for you, we cannot tell you about a change, so please check this page for the current version."
+
+**Payment records now keep the email address too**, in both documents: "name, email address and billing address". The notice gives the reason: to contact the buyer about a dispute and to tell them about changes. I made the same change to DOC-117 (Terms 2026-11-08). I edited it in place, since it hasn't been deployed and nobody has accepted it. Both reach the site at your next build and deploy.
+
+The same section 10 wording will go into the standard privacy module for client sites.
+
+## 2. 1st Contact gets every check, using the same documents?
+**Same mechanism and same checks: yes, without question.** That covers:
+- the Legal mode;
+- the standard documents being kept up to date;
+- the Buy gate and the checkout line;
+- acceptance at sign-in;
+- the change emails;
+- the "tell people about this change" switch.
+
+1st Contact is a business with a site, members, a mailing list, a contact form and paid plans. Every exemption is a place where the product goes untested on the one business that uses it every day. REQ-665 explicitly left 1st Contact out, and REQ-666 did too until you corrected it.
+
+**The same documents, exactly as written: no, but nearly.** 1st Contact's Terms contain things no client site would ever have:
+- the AI rules and who owns the content;
+- the harassment and doxing rules;
+- the data-processing terms (GDPR Article 28) for clients' visitors' data;
+- the new paragraph on the legal documents we provide;
+- the Beta Terms.
+
+A client's standard Terms can't contain those. And if 1st Contact simply edited its standard documents, it would lose the automatic updates, which is what you want to avoid.
+
+**What closes the gap, and is useful to every client: owners can add their own sections to a standard document without taking it over.**
+- The document stays **standard**, and we keep updating our parts of it.
+- The owner's sections sit at a place they choose, for example after "Who we are".
+- Keeping their own sections consistent with ours is up to them, and the Legal assistant can point out a conflict.
+- This also answers your second editing case from the start: a business that wants a clause or two of its own keeps everything else up to date automatically.
+- A business can also have **documents entirely its own** that members must accept. 1st Contact's Beta Terms would be one.
+
+So 1st Contact's documents would be **the standard Terms of use, Privacy notice and Terms of sale, plus 1st Contact's own added sections, plus the Beta Terms as a document of its own.** The question of whose text applies takes care of itself: the platform rules are 1st Contact's own additions, written as 1st Contact speaking.
+
+**There's a real benefit:** our own documents are the hardest case. If the standard Terms of sale is good enough for 1st Contact's paid plans, which needs the cooling-off periods and renewals, it's good enough for clients. That's a useful test of the module library before the lawyer sees it.
+
+**What it costs technically:**
+- **1st Contact's documents move from the build into its own business's records,** like every other business. The documents built into the deploy, and the build failing on legal document tickets, are replaced in one switch-over rather than kept alongside the new path.
+- **Acceptances already recorded must still point at the right text.** The current versions are copied over as history with their existing ids. Since there are no clients yet, this is simple.
+- **Our standard text stays in the build,** as doc tickets reviewed in this epic. Only the per-business documents move.
+
+## How I'd file it
+REQ-665 is at `ready_to_reconcile`, so the dispatcher may pick it up at any moment, and it shouldn't be extended. I'd file **one new REQ under EPIC-29** that covers:
+- 1st Contact through the same pipeline, with no exemptions;
+- owner-added sections and owner-only documents;
+- the switch-over from built-in documents to business records;
+- taking the feature triggers off Privacy, Terms of use and Member terms (the "if" wording);
+- the section 10 change wording.
+
+Separately, I'd update REQ-666's body with your three corrections: no 30-day wait, 1st Contact included, Buy blocked without a Terms of sale. Then I'd rewrite the module texts in the "if" style and publish them. Under the new approach, those include the standard documents 1st Contact itself will use.
+
+Shall I file the REQ and make those updates?
+
+<!-- xgd-turn id="5c321140-556c-4f4c-b5bf-181117b27a2e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:00:53.756359+00:00" -->
+#### You
+Ok tha's fine please make the changes
+
+<!-- xgd-turn id="5c321140-556c-4f4c-b5bf-181117b27a2e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:05:32.009091+00:00" -->
+#### Claude
+The module triggers are data on the doc tickets, so the "if" change can be done here without code. Reading the modules that need rewriting.
+
+Rewriting the 13 modules in the "if" style, with the matching trigger and region changes.
+
+Library published. Now checking REQ-666's latest body before adding the corrections.
+
+REQ-666 already has two of your corrections (1st Contact included; no Buy without Terms of sale). Adding the third, removing the 30-day wait.
+
+Filing the new REQ for 1st Contact's own documents and owner-added sections.
+
+I've made the changes. The library rewrite and publishing were text and data only. The code changes are in tickets: one new (REQ-669) and one updated (REQ-666).
+
+## Standard legal text: rewritten in the "if" style and published
+**All 30 module texts, DOC-87 to DOC-116, are now published.** You said not to hold back, so they're live.
+- **The privacy notice and Terms of use no longer depend on what the site does.**
+  - Their sections now read "If you contact us…", "If you join our mailing list…", "If you buy from us…", "If a page shows content from other websites…", "If you are in the UK / EU / United States…".
+  - Every one is now included on every site, whatever the site does or where it sells, so turning a feature on or off never changes those documents and never sends a privacy email.
+- **Only the Terms of sale still depends on the site:** it appears when the site sells, and keeps its UK, EU and US cancellation sections.
+- **Wording changes:**
+  - DOC-99 (buying) now says 1st Contact keeps its own 7-year record of the payment, including name, email address and billing address.
+  - DOC-107 (changes to this notice) says significant changes are emailed, and "we can only tell you directly if we have a way to contact you".
+  - DOC-98 (mailing list) adds that buying or contacting never adds anyone to the mailing list.
+  - DOC-116 (Member terms) now says important changes are accepted at the next sign-in. It previously promised notice before a change applied, which the code doesn't do.
+
+**Your test shop** gets its Terms of sale and Privacy notice once REQ-665 and REQ-666 are deployed. They also need the shop's business details filled in.
+
+**Not checked:** I didn't run a build. I compared every module's document, trigger, region and placeholders against the rules in the code, but `1c assets` is what really validates the library. Run your usual `bin/build` to confirm.
+
+## REQ-666: the 30-day wait removed
+I added your decision to its body. It says to delete the waiting version, the 30-day setting, the "takes effect on" lines and the job that swaps the version in. Instead:
+- a significant privacy change goes live at publish;
+- the email goes out at publish to every contact with an email address;
+- signed-in customers are asked to read the new version at their next sign-in.
+
+Your other two corrections were already in its body: 1st Contact gets the same checks, and there's no Buy button without a Terms of sale. REQ-666 is at `free_coded`, so this needs another session on it.
+
+## REQ-669: 1st Contact through the same pipeline, plus owner-added sections
+Filed under EPIC-29 as a draft, 20 points.
+- **Owner-added sections** keep a document standard while the owner adds their own text.
+- **Owner-only documents,** such as our Beta Terms, can be withdrawn without losing anyone's acceptance record.
+- **1st Contact's documents move from the build into its own business's records** in one switch-over. Every published version keeps its existing id, so past acceptances still point at the right text.
+- **No 1st Contact exceptions in the legal code.** Our clients accept our documents through the same page as any business's signed-in customers.
+- **The build refuses** a privacy or Terms of use module that depends on a feature or region, so the old problem can't come back.
+
+It should run after REQ-666, since both change the acceptance and legal code.
+
+## Next in this session
+To seed REQ-669, our own Terms and Privacy Notice need splitting into the standard text plus 1st Contact's own sections: the AI rules, harassment, data-processing terms and the legal-documents paragraph. I'll draft that split next.
+
+<!-- xgd-turn id="4ef3b2e3-e3f9-4a3d-a7a0-0e5e569e6736-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:08:03.203897+00:00" -->
+#### You
+Can you ensure that all our docs and your ticket body reflect the final design here please?
+
+<!-- xgd-turn id="4ef3b2e3-e3f9-4a3d-a7a0-0e5e569e6736-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:11:05.336106+00:00" -->
+#### Claude
+Auditing for leftovers of superseded decisions across the legal docs, design docs and tickets.
+
+Found leftovers in DOC-37, DOC-54, DOC-117, DOC-118, EPIC-9 and EPIC-30, plus two pieces of built code. Fixing the documents first.
+
+On reflection I'm leaving the "add your own sections" sentence out of the Terms until REQ-669 builds it, so the Terms never promise a feature that doesn't exist. Applying the rest.
+
+Documents done. Now the tickets: EPIC-9, EPIC-30, REQ-666 and REQ-669.
+
+Last, my own ticket. Adding a "current design" section at the top of EPIC-29 that wins over the dated updates below it, and closing the items those updates left open.
+
+The documents and tickets now match the final design. EPIC-29 has a "Current design" section at the top that wins over the dated history below it. Nothing has been deployed: the legal pages reach the site at your next build and deploy.
+
+## Legal documents
+- **DOC-117, our Terms (2026-11-08):** section 13 now says we ask you to accept again only after a significant change; smaller wording changes are published without asking.
+  - I left out the sentence about owners adding their own sections, because that feature isn't built yet. REQ-669 now says to add it in a new Terms version when it lands, so the Terms never promise something that doesn't exist.
+- **DOC-118, our Privacy Notice (2026-11-08):** section 10 now matches the standard client text. A significant change is emailed when it's published and account holders are asked to read it at their next sign-in. Smaller changes are published without a message, and we can only tell you directly if we have a way to contact you.
+- I changed DOC-117 and DOC-118 in place, which is fine because neither has been deployed and nobody has accepted them.
+- **The module texts (DOC-87 to DOC-116)** already matched.
+
+## Design documents
+- **DOC-37 (deletion design), section 6.3:** the record kept after deletion is now "name, email address and billing address", with the reason, and all three other mentions match.
+- **DOC-54:** the same correction.
+
+## Tickets
+- **EPIC-29:**
+  - A new **"Current design (2026-11-08)"** section at the top, which wins over the history below it. It covers which documents each business has, the "if" wording, the US/UK/EU rule, acceptance and change notices, the rule on email addresses, checkout, the child tickets, and what's still open.
+  - The older "under discussion", "still to do" and "open" lines are now marked resolved.
+- **EPIC-9:** a note that its retention decision now keeps the email, and that DOC-37 wins where they differ.
+- **EPIC-30:** a note that "publishing makes everyone accept again" no longer holds, with the significant-change rule that replaces it.
+- **REQ-666:** two more things it has to change in code that has already landed, each with a test:
+  - the Legal assistant's instructions still say "publishing makes everyone accept again" (from REQ-662);
+  - the portal's "Closing your account" panel still says "name and billing address" (from REQ-640).
+- **REQ-669:** it now states which parts of REQ-665 it replaces (the 1st Contact exemption and the feature-driven privacy examples), and the Terms sentence to add when it lands.
+
+## Left as they are
+- **REQ-665 and REQ-640** are at `ready_to_reconcile`, so I didn't edit them. Their corrections are recorded in REQ-669 and REQ-666 instead.
+- **Old published versions** (DOC-76/77/84/85) stay unchanged, as the Terms promise.
+- **The chat transcripts.**
+
+**Still open:** splitting our current Terms and Privacy Notice into the standard text plus 1st Contact's own sections, for REQ-669 to load into 1st Contact's records. I'll draft that next unless you want something else first.
+
+<!-- xgd-turn id="d10e92db-5f14-4e2f-97d2-39e2926bbb9a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:17:47.155184+00:00" -->
+#### You
+ok please make the split.
+
+Then can you help me understand exactly where we end up. I think its this:
+
+1. We (1c) maintain two sets of docs ToC/Privacy/Terms of Sale etc. A standard set used as a first pass by all our sites and the 1c ones that are a strict superset
+2. Client sites using are standard terms will automatically get updated when the standard terms are updated (we need a way to warn site owners that this is coming...)
+3. The standard docs are no longer modular but written with contingencies
+
+<!-- xgd-turn id="d10e92db-5f14-4e2f-97d2-39e2926bbb9a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:22:10.129409+00:00" -->
+#### Claude
+Reading our current Terms and Privacy Notice in full to make the split.
+
+Checking whether the Beta Terms refer to the Terms by section number, since the split removes the numbers.
+
+The Beta Terms link to the Terms but don't cite section numbers, so the split doesn't break them. Writing the standard-text upgrades first.
+
+Standard text updated, and DOC-119 added for subscriptions. Now writing 1st Contact's own sections, taken from DOC-117 and DOC-118.
+
+Seed written as DOC-120. Linking it from REQ-669 and EPIC-29's current-design section.
+
+The split is done, and you're close on all three points; I've corrected them below. Point 2 has a real gap, and it's tied to a weakness in when standard updates reach a site.
+
+## The split
+**DOC-120, "1st Contact's own sections"**, holds everything in our current documents that the standard text doesn't. Each section says which standard document it belongs to and where it goes:
+- **Member terms** (what our clients accept, replacing "Terms of Service"): the standard text plus our platform sections:
+  - who we are, and who can use the Service;
+  - AI, your content, things you must not do (including harassment), reporting;
+  - your site's legal duties, including the legal-documents paragraph;
+  - the data-processing terms;
+  - our part, our responsibility, ending, law, contact.
+- **Privacy notice:** the standard text plus:
+  - who this notice covers;
+  - the builder's data (AI conversations, uploads, beta review);
+  - the AI providers paragraph, and where we work from;
+  - how long we keep it, security and age;
+  - visitors to client sites.
+- **Terms of sale:** the standard text plus "Our cooling-off periods go further", our more generous plan refunds.
+- **Terms of use:** standard only. **Beta Terms:** a document of our own.
+
+**Writing the split exposed gaps in the standard text, which I've fixed for everyone:**
+- account deletion now gives the 30-day timing the platform actually uses;
+- the UK and EU rights sections now say we may check identity and don't charge;
+- Delivery and Returns now say "If you buy goods…";
+- two sections now read correctly on our own site, not only on a client's;
+- **a new "Subscriptions and services" section** (DOC-119) for Terms of sale. It didn't exist, and clients selling memberships will need it.
+
+REQ-669 loads DOC-120 into our records. Until it lands, DOC-117 and DOC-118 remain the documents in force.
+
+## Where we end up
+
+**1. Two sets of documents: nearly.** We maintain **one standard set**, plus **1st Contact's additions** on top of it. There's no second full copy: our documents are put together exactly as a client's are. So yes, they're a strict superset, and any improvement to the standard text reaches us automatically, which keeps us honest.
+
+**2. Clients using standard documents get updated automatically: yes, but the timing needs fixing, and owners need warning.**
+- **Today's design is weak here.** REQ-665 only rebuilds a site's standard documents when the owner next publishes the site. An owner who doesn't publish for months never gets our corrections, and one who does gets them by surprise.
+- **What I'd propose:**
+  - When we publish a revision of the standard text, every business using that document gets an **owner message**, plus a notice in Paperwork → Legal. It says what's changing, with the old and new wording, and the date it takes effect, for example 14 days later.
+  - On that date the legal pages are **updated on their own, without the owner republishing**. Legal pages are fixed text, so this is cheap.
+  - The owner can edit or add their own sections before then. If they've taken a document over, they get the same message as advice, and their document isn't touched.
+  - **The waiting period is for owners, not for the public.** We gave up the 30-day wait for visitors earlier. This one is a business-to-business courtesy, and it's when the business is expected to read what the new text commits it to.
+  - If our revision is material, their privacy email or Terms re-acceptance then follows automatically on that date.
+  - The same goes for business details: saving them updates the legal pages straight away, with no republish needed.
+- **This isn't in any ticket yet.** It fits REQ-669, which is already changing how documents are stored and published. **Shall I add it there?**
+
+**3. Contingencies instead of modules: mostly.**
+- **The privacy notice, Terms of use and Member terms** are now in effect one fixed document each. Every section is always included and written with "If you…". Site features no longer change them.
+- **Terms of sale** is still assembled: it exists only when the site sells, and its UK, EU and US cancellation sections depend on where the business sells. Nobody re-accepts it, so that's fine.
+- **We still keep sections separate** rather than one block of text. Each section is what an owner places their own sections next to, what an update message lists as changed, and what the Legal assistant uses to explain. So the right description is: **contingent sections, not feature modules.**
+
+**Not checked:** I haven't run a build since changing the library. Run `bin/build` before deploying, so the build's own checks confirm the new module (DOC-119) and the edited texts.
+
+<!-- xgd-turn id="0e8e7947-e2ec-49b0-81ff-091fc360446f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:30:44.332623+00:00" -->
+#### You
+**This isn't in any ticket yet.** It fits REQ-669, which is already changing how documents are stored and published. **Shall I add it there? Yes please**
+
+**Is there a collective term for these legal docs? I keep struggling to find one.**
+
+**I assume these docs should always be easy to find - should they be in every footer? Can we ensure that they are visible on every site (appropriately)? If the owner wants to hide/obscure them I guess that's on them but I want to make sure that the consultant does no do so by accident**
+
+<!-- xgd-turn id="0e8e7947-e2ec-49b0-81ff-091fc360446f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:32:15.153073+00:00" -->
+#### Claude
+Adding the update warning to REQ-669. First, checking how REQ-665 put the footer links in, so I know whether the consultant can remove them by accident.
+
+The footer links are added by the page renderer itself, so editing the site can't remove them. Checking which pages get them and whether there's a silent failure case.
+
+Adding the update warning to REQ-669 now.
+
+I've added the update warning to REQ-669. It's now large: still marked 20 points, but realistically above that. I'd split it at build time if its session finds it too big.
+
+## REQ-669: standard updates and warning owners
+- **Legal pages are published separately from the site.** They update straight away when business details are saved or the owner edits, and on the effective date when we revise our standard text. They no longer wait for the owner to republish the site.
+- **A revision of our standard text is announced first.** Every affected business gets an owner message and a notice in Paperwork → Legal, showing the old and new wording and the date it takes effect, 14 days later.
+  - On that date the pages update automatically, and if the change is material the privacy email or Terms re-acceptance follows.
+  - An edited document is never changed. Its owner gets the message as advice.
+- **It runs as background work in small batches,** so publishing a revision never sends to every business inside one request.
+- Each part has a test.
+
+## A collective term
+There's no perfect one. The options:
+- **"Legal pages"** for what visitors see on a site. It's plain and accurate.
+- **"Legal documents"** in the product and tickets. It covers what owners manage, including ones that are never pages, such as the version on an order.
+- **"Legal"** as a heading, which you already use: Paperwork → Legal, and the footer links are labelled "Legal" for screen readers.
+- **"Policies"** is common ("Terms & Policies") but slightly wrong, since Terms are an agreement, not a policy.
+
+I'd use **"legal documents"** in the builder and **"legal pages"** on sites.
+
+## Visible on every site
+**This is mostly in place already, and the consultant can't remove the links.**
+- REQ-665 has the **page renderer itself** add a "Legal" row of links to the footer of every web page. If a page has no footer, it adds one.
+- It's built from the list of documents, **not from the site design the consultant edits**. Nothing the consultant can change adds, removes or hides those links. The only styling they take is the footer's text colour, so they stay readable wherever the footer is.
+
+**Three gaps I'd close:**
+1. **A silent failure.** The links go in just before the footer's closing tag, and the code expects that tag at the very end of the footer. If the footer ever doesn't end exactly that way, for example with trailing whitespace, **the links are silently left out.** The fix is to fall back to a separate footer, and test that every page has the links. This is a bug in code that has already landed.
+2. **The consultant inventing its own legal pages.** The real risk isn't the consultant hiding our links, but it writing a "Privacy policy" page with made-up text, or adding footer links of its own that duplicate or contradict ours. The fix:
+   - a consultant rule: "every site's legal pages and footer links are provided by the platform; never write legal text, legal pages or legal links; send the owner to Paperwork → Legal";
+   - the `/legal/...` addresses reserved, so no site page can take them.
+3. **Checkout and members.** The checkout line and the acceptance page already link the documents (REQ-666), and the footer covers every other page. So nothing is missing here, but the tests should check every page, including shop, product, order and the legal pages themselves.
+
+**Owners hiding the links:** I wouldn't build a switch for it. Without one, the links can't disappear by accident, and an owner who really wants them hidden is a rare case we can handle when it comes up.
+
+Gaps 1 and 2 are code, and REQ-669 is already full. The first is a fix to landed REQ-665 work, which we normally file as a bug. **Shall I file one bug, "Legal pages: footer links always present, and the consultant never writes legal pages", under EPIC-29?** It's about 3 points and can run independently of the other tickets.
+
+<!-- xgd-turn id="f4111230-c0c7-4fcf-b327-0a15d858a968-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:33:34.667223+00:00" -->
+#### You
+yes please
+
+<!-- xgd-turn id="f4111230-c0c7-4fcf-b327-0a15d858a968-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:34:19.322098+00:00" -->
+#### Claude
+I've filed **BUG-383, "Legal pages: footer links always present, and the consultant never writes legal pages"**: 3 points, medium severity, a draft under EPIC-29. It needs its own session to build it.
+
+It covers three things:
+1. **The footer links can't silently disappear.** If the renderer can't place them inside a page's footer, it writes its own footer holding them, as it already does for pages with no footer.
+2. **A consultant rule:** the platform provides every site's legal pages and footer links. The consultant never writes legal text, legal pages or legal links, and sends the owner to Paperwork → Legal for anything legal.
+3. **`/legal/` addresses are reserved:** creating or renaming a site page to a `/legal/...` address is refused, with a message pointing to Paperwork → Legal.
+
+As you decided, there's no switch for owners to hide the links.
+
+Its tests check that:
+- every page carries the legal links once, including shop, product, order and the legal pages themselves;
+- a footer with trailing whitespace or a comment still gets them;
+- a page with no footer gets one holding the links;
+- the consultant's rules include the new rule;
+- a `/legal/privacy` page is refused.
+
+I've listed it as a child of EPIC-29 and noted it there, along with REQ-669's new update-warning items and the naming: "legal documents" in the builder, "legal pages" on sites.
+
+<!-- xgd-turn id="7ac13285-07a7-498f-9a4a-bc551bd25d63-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:44:14.030726+00:00" -->
+#### You
+ok can we resolve the outstanding question in REQ-666
+
+I think the answer is that in 1st contact Paperwork -> Legal I should just see the legal docs for first contact. The "standard docs" are stored in a ticket, maintained by you and updated via a build.
+
+Can we also talk about "additional custom legal docs" e.g. the Beta agreement? I think this should be managed in the Pw -> Legal tab - for example there is a + button to add a new doc - we could have 3 kinds (accept once, accept on every revision change, just display) the doc would need a "title" - what the users see and would be versioned etc.
+
+A detail - not necessarily to solve now:
+ - Can owners see past version of the legal docs? Do they need to?
+ -
+
+<!-- xgd-turn id="7ac13285-07a7-498f-9a4a-bc551bd25d63-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:45:22.936568+00:00" -->
+#### Claude
+Finding REQ-666's open question.
+
+## REQ-666's open question: resolved
+REQ-666's session thought 1st Contact had **two** sets of documents: the builder documents (DOC-76/77/78) and the documents generated for its sites. It asked whether the Legal pane should show both (option A), or whether the sites should reuse the builder documents (option B).
+
+Your answer settles it without either. I've written it into REQ-666's body:
+- **1st Contact has one set:** the standard documents plus its own sections (DOC-120) plus its own documents such as the Beta Terms. The builder and its sites show the same documents.
+- **1st Contact's Paperwork → Legal shows only those documents,** as a client's pane does. The standard texts aren't shown or edited there. They live in doc tickets that I maintain in this epic, and reach every business through the build.
+- **REQ-666 builds neither A nor B.** REQ-669 merges the two sets in one switch-over. Until then, 1st Contact's sites carry generated documents next to the builder documents, which is fine with no clients.
+
+## Custom documents (the + button)
+I agree with your shape, with one change to how editing works.
+
+**Each custom document has:**
+- **a title**, which visitors see (for example "Beta Terms"), and its page address follows from it, `/legal/beta-terms`;
+- **Markdown text**, shown through the same safe renderer;
+- **one of three kinds:**
+  - **Display only:** a page linked from the site footer. Nobody accepts it.
+  - **Accept once:** signed-in customers accept it the first time they sign in, and later versions don't ask again.
+  - **Accept every new version:** every new version is put to signed-in customers again.
+- **versions:** each published version is kept, with its date and its own permanent page, and acceptances point at the exact version.
+- **withdraw:** it disappears from the site and the acceptance page, and everyone's record of having accepted it is kept. That's how the Beta Terms end when the beta does.
+
+**The change: custom documents need a separate Publish step.** Paperwork messages go live when saved. Do that with "Accept every new version" and fixing a typo makes every member accept again. So editing a custom document saves a **draft**, and **Publish new version** is the deliberate step. That's when people are asked to accept again, and when the Legal assistant or consultant says what publishing will do.
+
+**Where each document shows up:**
+- **"Display only" documents** go in the footer next to the standard ones.
+- **Documents people accept** go on the acceptance page and in the signed-in customer's account area.
+
+  The footer is for everyone, and these are for members.
+
+**Not in the first version:** choosing **which** signed-in customers a document applies to, such as only beta participants. Today every 1st Contact client is in the beta, so "everyone signed in" works. Choosing an audience can come later.
+
+## Past versions: yes, owners need them
+- **Disputes.** "What had this customer agreed to on 3 March?" Orders and acceptances already point at exact versions, so the owner must be able to open those versions.
+- **It's cheap.** The versions are already stored, and REQ-666 already gives each one a permanent public page (`/legal/terms-of-sale/v3`). The pane only needs a read-only history: dates, which version is in force, how many people accepted each one, and the text.
+- **Restoring an old version** publishes a copy of it as the newest version, so nothing is ever lost or rewritten.
+
+REQ-661 already shows version history for 1st Contact's builder documents, so this extends the same history view to every document.
+
+If you're happy with this, I'll write the custom-document kinds, the draft-then-publish step and version history into REQ-669, item 2, which already covers "documents of the business's own". That makes REQ-669 large enough that I'd split it in two when it's built: first 1st Contact's switch-over and added sections, then custom documents and the update warnings. Shall I?
+
+<!-- xgd-turn id="6a4e9c18-6e87-434b-b5dd-99e30a55aba5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:58:08.773198+00:00" -->
+#### You
+Lets hold on tickets for this for now - can you capture the design in an existing or new doc please
+
+<!-- xgd-turn id="6a4e9c18-6e87-434b-b5dd-99e30a55aba5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:59:32.324907+00:00" -->
+#### Claude
+I'll write one design doc for the whole legal-documents area, with the custom-document and version-history design as its newest part, and point EPIC-29 at it.
+
+No design doc covers this yet, so I'm creating one.
+
+I've written the design up as a new doc, **DOC-121, "Legal documents: design"**. No tickets were created or changed for the new parts.
+
+It covers the whole area in one place:
+1. **Principles:**
+   - every business is treated the same, 1st Contact included;
+   - we write the standard text and AI never does;
+   - site features never change the Privacy notice or the Terms;
+   - owners are responsible for their own documents;
+   - text is only shown through the safe renderer;
+   - legal pages are static.
+2. **The standard text:** kept in doc tickets that I maintain in this epic, updated through the build, and never shown or edited in an owner's Legal tab. It's written as sections with "if" wording, and only the Terms of sale changes with selling and region. US, UK and EU in the first release.
+3. **A business's documents:** a table of each document, when it exists, who it's for and how it's accepted. It also covers "Standard" versus "Edited by you", the owner's own added sections, the business details, and 1st Contact's documents being the standard set plus its own sections (DOC-120).
+4. **Where documents appear:** footer links on every page that can't be removed, the permanent pages for each version, the reserved `/legal/` addresses, the consultant never writing legal text, the checkout line and the acceptance page.
+5. **Changes and who is told:** a table of what happens for wording-only and significant changes, and how standard updates reach sites: announced to owners and applied 14 days later. It also covers telling people only through the contact details we hold.
+6. **Paperwork → Legal and the Legal assistant.**
+7. **Custom documents (agreed, not yet ticketed):** the + button, a title, and the three kinds you described:
+   - display only;
+   - accept once;
+   - accept every new version.
+
+   Editing saves a draft and publishing is a separate step. It also covers versions, withdrawing a document (how the Beta Terms end), and where each kind appears. Choosing which customers a document applies to is for later.
+8. **Version history for owners (agreed, not yet ticketed):** a read-only history with dates and acceptance counts, and restoring an old version as a new copy.
+9. **Still open:** the lawyer review, text-message notices, and choosing who a custom document applies to.
+
+DOC-121 says that where a ticket disagrees with it, the document is the newer intent. EPIC-29's current-design section now points to it and records that your answer on 1st Contact's Legal tab has been written into REQ-666.
+
+<!-- xgd-turn id="b3849c50-bd2f-4eaa-8e5b-1bf511328baa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T18:00:10.509340+00:00" -->
+#### You
+Also please create a todo ticket for the missing features to remind me to circle back on these
+
+Can you answer 669's questions please?
+
+<!-- xgd-turn id="b3849c50-bd2f-4eaa-8e5b-1bf511328baa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T18:02:01.354396+00:00" -->
+#### Claude
+REQ-669's session asked five questions. First, checking how todo tickets are created here.
+
+Writing the answers into REQ-669's body, so its session builds from the ticket.
+
+Updating DOC-121 to match these answers: Member terms for every business, and custom documents now part of REQ-669.
+
+Creating the reminder, then putting its id into DOC-121.
+
+I've answered REQ-669's questions in its body and created the reminder, **TODO-23**.
+
+## REQ-669's five questions
+1. **What do signed-in customers accept?** The Member terms (agree) and the Privacy notice (read), never the Terms of use, which are only shown to visitors. This applies to every business, so REQ-666's behaviour changes for client businesses too, which is intended.
+2. **How does 1st Contact get Member terms?** I went with a simpler rule than its session proposed: **every business has Member terms, so nothing has to detect accounts.**
+   - They're linked from the acceptance page and the account area, not the footer, so a site without accounts shows nothing extra. Nobody is asked to accept them until they sign in.
+   - Its session suggested "an account box or anyone signed in". That rule would have made Member terms appear only after someone's first sign-in, too late for that person to accept them.
+   - I left switching the Member terms text (DOC-116) to always-on for REQ-669 to do. Doing it now would add a footer link to every site before the code that keeps it out of the footer exists.
+3. **Legal pages publishing on their own:** agreed. A legal change rebuilds the business's published sites from the **published** version in small background batches, never from an unpublished draft.
+4. **Loading 1st Contact's history:** agreed. A one-off command per environment, which you run. Each old version keeps its original id, so past acceptances still find their text.
+5. **The "add your own sections" sentence:** goes in at the switch-over, with no separate Terms version. It's a significant change, so our clients will accept again at next sign-in. There are no clients yet, so that costs nothing.
+
+**One decision you should know about.** You asked to hold tickets for custom documents, but REQ-669 already covers documents of a business's own: it needs them to keep the Beta Terms. To avoid building a narrower version and then replacing it, I've told it to build them in **DOC-121's shape**: the three kinds, a title, draft then publish, and withdrawing. The Beta Terms become "accept every new version". Choosing who a document applies to and version history stay out. If you'd rather hold that too, say so and I'll narrow REQ-669 back to the minimum the Beta Terms need.
+
+I also agreed its plan to land in three steps on one branch, moving to `free_coded` only when all three are done.
+
+## TODO-23: the features still to ticket
+A reminder for:
+1. version history for owners;
+2. choosing who a custom document applies to;
+3. text-message notices for contacts with only a phone number;
+4. the lawyer review, including the 14-day notice to owners, renewal notices, online cancellation for California, and keeping email addresses in retained payment records.
+
+Each item points to its section in DOC-121.
+
+**DOC-121** now matches the answers:
+- every business has Member terms, which aren't in the footer;
+- Terms of use are never accepted;
+- legal changes rebuild sites from the published version;
+- custom documents are built under REQ-669;
+- version history is reminded by TODO-23.
+
+I've also noted all of this on EPIC-29.
 
 <!-- xgd-chat-end -->

@@ -5,8 +5,8 @@ type: request
 title: 'The user can point: Marked Points on the edit preview'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:58.462451+00:00'
-updated_at: '2026-11-08T20:30:00.087551+00:00'
-completed_at: '2026-11-08T20:29:57.325969+00:00'
+updated_at: '2026-11-08T20:30:29.362919+00:00'
+completed_at: '2026-11-08T20:30:29.362919+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,8 +19,8 @@ fields:
   chat_comment: comment-583f91f4
   commits:
   - working_sha: b248d265cae55abea37d22f18bc328de0ca9bc97
-    reconcile_sha: 97817305a40c8e0bd4fca493d34e081f6e7c8c8d
-    main_sha: null
+    reconcile_sha: a091d16b5b318b1f11f45b0128d61609b2cfff62
+    main_sha: a091d16b5b318b1f11f45b0128d61609b2cfff62
     working_sha_history: []
   version: 0.2.142
   bundled_in: bundle-0d00566a

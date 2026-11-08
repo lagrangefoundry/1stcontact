@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-11-08T00:15:29.073015+00:00'
+updated_at: '2026-11-08T17:05:22.593722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -216,5 +216,138 @@ I've answered REQ-668's five questions in its ticket body. They replace its "Ope
 5. **Someone with no business they can operate lands on their portal.** "Operate" means holding an owner role, or delegate once REQ-369 lands. Members still land in the builder, and a recorded return address still wins.
 
 I also added two items to the test plan, one each for decisions 4 and 5. No code was changed. REQ-668 is still at `draft`, so its own session can start building whenever you're ready.
+
+<!-- xgd-turn id="f9e8e9e1-8f8f-4fb9-8790-206eb3ce2b56-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:29:21.642753+00:00" -->
+#### You
+668 is implemented - can you summarize what happens now. I think that previously all members were associated with 1stcontact - not sure how we got there. Each business has its own contact list and its members log on to that business. Is this what we implemented?
+
+<!-- xgd-turn id="f9e8e9e1-8f8f-4fb9-8790-206eb3ce2b56-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:30:08.887583+00:00" -->
+#### Claude
+Mostly yes. Each business now has its own contact list, and its customers sign in to that business. But business owners are still contacts of 1st Contact, and that's by design, not a leftover. REQ-668 is at `ready_to_reconcile`, and my summary comes from its "What landed" section plus a quick read of `onboarding.ts`.
+
+**There are two separate things:**
+- **Being a contact** is who you are and whose list you're on. Every person record belongs to exactly one business.
+- **Being a member** is which business you operate. That's a membership row, the `owner` role today and `delegate` once REQ-369 lands.
+
+**Why owners are 1st Contact's contacts:** 1st Contact is a business, and its customers are business owners. So Alice is a contact of 1st Contact who holds an owner membership of Alice's Plumbing. Bob, Alice's customer, is a contact of Alice's Plumbing and holds no membership anywhere. This is the design in DOC-40 §2.1. Signing up confirms it in the code: Alice accepts 1st Contact's invite as one of 1st Contact's contacts, and onboarding creates her business with an owner membership for her.
+
+**What the code did before REQ-668:** the stored data was already per business, but sign-in only ever looked people up in 1st Contact's list. Owners and delegates could sign in. Bob could be sent an invite by Alice's Plumbing but was refused when he used it. That's the "everyone belongs to 1st Contact" behaviour you were seeing.
+
+**What happens now:**
+- **Sending a link:** the business comes from where the sign-in started. A client site's own address, or an address under `1stcontact.io/site/<key>/`, means that site's business. Anywhere else means 1st Contact: the builder, 1st Contact's own pages, or no return address. The person is looked up in that business's list only.
+- **Redeeming the link and the session** take the business from the person's own record, not from the host.
+- **Terms:** a contact only owes their own business's documents. Bob is never shown 1st Contact's terms, and accepting never creates a business for him. Until REQ-666 lets businesses publish their own documents, client contacts see no terms gate.
+- **Landing:**
+  - Someone with no membership, like Bob, lands on their portal instead of the builder.
+  - Members still land in the builder.
+  - A recorded return address still wins.
+- **Same address in two businesses:** that's two separate people with separate sign-ins, and you can be signed in to only one business per browser at a time.
+
+One consequence to know about: Alice signs in to the builder from 1st Contact's pages. Her own site's account box signs in Alice's Plumbing's customers, not her. If she's also on her own business's contact list, signing in there makes her that contact and replaces her builder session. REQ-668 records this as replacing one older REQ-482 test.
+
+<!-- xgd-turn id="28f9e10b-3329-4e10-bd09-6244b83f7947-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:42:32.222898+00:00" -->
+#### You
+I see and just to double check Alice alice@example.com can be a member of mulitple businesses?
+
+<!-- xgd-turn id="28f9e10b-3329-4e10-bd09-6244b83f7947-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:43:11.441990+00:00" -->
+#### Claude
+Checking the memberships table definition to confirm one person can hold several.
+
+Yes. Alice is one person, a single contact in 1st Contact's list, and she can hold memberships in as many businesses as she likes:
+
+- **The table allows it.** Each row in `memberships` links one person to one business with a role. Nothing limits a person to one row (`db/migrations/0001_baseline.sql:836`).
+- **The selector uses it.** The business selector lists every business Alice has a membership in (`identity.ts:1485`).
+- **Roles can mix.** She can own Alice's Plumbing and be a delegate of Carol's Bakery, now that the delegate work in `delegates.ts` has landed.
+
+All of this runs under her one 1st Contact sign-in, so switching between those businesses is just the selector, with no new sign-in.
+
+Being a customer is different from being a member. If Carol's Bakery adds alice@example.com as a customer, that creates a separate contact record in Carol's list. Signing in as that customer replaces her builder session, because a browser holds a session for one business at a time.
+
+<!-- xgd-turn id="51d751fe-4816-473e-a908-b3411053a478-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:57:52.961069+00:00" -->
+#### You
+Not quite what I am asking - that is level 1 users.
+
+Lets say Alice is a L1 customer but she can also be a member of Bob's site - her membership of bob's site is completely unconnected to her membership of 1c - jsut happens to use the same email address
+
+<!-- xgd-turn id="51d751fe-4816-473e-a908-b3411053a478-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:58:11.961139+00:00" -->
+#### Claude
+Yes, that's what REQ-668 implemented. Alice's place in 1st Contact and her membership of Bob's site are two separate records that happen to share an address.
+
+- **Two separate person records.** Her 1st Contact record and her Bob's-site record are different rows, each belonging to its own business. Email uniqueness is per business: the index is on (business, email), `db/migrations/0001_baseline.sql:499`. The same address can therefore appear in any number of businesses without them ever linking.
+- **Two separate sign-ins.** Starting from Bob's site signs her in as Bob's member and opens Bob's portal. Starting from 1st Contact's pages or the builder signs her in as 1st Contact's customer and opens her builder. One of REQ-668's UATs covers exactly this: the same address in two businesses gets two sign-ins, and neither session admits the other contact.
+- **Nothing carries across.** Bob sees only his member record. Changes to her 1st Contact profile don't touch it, and that includes the extra login emails coming in REQ-368.
+
+The only practical overlap is that one browser holds one session. Signing in to Bob's site signs her out of the builder in that browser, and the other way round. A second browser or a private window keeps both open.
+
+<!-- xgd-turn id="6289ba6a-d165-4e8c-a837-c505abb8e7df-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:02:48.319441+00:00" -->
+#### You
+The only practical overlap is that one browser holds one session. Signing in to Bob's site signs her out of the builder in that browser, and the other way round. A second browser or a private window keeps both open. <-- ok this is a problem. These signins need to be completely independent. I need to be able to be signed in to Bob's Salon and 1stcontact at the same time - they are unrelated sites.
+
+<!-- xgd-turn id="6289ba6a-d165-4e8c-a837-c505abb8e7df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:03:22.776231+00:00" -->
+#### Claude
+You're right, and that's my mistake. Decision 2 in REQ-668 ("a session belongs to one business, signing in to another replaces it") was my call, made while you'd handed the questions to me. It's the wrong rule for unrelated businesses.
+
+**What the fix would be:** one browser can be signed in to several businesses at once, each completely independently.
+- The browser holds a separate session for each business. Today there's one cookie on `app.1stcontact.io`; this would be one cookie per business, or one per business's path.
+- Every signed-in page knows which business it belongs to from its address. The builder and console belong to 1st Contact. Bob's Salon's portal has Bob's business in its URL. Each page reads only that business's session.
+- Signing in or out of one business never touches the other. Alice stays in her builder while signed in to Bob's Salon, and signing out of Bob's leaves her builder session alone.
+- Everything else REQ-668 did stays: separate person records, the business chosen from where sign-in started, and the per-business terms gate.
+
+The longer-term route is moving each business's portal onto its own domain, which separates the cookies for free. That still waits on the custom-domain sign-in design, so a session per business on the shared host is the v1 fix.
+
+**Where it goes is your call.** REQ-668 is at `ready_to_reconcile`, so the dispatcher may reconcile it at any moment.
+- **(a) A new bug ticket for the fix.** REQ-668 reconciles as it is, and the bug changes decision 2. This is what I'd recommend, since it's a fix to work that has already landed.
+- **(b) Pull REQ-668 back to `free_coded`** and extend it. That has to happen before the dispatcher picks it up.
+
+Either way I'd also correct decision 2 in REQ-668's body so it doesn't pin the wrong rule. Which do you want?
+
+<!-- xgd-turn id="35b256e1-5ea7-4214-b4ef-267494883932-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:04:09.356565+00:00" -->
+#### You
+I think this deserves a new ticket - glad we caught this one
+
+<!-- xgd-turn id="35b256e1-5ea7-4214-b4ef-267494883932-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:05:20.870977+00:00" -->
+#### Claude
+Filing the bug now, then correcting decision 2 in REQ-668.
+
+REQ-668's body is frozen now that it's queued for reconcile, so I'll try adding the correction as a comment instead.
+
+I've filed **BUG-382**, "Sign-in: sessions for unrelated businesses replace each other in one browser". It's at `draft` with high severity, and I linked it under EPIC-23 because it's identity work.
+
+**What it says:**
+- **The cause:** the accounts host has one session cookie, so each new sign-in overwrites it. The portal also sits at one fixed `/account` path that doesn't say which business it's for.
+- **The fix:** one browser holds a separate session for each business.
+  - Every signed-in page belongs to one business, named in its address, and reads only that business's session. The builder and console are 1st Contact's; a client business's portal URL names that business.
+  - Signing in or out of one business never touches another's session.
+  - Everything else from REQ-668 stays as it is.
+- **Suggested mechanism, not binding:** a cookie per business and a portal URL that carries the business. Moving each portal onto its own domain stays deferred.
+- **Test plan:** four UATs:
+  - the same address signed in to 1st Contact and a client business at once, both working;
+  - signing out of one leaves the other working;
+  - a page for a business with no session counts as signed out for that business only;
+  - one business's session is never accepted on another business's page.
+
+**On REQ-668:** I couldn't correct decision 2 in its body. It's queued for reconcile, and the body is frozen at that point. I added a note (COMMENT-8014) saying decision 2 is overruled, pointing to BUG-382, and asking reconcile not to pin "signing in replaces the other session" as an acceptance criterion. Comments rank below the body for reconcile, so the old decision could still end up pinned. If it does, BUG-382 supersedes it when it lands.
+
+BUG-382 is ready to build in its own session.
 
 <!-- xgd-chat-end -->

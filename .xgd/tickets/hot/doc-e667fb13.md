@@ -5,9 +5,9 @@ type: doc
 title: 'Legal module: Terms of sale — The law'
 created_by: REQ-665
 created_at: '2026-11-07T21:57:17.034847+00:00'
-updated_at: '2026-11-07T21:57:17.034847+00:00'
+updated_at: '2026-11-08T17:03:32.977684+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: legal_module_status
 status: null
 fields:
   doc_kind: architecture
@@ -21,7 +21,7 @@ fields:
   legal_module_note: Says which country's law governs the sale, without removing a
     consumer's local protections.
   legal_module_version: '2026-11-07'
-  legal_module_status: draft
+  legal_module_status: published
 ---
 
 ## The law

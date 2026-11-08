@@ -5,8 +5,8 @@ type: request
 title: 'Library: the client can correct what a material is for'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T00:26:16.895405+00:00'
-updated_at: '2026-11-08T20:29:59.481544+00:00'
-completed_at: '2026-11-08T20:29:56.314787+00:00'
+updated_at: '2026-11-08T20:30:35.125310+00:00'
+completed_at: '2026-11-08T20:30:35.125310+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -16,12 +16,12 @@ fields:
   chat_comment: comment-d4b3dfd0
   commits:
   - working_sha: 33c88bf8e85ff604fcbdfeb55ab1656c1b2d3720
-    reconcile_sha: 9ba726949cd0e77be547eb43c596e63b27c3d858
-    main_sha: null
+    reconcile_sha: bce4b0499e60535c3d1ed42b58907b9c27622036
+    main_sha: bce4b0499e60535c3d1ed42b58907b9c27622036
     working_sha_history: []
   - working_sha: b61d5df602bfca5668a7c52a657a04d3c9d58891
-    reconcile_sha: 0a963e64afdd1a648739b1e0b446a59cc7f1c598
-    main_sha: null
+    reconcile_sha: 991998931bab56aa2bf61fe5fe3ce9a272cffed7
+    main_sha: 991998931bab56aa2bf61fe5fe3ce9a272cffed7
     working_sha_history: []
   version: 0.2.144
   bundled_in: bundle-0d00566a

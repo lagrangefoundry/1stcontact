@@ -5,10 +5,10 @@ type: request
 title: 'Sign-in: every business''s customers sign in to that business'
 created_by: REQ-666
 created_at: '2026-11-07T23:43:18.553614+00:00'
-updated_at: '2026-11-08T00:55:25.332247+00:00'
+updated_at: '2026-11-08T16:20:13.724381+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
@@ -26,7 +26,6 @@ fields:
     working_sha_history: []
   version: 0.2.820
 ---
-
 
 ## Why
 

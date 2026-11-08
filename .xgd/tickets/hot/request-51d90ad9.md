@@ -5,7 +5,7 @@ type: request
 title: 'Legal mode: client legal documents built from site features'
 created_by: EPIC-29
 created_at: '2026-11-07T21:24:39.869396+00:00'
-updated_at: '2026-11-07T22:47:02.636559+00:00'
+updated_at: '2026-11-08T20:31:19.142848+00:00'
 completed_at: null
 last_field_updated: status
 status: ready_to_reconcile

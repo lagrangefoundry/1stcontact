@@ -5,9 +5,9 @@ type: doc
 title: 'Legal module: Terms of sale — Prices and payment'
 created_by: REQ-665
 created_at: '2026-11-07T21:57:03.952360+00:00'
-updated_at: '2026-11-07T21:57:03.952360+00:00'
+updated_at: '2026-11-08T17:03:26.799741+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: legal_module_status
 status: null
 fields:
   doc_kind: architecture
@@ -21,7 +21,7 @@ fields:
   legal_module_note: Covers prices, payment by card through Stripe, and what happens
     if a price is wrong.
   legal_module_version: '2026-11-07'
-  legal_module_status: draft
+  legal_module_status: published
 ---
 
 ## Prices and payment

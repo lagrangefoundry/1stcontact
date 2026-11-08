@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-666
 created_by: xgd
 created_at: '2026-11-07T22:47:58.645700+00:00'
-updated_at: '2026-11-08T01:33:21.512956+00:00'
+updated_at: '2026-11-08T17:47:07.909470+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -338,5 +338,200 @@ REQ-666 is built and on xgd-working, and the ticket is at `free_coded`. REQ-668'
 - I updated six other tickets' UATs: REQ-643's exact `/api/shop/selling` response now includes the three new fields, and REQ-633, REQ-647, REQ-222 and BUG-230's test setups now include the ticket-store binding (BLOBS) that the seller check needs. The ticket body lists the decisions above, the behaviour each superseded ticket now has, and every UAT.
 
 The four commits are `5055a8c44d`, `27ac75c2ca`, `2c64130b94` and `6499527fa5` (version 0.2.821). The branch has been merged and removed.
+
+<!-- xgd-turn id="3b9c8191-54d6-4490-bfe3-da2c45fe097c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T16:19:27.009809+00:00" -->
+#### You
+**The 1st Contact business is left out of all of this**, as REQ-665 left it: no seller check, no client documents. <-- no 1stcontact is a 1stcontact site I use the technology I built and I get the benefit of checks that I built
+
+**No Buy block when there's no Terms of sale yet.** This differs from what I proposed earlier. REQ-665's module texts (DOC-87..116) are all drafts, so blocking would have switched off every client shop until you publish them. The checkout line just leaves out a document the site doesn't have. <-- no we have one test ecom site that needs to have documents added. Please close this gap
+
+<!-- xgd-turn id="3b9c8191-54d6-4490-bfe3-da2c45fe097c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T16:46:47.332894+00:00" -->
+#### Claude
+Typechecks. Now the Shop tab says when the missing Terms of sale is what's keeping Buy off:
+
+Adding the helper call to each suite's `aShop`, just before it publishes:
+
+Checking where the import landed in each file. A multi-line import block would break if the line went inside it:
+
+These suites' control-app env has no BLOBS binding: the platform exemption used to skip the store read. Adding it where it's missing:
+
+Removing the two site-side exemptions. The Paperwork pane and the Legal assistant for 1st Contact stay as they are; that's the question I'll put to you at the end.
+
+Now moving each suite's `readyToSell` call to just after its own first publish, passing the suite's env:
+
+All 38 pass. Now the REQ-665 and REQ-666 suites. REQ-665 has a "1st Contact business left unchanged" test that the router change could break:
+
+Passing. With 1st Contact's details now writable, the Legal pane should show it the Business details form too. Checking how the pane builds its list:
+
+Adding Business details to 1st Contact's Legal pane: the platform overview carries the details, and the pane shows the form whenever the overview has them.
+
+The Legal assistant gets the same treatment: its business-details operations are offered to 1st Contact too.
+
+Works for 1st Contact as well. Typechecking, then re-running the Paperwork suites, which have 1st Contact cases:
+
+Everything passes. Extending the jsdom UATs: the Shop tab's no-Terms-of-sale prompt, and Business details in 1st Contact's Legal pane.
+
+While it runs, updating the ticket body for both corrections:
+
+As expected, 24 new failures in 10 files. They're suites that publish or preview as the 1st Contact business with no BLOBS binding, which used to skip the store. Confirming they're all BLOBS:
+
+All 500s. Adding the BLOBS binding, which every deployment has, to the env literals in those ten suites:
+
+REQ-148's `served_bytes` failure was in the first run too, so it predates this. Checking BUG-327's `draft_differs_indicator`:
+
+`/api/publish/status` now includes `legal` for 1st Contact as well, and this UAT pins the exact shape. Updating it:
+
+Passing. Now the node and jsdom tests that exercise the render's Buy logic, the Shop tab and the Paperwork pane:
+
+Those all pass; the skipped ones are browser tests that need `pnpm test:browser`. A final check on the REQ-666 suites and the sign-in and terms suites after the router change:
+
+All pass. Committing, bumping the version and landing on xgd-working:
+
+Landed on xgd-working and recorded on the ticket. Cleaning up the branch:
+
+Saving the correction as feedback for future sessions:
+
+I've made both corrections; they're on xgd-working and REQ-666 is back at `free_coded`, now with six commits (version 0.2.822).
+
+**1. No Terms of sale on the site, no Buy.**
+- **The check:** Buy and checkout now need a Terms of sale on the published site as well as the seller details. The Shop tab says what's missing, the owner's preview says why checkout is refused, and the consultant's readiness lists "Terms of sale on your site".
+- **First-publish fix:** without one, a new shop's first publish would have shown no Buy, because the Terms of sale are only written as that publish finishes. The page now checks whether it carries the Terms of sale page itself, so Buy appears in the same publish that adds them.
+- **A side effect to know about:** the Terms of sale arrive at a publish, like every standard document under REQ-665. A shop that starts selling through a later Save (adding shipping, connecting Stripe) gets Buy at its next publish, not on the Save. The Shop tab says so. REQ-642 and REQ-643 each had a UAT asserting Buy on the Save alone; those now publish first.
+- **For your test shop:** until DOC-87..116 are published, nothing generates a Terms of sale, so no shop shows Buy. Publish the modules and then publish the site.
+
+**2. 1st Contact now gets the same checks as any business.**
+- Its shop has the seller-details and Terms of sale checks, the checkout line, and the versions recorded on orders.
+- Its sites get their legal documents built at publish, with pages, footer links and archived versions. I removed REQ-665's 1st Contact exemptions to do this.
+- Paperwork → Legal now gives 1st Contact a Business details form, and the Legal assistant can set those details too.
+- Its builder documents (DOC-76/77/78, accepted when signing in to the builder) are unchanged and still can't be edited there.
+
+**Decision for you:** Paperwork → Legal for 1st Contact still lists only those builder documents, not the Terms of use, Privacy notice and Terms of sale its own sites now get. Should its pane show both sets, or should 1st Contact's sites reuse DOC-76/77 as their Terms and Privacy instead of generating their own?
+
+**Tests:**
+- REQ-666 now has 15 UATs. The new ones cover a selling site with no Terms of sale, 1st Contact getting the same checks, the Shop tab's new message, and 1st Contact's Business details form.
+- A full workers run showed 24 new failures. All were suites that publish as 1st Contact without the BLOBS (ticket store) binding, which every deployment has; they pass now with it added, and one UAT pinning the exact publish-status shape now allows the new `legal` field. The other failures are the same as before this change.
+- The shop suites now set up selling through a shared helper, `tests/support/shop-legal.ts` (`readyToSell`). It fills in the details through the real form write and publishes once with a one-module library.
+
+<!-- xgd-turn id="eac009c1-45e1-4d00-affc-0b944ab728dd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:07:42.922277+00:00" -->
+#### You
+there were some updates to your requirements - please can you chececk your ticket and implement the changes
+
+<!-- xgd-turn id="eac009c1-45e1-4d00-affc-0b944ab728dd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:19:44.151104+00:00" -->
+#### Claude
+Rewriting the facts records and the publish plan without the upcoming versions:
+
+Now rewriting the publish plan and the legal pages, with no notice period:
+
+Now `legal-notices.ts`: the send now happens at publish, with no due date to apply, and bounced or complained contacts are skipped.
+
+Adding migration 0059 to drop the notice-period columns and their index:
+
+Now the message, the re-read rule and the pane. The message loses its `effective_date`:
+
+Typechecks. Now the UATs. Reading the current privacy-change tests:
+
+Rewriting the privacy-change UATs for the new decision: live at publish, emailed then, and suspended or bounced contacts skipped. Checking the record-and-bounce helpers first:
+
+Writing the new privacy-change UATs:
+
+Updating the member-acceptance UAT: a significant Privacy change now asks signed-in customers to read it again.
+
+Running the REQ-666 suites, and the REQ-660 message suite since the trigger changed:
+
+All pass. Re-running the shop, sign-in and publish suites against the reworked publish plan:
+
+All pass. Updating the ticket's implementation record for item 6 to the new behaviour:
+
+The ticket has more below the decision section. Reading the tail:
+
+Nothing pins those texts, so I can change them directly. Updating the priming, the Legal surface overview and the portal panel:
+
+Writing a UAT for these wording changes:
+
+Passing. Fixing the test names to the usual `REQ-666` form, then re-running the Legal assistant suites that read the priming:
+
+Only the consultant is over, at 201,083, the same figure as before this change; the legal role is within budget. Updating the ticket's implementation record:
+
+Committing, bumping the version and landing:
+
+Other work has landed on xgd-working since (it's at 0.2.825). Checking whether the merge brought in code:
+
+Only tickets and the version came in. Bumping to 0.2.826 and landing:
+
+I've made the changes from the ticket's two new sections. They're on xgd-working and REQ-666 is back at `free_coded` (version 0.2.826).
+
+**No notice period for privacy changes:**
+- **Live at publish:** a significant Privacy notice change now goes live at its publish, for everyone. I removed the 30-day wait completely: no waiting version, no "takes effect on" line on the site or in the Legal pane, and no scheduled swap. Migration `0059` drops the two date columns from the notices table.
+- **The email:** "We've updated our privacy notice" goes out when the version is published, in batches from the existing 10-minute job. The message now says "The new version is now in effect." and no longer names a date.
+- **Who gets it:** every contact with an email address, including people unsubscribed from the mailing list.
+- **Who's skipped:** contacts that aren't active, and contacts whose mail bounced or who reported it as spam.
+  - There is no separate "deleted" or "hidden" contact state yet, so "not active" covers suspended and removed contacts.
+  - I also skip spam complaints. That matches how lead mail is suppressed today.
+- **Signed-in customers** are asked to read the Privacy notice again ("I have read") at their next sign-in, but only after a significant change. A wording-only change asks nothing and sends nothing.
+
+**Wording that had already landed:**
+- **Legal assistant:** its instructions now state the significant-change rule instead of "publishing makes everyone accept again". I renamed that rule to `significant-change-rule`.
+- **Portal:** the "Closing your account" panel now says payment records keep your name, email address and billing address. REQ-640's test was updated to match.
+
+**Tests:**
+- REQ-666's UATs are rewritten for the new behaviour. They cover a wording-only change sending nothing, and a significant change going live at once and reaching the unsubscribed contact but not the suspended or bounced ones. They also cover signed-in customers re-reading the Privacy notice, and a new file `test_UAT_FC_REQ-666_final_wording.test.ts` checks the new wording.
+- Those pass, along with the shop, sign-in, publish, Paperwork and REQ-640 suites I re-ran.
+- The prompt-budget test still fails for the consultant at 201,083 against a 191,200 budget. That's unchanged from before; the Legal assistant's prompt is within its budget.
+
+I updated the ticket body's implementation record to match. Your question from last time is still open: Paperwork → Legal for 1st Contact lists only its builder documents, not the documents its own sites now get.
+
+<!-- xgd-turn id="18e42f73-fe57-46ea-99bb-79d54e3dcd00-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:31:56.436890+00:00" -->
+#### You
+I updated the ticket body's implementation record to match. Your question from last time is still open: Paperwork → Legal for 1st Contact lists only its builder documents, not the documents its own sites now get. <-- what is open I don't understand
+
+<!-- xgd-turn id="18e42f73-fe57-46ea-99bb-79d54e3dcd00-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:32:32.850716+00:00" -->
+#### Claude
+**What's in the pane now.** 1st Contact now has two sets of legal documents, and Paperwork → Legal shows only one of them:
+
+1. **Its builder documents.** These are the Terms of Service, Privacy Notice and Beta Terms (DOC-76/77/78). Your clients accept them when they sign in to the builder. You write them as doc tickets, and Paperwork → Legal shows them read-only, as before.
+2. **Its sites' documents.** Since my change on 2026-11-08, publishing one of 1st Contact's own sites (your test shop, say) builds legal documents from the module library, exactly as it does for a client. That gives a Terms of use, a Privacy notice and, once it sells, a Terms of sale, each served on that site at `/legal/…`.
+
+So when 1st Contact sells, its shop runs on a Terms of sale and a Privacy notice you can't see, edit or check the history of in the builder. A client business can do all of that for its own documents.
+
+There's also a duplication. 1st Contact would have two different privacy notices: DOC-77 for builder accounts and the generated one on its sites, plus two sets of terms.
+
+**What needs deciding is how to fix that.** Two options:
+
+- **A. Show both sets in 1st Contact's Legal pane.** The builder documents stay read-only as now, and the site documents get Standard / Edited by you, editing and history, like a client's. This is the same technology, with no special case, but you keep two privacy notices for one business.
+- **B. 1st Contact's sites use its builder documents (DOC-76/77) as their Terms and Privacy.** The module library then builds only what 1st Contact doesn't already have, which is the Terms of sale (and Member terms). The pane shows those beside the builder documents. You get one privacy notice and one set of terms for 1st Contact, at the cost of one special case: "use the hand-written document where one exists".
+
+I'd recommend **B**. It keeps one privacy notice for 1st Contact, and the special case is narrow: it only covers documents you've already written by hand.
+
+Until you decide, the pane works but doesn't show 1st Contact's site documents. The selling checks you asked for already apply to 1st Contact. Tell me A or B and I'll build it under REQ-666.
+
+<!-- xgd-turn id="6921f8db-636b-431f-821c-3326c1628d11-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T17:46:25.450897+00:00" -->
+#### You
+The answer is in your ticket body
+
+<!-- xgd-turn id="6921f8db-636b-431f-821c-3326c1628d11-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T17:47:07.160971+00:00" -->
+#### Claude
+Sorry, I missed that. The answer is in the ticket's "Resolved 2026-11-08" section: neither A nor B.
+
+- **One set of documents:** 1st Contact gets a single set, the standard documents plus its own added sections (DOC-120) and its Beta Terms. Its clients accept them in the builder and its sites show them. REQ-669 makes that change in one go.
+- **The pane stays as it is:** it shows only 1st Contact's own documents, as a client's pane shows only theirs. The standard module texts stay in doc tickets and arrive through the build.
+- **Nothing to build in REQ-666:** until REQ-669 lands, 1st Contact's sites show generated standard documents alongside the builder documents. You've accepted that while there are no clients.
+
+So nothing is open. I've updated the one line in the implementation record that still called it an open question, so it now points to the resolution and REQ-669. That was a ticket edit only; there are no code changes, and REQ-666 stays at `free_coded`.
 
 <!-- xgd-chat-end -->

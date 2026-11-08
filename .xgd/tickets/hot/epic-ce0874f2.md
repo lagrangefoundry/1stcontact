@@ -5,7 +5,7 @@ type: epic
 title: 'Billing and payments: Stripe, subscriptions, invoices'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:33.626917+00:00'
-updated_at: '2026-11-03T21:20:54.096168+00:00'
+updated_at: '2026-11-08T17:10:11.326399+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -384,3 +384,8 @@ per connected account, which catches the real failure mode — Stripe disables a
 when verification requirements change and the business finds out when the money stops —
 and `requirements.currently_due` / `past_due`, where warning the business *before* the
 deadline is a product feature rather than monitoring.
+
+
+## Amendment 2026-11-08 (from EPIC-29)
+
+Decision 5's reduced identity record now keeps **name, email address and billing address**, not name and billing address (operator: "if we keep data we keep an email"), so a buyer can be reached about a dispute or a privacy-notice change. [[DOC-37]] §6.3, [[DOC-117]] (Terms 2026-11-08) and [[DOC-118]] (Privacy Notice 2026-11-08) say so; DOC-37 wins where this epic differs.

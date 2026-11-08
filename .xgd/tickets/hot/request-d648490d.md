@@ -5,8 +5,8 @@ type: request
 title: 'Text can vary within a run: multi-variate L1 text'
 created_by: CHAT-49
 created_at: '2026-09-09T21:25:01.708637+00:00'
-updated_at: '2026-11-08T20:29:59.216862+00:00'
-completed_at: '2026-11-08T20:29:55.722301+00:00'
+updated_at: '2026-11-08T20:30:38.198009+00:00'
+completed_at: '2026-11-08T20:30:38.198009+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,11 +18,11 @@ fields:
   commits:
   - working_sha: df9862ce77203dac7d95e47cf07db2f2908e36d3
     reconcile_sha: c47819ed4945e97424dea91635b5c61d8325f8f7
-    main_sha: null
+    main_sha: c20c0bff40402059e9fcb116028a9217ed952817
     working_sha_history: []
   - working_sha: abd3f5388a5c3bbbedae3740659ec392ba4fcb32
-    reconcile_sha: a5793ef30cdc6e815b37213743b191da0c1ad8c3
-    main_sha: null
+    reconcile_sha: b33660884c87811aec029942afd5eff29dcc7877
+    main_sha: b33660884c87811aec029942afd5eff29dcc7877
     working_sha_history: []
   version: 0.2.145
   bundled_in: bundle-0d00566a

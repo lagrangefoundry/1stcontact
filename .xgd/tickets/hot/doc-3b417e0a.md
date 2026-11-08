@@ -5,9 +5,9 @@ type: doc
 title: 'Legal module: Terms of use — Our responsibility'
 created_by: REQ-665
 created_at: '2026-11-07T21:56:23.526724+00:00'
-updated_at: '2026-11-07T21:56:23.526724+00:00'
+updated_at: '2026-11-08T17:03:10.515335+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: legal_module_status
 status: null
 fields:
   doc_kind: architecture
@@ -21,7 +21,7 @@ fields:
   legal_module_note: Limits the business's responsibility for the website as far as
     the law allows, without taking away rights the law gives.
   legal_module_version: '2026-11-07'
-  legal_module_status: draft
+  legal_module_status: published
 ---
 
 ## Our responsibility

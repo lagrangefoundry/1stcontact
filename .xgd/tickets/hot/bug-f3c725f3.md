@@ -6,8 +6,8 @@ title: 'Builder chrome: unstyled text across the business selector, the Library 
   and the blank pane'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T17:50:57.027420+00:00'
-updated_at: '2026-11-08T20:29:58.678591+00:00'
-completed_at: '2026-11-08T20:29:54.587695+00:00'
+updated_at: '2026-11-08T20:30:43.761794+00:00'
+completed_at: '2026-11-08T20:30:43.761794+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,8 +18,8 @@ fields:
   severity: medium
   commits:
   - working_sha: 1cc729c08339b69f3deddc6a24c096bf3b991130
-    reconcile_sha: bd75e133721c5432e8ef958626372d59bc281555
-    main_sha: null
+    reconcile_sha: 23391ee553cc229d803976008e5460a80e179d51
+    main_sha: 23391ee553cc229d803976008e5460a80e179d51
     working_sha_history: []
   version: 0.2.147
   story_points: 3

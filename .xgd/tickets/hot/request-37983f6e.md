@@ -5,8 +5,8 @@ type: request
 title: Modals in L1 — the overlay role and the disclosure verb
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T00:17:52.482228+00:00'
-updated_at: '2026-11-08T20:29:59.802094+00:00'
-completed_at: '2026-11-08T20:29:56.825579+00:00'
+updated_at: '2026-11-08T20:30:32.153901+00:00'
+completed_at: '2026-11-08T20:30:32.153901+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -16,12 +16,12 @@ fields:
   chat_comment: comment-18361267
   commits:
   - working_sha: d64e82a62d41306819c6bca7054d6de2087292e8
-    reconcile_sha: ab06df9eaff0e313068d9758434b593da86d4f05
-    main_sha: null
+    reconcile_sha: 66b6baf07c86742766c4c810b16b10b0921b3cf6
+    main_sha: 66b6baf07c86742766c4c810b16b10b0921b3cf6
     working_sha_history: []
   - working_sha: d49d559f7a7e84ee819a576fe1a1cfed2f333af4
-    reconcile_sha: 8a4a9fad19184e9afc564000163ace245c2d925c
-    main_sha: null
+    reconcile_sha: 512dbb50540fc45b4735ceb3d4d4d1fa5af4a853
+    main_sha: 512dbb50540fc45b4735ceb3d4d4d1fa5af4a853
     working_sha_history: []
   version: 0.2.143
   bundled_in: bundle-0d00566a

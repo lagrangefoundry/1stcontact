@@ -5,9 +5,9 @@ type: doc
 title: 'Legal module: Privacy notice — Where your information is stored'
 created_by: REQ-665
 created_at: '2026-11-07T21:56:51.056128+00:00'
-updated_at: '2026-11-07T21:56:51.056128+00:00'
+updated_at: '2026-11-08T17:03:21.083400+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: legal_module_status
 status: null
 fields:
   doc_kind: architecture
@@ -21,7 +21,7 @@ fields:
   legal_module_note: Says that the providers are based in the United States and what
     protects information sent there.
   legal_module_version: '2026-11-07'
-  legal_module_status: draft
+  legal_module_status: published
 ---
 
 ## Where your information is stored

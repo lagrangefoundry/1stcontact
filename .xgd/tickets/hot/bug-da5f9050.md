@@ -6,15 +6,22 @@ title: A generated picture's stored description names the image vendor, and the 
   can find it by search
 created_by: workflow:test_fix_plan_prompt/planner
 created_at: '2026-11-08T10:47:17.127827+00:00'
-updated_at: '2026-11-08T10:47:17.127827+00:00'
+updated_at: '2026-11-08T16:58:04.712425+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   severity: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-3183f3a8
+  commits:
+  - working_sha: 5930de9f74f2df53bcbddfbb845a5e52607ae08a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.824
+  story_points: 2
 ---
 
 # A generated picture's stored description names the image vendor, and the assistant can find it by search
@@ -74,3 +81,39 @@ original scope true.
 
 **Falsifier:** the assistant searches for a picture it just made and reads back the name
 of the company that drew it.
+
+
+## What changed (free-coded)
+
+- `withoutVendorLines(body)` in `apps/control-app/src/imagegen.ts` removes the plugin's
+  `- Provider: …` and `- Model: …` lines, and nothing else. It only removes them below the
+  **last** result heading the plugin writes (`## What was generated` for a generation,
+  `## What came back` for an edit or a clip). Everything above that heading, including the
+  prompt, is kept as written. A prompt that contains such a line is the client's own words.
+  A body with no result heading is left unchanged.
+- `generatedMaterialStore.create` applies it as part of the first write. So the stored
+  body, the knowledge-base index built from it, and any material read never carry the
+  vendor or model. The plugin is unchanged, and so are the other lines (aspect ratio, tier,
+  dimensions, format, cost).
+- `description_model` still names the generating model.
+- **Same fix for clips:** `videoMaterialStore.create` (`videogen.ts`) gets the same call.
+  The `ai-videogen` plugin writes the same two lines under `## What came back`, so a clip's
+  body would have broken the same REQ-208 promise. This is a direct consequence of the
+  shared helper, not a new requirement.
+- The lines can be removed reliably from this side, so no upstream request is needed.
+
+## Test plan
+
+- `test_UAT_FC_BUG-381_a_generated_pictures_stored_body_and_search_results_name_no_vendor`
+  (in `tests/test_UAT_FC_REQ-208_the_assistant_can_make_pictures.workers.test.ts`). It
+  generates through `route()` and indexes into a real project knowledge base (stub
+  embedder). It then searches for the picture and reads the material. The picture is found,
+  the body contains the prompt verbatim and keeps the plugin's other lines, and neither the
+  body nor the search hits contain openai, gpt-image, google, gemini, imagen or the
+  configured model id (case-insensitive). It fails against the code before this fix (the
+  body read back `- Provider: openai` and `- Model: gpt-image-2`).
+- The rest of the REQ-208 suite and the clip suites (REQ-461, BUG-351, BUG-336) still pass.
+- Pre-existing failure, not caused by this ticket:
+  `test_UAT_FC_REQ-208_the_model_never_learns_which_vendor_drew_the_image` fails on clean
+  code, because the manual mentions "Google Business Profile" (for a client's social
+  accounts) and the test looks for `Google` anywhere in the manual.
