@@ -6,10 +6,10 @@ title: With both REST credentials set, every knowledge base embeds over REST and
   touches the AI binding; a blank value counts as unset
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T21:05:59.209487+00:00'
-updated_at: '2026-11-08T21:05:59.209487+00:00'
+updated_at: '2026-11-08T21:30:50.609013+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5281f009
   kind: behavior
