@@ -5,9 +5,9 @@ type: bundle
 title: REQ-210 + REQ-212 + REQ-213 + REQ-211 + BUG-69 + 4 more
 created_by: xgd
 created_at: '2026-11-08T12:30:04.545337+00:00'
-updated_at: '2026-11-08T20:30:24.804153+00:00'
+updated_at: '2026-11-08T20:36:05.905932+00:00'
 completed_at: '2026-11-08T20:29:51.373596+00:00'
-last_field_updated: status
+last_field_updated: session_assessor
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
@@ -23,6 +23,8 @@ fields:
   session_planner: 5bd9e493-8a12-4585-8b01-2fe2650ea75c
   session_planner_started_at: '2026-11-08T17:05:27.498984+00:00'
   merged_at_commit: 6c68521e79a83b14044b82deea282ccdc121420f
+  session_assessor: 79161149-6c46-4e2c-a880-4b8181c4c3cb
+  session_assessor_started_at: '2026-11-08T20:36:05.510532+00:00'
 ---
 
 # Bundle
