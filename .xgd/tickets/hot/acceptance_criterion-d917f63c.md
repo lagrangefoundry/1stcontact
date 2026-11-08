@@ -6,10 +6,10 @@ title: On send each referenced point expands to a block carrying every spatial f
   the viewport width, and the render it was taken against
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:46:21.748840+00:00'
-updated_at: '2026-11-08T12:46:21.748840+00:00'
+updated_at: '2026-11-08T13:05:18.224796+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-44d0a572
   kind: behavior
