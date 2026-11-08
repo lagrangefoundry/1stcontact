@@ -7,10 +7,10 @@ title: Describing a document or an image opens one tool-less, unprimed describer
   sent as an image content block beside the instruction
 created_by: xgd
 created_at: '2026-11-01T03:16:54.517390+00:00'
-updated_at: '2026-11-08T05:42:11.337678+00:00'
+updated_at: '2026-11-08T06:39:31.127656+00:00'
 completed_at: null
-last_field_updated: title
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4cabde9a
   kind: behavior
