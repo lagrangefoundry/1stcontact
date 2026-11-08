@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-41: REQ-210, REQ-211, REQ-212, R
   BUG-67, BUG-69, BUG-70, BUG-71, BUG-72)'
 created_by: xgd
 created_at: '2026-11-08T12:42:54.689461+00:00'
-updated_at: '2026-11-08T12:42:54.689461+00:00'
+updated_at: '2026-11-08T12:47:14.440777+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-0d00566a
@@ -40,7 +40,7 @@ fields:
       (measure_drawing) are adjacent, but neither describes placing points or expanding
       them into a message. Evidence: tests/test_UAT_FC_REQ-210_marked_points.test.ts,
       tests/test_UAT_FC_BUG-72_marked_point_chrome.test.ts.'
-    story_uid: null
+    story_uid: story-44d0a572
   - index: 2
     component: 'Framework Substrate: L1 Modals (dialog role + action verb)'
     item_type: feature
