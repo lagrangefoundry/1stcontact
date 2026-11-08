@@ -6,9 +6,9 @@ title: 'Identity: add records a Lead, the invite mails a selection, provisioning
   a business, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-08T01:43:05.179830+00:00'
+updated_at: '2026-11-08T02:54:12.237843+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -106,7 +106,10 @@ seeded with the default when the business has never had one — and editable for
 this send only, never written back to the template; **To-List** lists the selected
 addresses one per line, labelled `To-List:` with a hover explaining that each
 contact receives their own message and nobody is shown anybody else's address; and
-the button reads `Send N`. An edited body is held to the template's declared
+the button reads `Send N`. The modal takes the same copy width as the
+builder's other copy dialogs, and its Subject, To-List and Body fields stay
+inside the dialog panel at every viewport width, desktop and narrow alike
+(BUG-58). An edited body is held to the template's declared
 tokens, so one that has dropped `{{cta_url}}` is refused and nothing is sent. The
 send is one message per contact, each with exactly one recipient, sent one after
 another. Each goes to the contact's **primary** address only; a contact with no
@@ -236,7 +239,7 @@ terms (REQ-169, the next check in the same place).
 subject and object); the add as an owner-gated, idempotent creation of a Lead that
 sends nothing, its route, its refusals and its dialog; the invite as an
 owner-gated act on a checked selection of existing contacts — its draft, its
-modal, one message per contact to the primary address, per-send copy held to the
+modal (including that its composer fits inside the dialog panel), one message per contact to the primary address, per-send copy held to the
 template's declared tokens, per-contact refusals and outcomes, and its routes; the
 people list's separate may-invite and may-provision flags; provisioning a business
 for an existing account; the composition of the invite and provisioning in the
@@ -590,6 +593,16 @@ invites or creating businesses.
   before. A mapped token reaches admission as an ordinary address and meets
   every rule here unchanged, including `no_user` for an address with no person.
   The mapping and its rules are STORY-120's (AC-2358 to AC-2360).
+- **The invite composer fits inside its dialog at every width** (recorded at
+  reconciliation, 2026-11-07, BUNDLE-39). BUG-58 states the fix and its test plan:
+  the composer is copy, so the dialog gives it the copy width that the copy editor,
+  picker and reader get, and the composer drops its own `min-width`, which a
+  fixed-width panel could only answer with overflow. The code does exactly that
+  (the panel's narrow-message rule now lists the composer as a copy surface, and
+  the composer rule declares no width). Formalized as AC-2367, measured in a real
+  browser at desktop and narrow viewports with a width floor so a collapsed
+  composer does not count as fitting, plus a structural stylesheet check that
+  always runs. Fields, order and labels are unchanged, so no other criterion moves.
 
 ## Dependencies
 
