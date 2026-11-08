@@ -526,6 +526,8 @@ describe('story-44d0a572 — Marked Points on the edit render', () => {
     await settle()
     expect(box.get().trim()).toBe('[Point A]')
     box.set('Put [Point A] there')
+    // A point on an L1 node carries no tooltip; only a resolved drawing point does.
+    expect((markOf('A') as HTMLElement).title).toBe('')
 
     // Drag A's cross onto the drawing with real pointer events.
     doc.elementFromPoint = (x: number, y: number) =>
@@ -549,6 +551,15 @@ describe('story-44d0a572 — Marked Points on the edit render', () => {
     expect(out).not.toContain('copy node 0.0')
     expect(out).toMatch(/node-relative:\s+\(50, 20\) of 320×86/)
     expect(out).toMatch(/viewport:\s+\(150, 70\) at width/)
+
+    // Hovering the mark shows the point's full expansion: re-derived from where
+    // the drag ended, so a reused letter can always be told apart on screen.
+    const [moved] = controller.list()
+    const title = (markOf('A') as HTMLElement).title
+    expect(title).toBe(markedPoints.formatMarkedPoint(moved))
+    expect(title).toMatch(/^Point A — inside image node 0\.1 \(asset assets\/mark\.svg\)/)
+    expect(title).toMatch(/svg user space:\s+\(50, 20\)/)
+    expect(title).toMatch(/node-relative:\s+\(50, 20\) of 320×86/)
 
     // A sent mark cannot be dragged.
     const sentCross = markOf('A')!.querySelector('.fc-point__x')!
@@ -719,16 +730,9 @@ describe('story-44d0a572 — Marked Points on the edit render', () => {
       expect(entries[i]).toBe(`${line.label} (${Math.round(Math.abs(line.delta) * 10) / 10}u ${side})`)
     })
 
-    // The browser is served the same modules the tools run, not a copy.
-    const assets = readFileSync('tools/generate/src/cli/assets.ts', 'utf8')
-    const entry = readFileSync('apps/control-app/src/builder/main.js', 'utf8')
-    for (const [name, source] of [
-      ['site-schema-anchors', 'packages/site-schema/src/anchors.ts'],
-      ['measure-svg', 'tools/generate/src/cli/capture/measure-svg.ts'],
-    ]) {
-      expect(assets).toContain(`'${name}': '${source}'`)
-      expect(entry).toContain(`'/framework/${name}.js'`)
-    }
+    // That the browser is served these same modules (not a copy), and that the
+    // un-injected measure path agrees with measure_drawing, is proved
+    // behaviourally in `reconciliation-marked-points-served-modules.test.ts`.
 
     // Measurement fails: no near row, no invented lines, other rows intact.
     controller.bind(doc)
