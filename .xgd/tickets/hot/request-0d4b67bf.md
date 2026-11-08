@@ -5,8 +5,8 @@ type: request
 title: 'The assistant''s eyes in the builder: mount the fidelity surface on the Worker'
 created_by: CHAT-43
 created_at: '2026-09-08T01:17:40.528379+00:00'
-updated_at: '2026-11-08T12:19:33.095299+00:00'
-completed_at: '2026-11-08T12:19:31.038155+00:00'
+updated_at: '2026-11-08T12:19:54.939538+00:00'
+completed_at: '2026-11-08T12:19:54.939538+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,7 +18,7 @@ fields:
   commits:
   - working_sha: ddff76c69b49769c2f26bc0d238512c34e23d8b3
     reconcile_sha: eb3ca8da8ebad1855eb7d1c11b0e500782b96391
-    main_sha: null
+    main_sha: a129e3252e8e796615b3fe1f61d4746feffbaf33
     working_sha_history: []
   version: 0.2.134
   bundled_in: bundle-c0301347

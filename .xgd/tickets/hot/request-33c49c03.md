@@ -6,8 +6,8 @@ title: 'Email deliverability: a derived plain-text part, a per-template sending 
   and a named sender'
 created_by: CHAT-42
 created_at: '2026-09-07T22:21:01.960360+00:00'
-updated_at: '2026-11-08T12:19:33.340492+00:00'
-completed_at: '2026-11-08T12:19:31.513572+00:00'
+updated_at: '2026-11-08T12:19:52.205479+00:00'
+completed_at: '2026-11-08T12:19:52.205479+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,15 +19,15 @@ fields:
   commits:
   - working_sha: bd06fc9894cda084edfbdb858f9ea321a02bec92
     reconcile_sha: 098ee506440c195e49789d326c49634393920215
-    main_sha: null
+    main_sha: afcec702b39985eede3cc6961ca4abde494bb8c0
     working_sha_history: []
   - working_sha: 04036d93790346cedad5aeb231292e0f59ae98ee
-    reconcile_sha: 131086b5a167f3b0580a88de1ec32f3cda701dc2
-    main_sha: null
+    reconcile_sha: 96bafd5c011ea5ed6b95645d1e9982c5537044e0
+    main_sha: 96bafd5c011ea5ed6b95645d1e9982c5537044e0
     working_sha_history: []
   - working_sha: ee31495d98833334abf52b0ada9d121519ad68a9
-    reconcile_sha: bc1a83e0bbe4dfa5d797d08c4011d7523a1109ca
-    main_sha: null
+    reconcile_sha: c7fc874259785df76ea19099c39e155e954725a7
+    main_sha: c7fc874259785df76ea19099c39e155e954725a7
     working_sha_history: []
   version: 0.2.133
   bundled_in: bundle-c0301347

@@ -6,8 +6,8 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-11-08T12:19:32.873514+00:00'
-completed_at: '2026-11-08T12:19:30.479744+00:00'
+updated_at: '2026-11-08T12:19:57.547141+00:00'
+completed_at: '2026-11-08T12:19:57.547141+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,11 +19,11 @@ fields:
   commits:
   - working_sha: c6150d2ef27d6b4a39d562c1f043cffdb75bb3d0
     reconcile_sha: 8b8dccd6629a2b8b191d88d9a922612b3b2a0457
-    main_sha: null
+    main_sha: b359c4470ef875689ccf49cec73f54ae88d1763b
     working_sha_history: []
   - working_sha: b202d966956d114ef6abbb8c69298c3eba5985fc
-    reconcile_sha: 2f9aa8d637cb3473ab75cf5d7c9d7bda615025e7
-    main_sha: null
+    reconcile_sha: 7b7139e2d4ade377055637078cf702769b43e1f2
+    main_sha: 7b7139e2d4ade377055637078cf702769b43e1f2
     working_sha_history: []
   version: 0.2.137
   bundled_in: bundle-c0301347
