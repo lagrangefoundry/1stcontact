@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-41: REQ-210, REQ-211, REQ-212, R
   BUG-67, BUG-69, BUG-70, BUG-71, BUG-72)'
 created_by: xgd
 created_at: '2026-11-08T12:42:54.689461+00:00'
-updated_at: '2026-11-08T13:10:21.373504+00:00'
+updated_at: '2026-11-08T13:28:56.494013+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -85,7 +85,7 @@ fields:
       (STORY-100), and no single one of those owns it. It is a new expressive capability,
       not a tweak to any of them. Evidence: tests/test_UAT_FC_REQ-211_multi_variate_text.test.ts,
       tests/test_UAT_FC_REQ-211_runs_survive_a_capture.test.ts.'
-    story_uid: null
+    story_uid: story-1e340c9a
   - index: 4
     component: Material Library Surface
     item_type: upgrade
