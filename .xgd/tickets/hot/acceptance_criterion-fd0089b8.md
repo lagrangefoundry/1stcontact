@@ -3,10 +3,10 @@ uid: acceptance_criterion-fd0089b8
 id: AC-2393
 type: acceptance_criterion
 title: Drawing anchors are a closed set of 17 names in four families, each with an
-  inferred axis
+  inferred axis; a misspelt anchor is refused
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T07:16:45.667734+00:00'
-updated_at: '2026-11-08T10:12:00.741502+00:00'
+updated_at: '2026-11-08T10:12:20.099285+00:00'
 completed_at: null
 last_field_updated: title
 status: active
@@ -14,8 +14,6 @@ fields:
   story_uid: story-d2bee21c
   kind: behavior
   regression_only: false
-  title: Drawing anchors are a closed set of 17 names in four families, each with
-    an inferred axis; a misspelt anchor is refused
 ---
 
 ## Criterion
