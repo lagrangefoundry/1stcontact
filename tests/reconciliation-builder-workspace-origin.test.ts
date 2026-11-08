@@ -1146,8 +1146,16 @@ function* walk(dir: string): Generator<string> {
     // `dist-assets` is BUILD OUTPUT (`1c assets`, REQ-145): copies of the very
     // components and browser source these scans check for duplication of.
     // Walking it would report the build as a second definition site — the
-    // artifact accused of being the thing it was copied from.
-    if (entry.name === 'node_modules' || entry.name === 'dist-assets') continue
+    // artifact accused of being the thing it was copied from. Its `dist-assets.*`
+    // siblings (`.staging`, `.retired`) are the same output mid-build: BUG-71's
+    // stage-then-swap writes the new tree beside the old one, and a parallel
+    // suite running `1c assets` fills them while this scan runs.
+    if (
+      entry.name === 'node_modules' ||
+      entry.name === 'dist-assets' ||
+      entry.name.startsWith('dist-assets.')
+    )
+      continue
     if (entry.name.startsWith('.')) continue
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) yield* walk(full)

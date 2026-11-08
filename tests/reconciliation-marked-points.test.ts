@@ -546,20 +546,21 @@ describe('story-44d0a572 — Marked Points on the edit render', () => {
     expect((markOf('A') as HTMLElement).style.left).toBe('150px')
     expect((markOf('A') as HTMLElement).style.top).toBe('70px')
 
-    const out = controller.expand(box.get())
-    expect(out).toContain('Point A — inside image node 0.1')
-    expect(out).not.toContain('copy node 0.0')
-    expect(out).toMatch(/node-relative:\s+\(50, 20\) of 320×86/)
-    expect(out).toMatch(/viewport:\s+\(150, 70\) at width/)
-
     // Hovering the mark shows the point's full expansion: re-derived from where
     // the drag ended, so a reused letter can always be told apart on screen.
+    // Read while the point is still live — sending (expand) clears it from list().
     const [moved] = controller.list()
     const title = (markOf('A') as HTMLElement).title
     expect(title).toBe(markedPoints.formatMarkedPoint(moved))
     expect(title).toMatch(/^Point A — inside image node 0\.1 \(asset assets\/mark\.svg\)/)
     expect(title).toMatch(/svg user space:\s+\(50, 20\)/)
     expect(title).toMatch(/node-relative:\s+\(50, 20\) of 320×86/)
+
+    const out = controller.expand(box.get())
+    expect(out).toContain('Point A — inside image node 0.1')
+    expect(out).not.toContain('copy node 0.0')
+    expect(out).toMatch(/node-relative:\s+\(50, 20\) of 320×86/)
+    expect(out).toMatch(/viewport:\s+\(150, 70\) at width/)
 
     // A sent mark cannot be dragged.
     const sentCross = markOf('A')!.querySelector('.fc-point__x')!

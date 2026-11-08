@@ -522,8 +522,16 @@ function* walk(dir: string): Generator<string> {
     // components and browser source these scans are checking for duplication of.
     // Walking it would report the build as a second definition site and as
     // vendored upstream source — the artifact accused of being the thing it was
-    // copied from. It is gitignored for the same reason.
-    if (entry.name === 'node_modules' || entry.name === 'dist-assets') continue
+    // copied from. It is gitignored for the same reason. Its `dist-assets.*`
+    // siblings (`.staging`, `.retired`) are the same output mid-build: BUG-71's
+    // stage-then-swap writes the new tree beside the old one, and a parallel
+    // suite running `1c assets` fills them while this scan runs.
+    if (
+      entry.name === 'node_modules' ||
+      entry.name === 'dist-assets' ||
+      entry.name.startsWith('dist-assets.')
+    )
+      continue
     if (entry.name.startsWith('.')) continue
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) yield* walk(full)
