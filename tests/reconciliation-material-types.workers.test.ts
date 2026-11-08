@@ -38,8 +38,8 @@ import { applySchema } from './support/d1-site-factory'
 
 /** The three answers to *who owns it*. */
 const RIGHTS = ['owned', 'licensed', 'third_party']
-/** The four answers to *where it came from*. */
-const ORIGINS = ['uploaded', 'captured', 'fetched', 'site']
+/** The five answers to *where it came from* — `generated` added by REQ-208. */
+const ORIGINS = ['uploaded', 'captured', 'fetched', 'site', 'generated']
 /** The four answers to *what sort of file it is*. */
 const FILE_SORTS = ['document', 'image', 'font', 'capture']
 /** The two kinds that carry the rights and provenance statement. */
@@ -270,8 +270,8 @@ describe('story-e07c589b — the kinds a site is made from', () => {
 })
 
 describe('story-e07c589b — rights and provenance, stated rather than inferred', () => {
-  it('test_UAT_AC1492_material_and_reference_carry_the_same_six_part_rights_and_provenance_statement', async () => {
-    const store = await storeFor('story-e07c589b-ac1492')
+  it('test_UAT_AC2412_material_and_reference_carry_the_same_six_part_rights_and_provenance_statement', async () => {
+    const store = await storeFor('story-e07c589b-ac2412')
 
     // ONE statement object, offered to BOTH kinds — not two that look alike.
     const complete = statement({
@@ -334,7 +334,7 @@ describe('story-e07c589b — rights and provenance, stated rather than inferred'
         const { ticket } = await store.create({
           type: carrier,
           title: `${carrier} from ${origin}`,
-          // An address is supplied throughout, because two of the four require
+          // An address is supplied throughout, because two of the five require
           // one — AC-1495 is where that rule is the subject.
           fields: statement({ origin, source_url: 'https://example.com/source' }),
         })
