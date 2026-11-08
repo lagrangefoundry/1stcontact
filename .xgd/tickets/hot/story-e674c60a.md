@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-01T22:20:06.783755+00:00'
+updated_at: '2026-11-08T14:24:32.996531+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -80,6 +80,18 @@ the surface where an operator *sees* the site instead.
   falling through the route table **last**, so they are delivered behind the
   gate rather than ahead of it — an asset answered before the origin is an asset
   answered to anyone — and an asset can never shadow a route.
+
+  **What the bridges ship is the graph they need, and the build proves it loads
+  (BUG-71).** Each declared bridge keeps its stable public URL. Everything it
+  imports at run time is emitted with it, recursively, each module under one URL
+  named for its source file, and every import in the emitted code names a served
+  URL a browser can fetch. Type-only imports never become files, and an import
+  quoted inside a comment is not followed. Before the new tree replaces the old,
+  the build walks everything the builder's entry module reaches, plus every
+  declared stylesheet. If anything would 404, the build fails as an environment
+  error naming every dangling import with the file that imports it, and the
+  previously served tree stays exactly as it was. On success the build's report
+  states how many modules and stylesheets it verified.
 - **The scope those components are published under is one name, written once.**
   The scope is part of every reference the workspace makes to a component, so it
   is subject to the same one-definition rule as every other name here: it is
@@ -267,13 +279,22 @@ the surface where an operator *sees* the site instead.
   rejected fetch hedges, because it may also be an origin that is down. Recovery
   is a *Sign in again* button that reloads the page. Nothing navigates on its
   own. Every other failure, a 500 included, is handled exactly as before.
-- **One type size for the chrome's controls (BUG-53).** The top bar's Theme and
-  About, the Contacts filter row and Invite, Provision a business, and the
-  buttons in the dialogs those open all take their size from one control
-  font-size token. That token is declared immediately after each control's own
-  font reset, so it wins regardless of stylesheet order. The filter row's
-  controls share one padding. Dialog buttons use the canonical dialog-button
-  class, with the primary modifier on the affirmative action.
+- **One typography for the chrome's text (BUG-53, widened by BUG-70).** Every
+  control in the builder that paints text takes the app's typeface at one
+  control font-size token. That covers buttons, inputs, selects and the
+  toolbar's link, on every builder surface: the top bar and business switcher,
+  the toolbar (mode toggles, Colors, Publish, Mark Points and "Open in new tab"),
+  the Library and Contacts filter rows, the palette popup, the upload sheet, the
+  Contacts dialogs and the signed-out notice. None falls back to the browser's
+  own button font or to the 16px document default. Wherever a control resets its
+  font with a shorthand, the token is declared immediately after the reset, so it
+  wins regardless of stylesheet order. The filter row's controls share one
+  padding. Dialog buttons use the canonical dialog-button class, with the
+  primary modifier on the affirmative action.
+- **"Nothing is selected" is one designed state (BUG-70).** When nothing is
+  selected, the detail pane of the Library and of the Contacts tab shows its
+  prompt inside one shared styled box: centred, padded, muted, at the control
+  size. It is never a bare line of text.
 
 **Out of scope**
 
@@ -782,6 +803,36 @@ REQ-180 §1/§3).*
   - *Routing the reader through `send()` is not decided here.* That is a code
     change against BUG-52's intent and is left for a follow-up, not absorbed
     into the matrix.
+- **BUG-70 and BUG-71 (reconcile BUNDLE-41, item 6, 2026-11-08): chrome
+  typography is widened to an audit, and the served bridges gain a verified
+  import graph.** AC-2232 is rewritten and two criteria are added: the shared
+  empty-detail state, and the asset build's import-graph guarantee.
+  - *AC-2232 moves from a named list to every text-bearing control.* BUG-70's
+    test plan says "the sweep is exhaustive rather than a named list". A named
+    list is what let fourteen controls sit unfixed behind BUG-53's green suite.
+    So the criterion is now stated over every text-bearing control the builder
+    creates. It is resolved through the real mounted ancestry, because
+    `font: inherit` is a defect only when nothing above it declares a size. The
+    BUG-53 specifics (padding, dialog-button class, primary modifier, the
+    top-bar override) are kept.
+  - *Deliberate exemptions are recorded as intent, not gaps.* BUG-70's "Checked
+    and deliberately not changed" section exempts three things: controls that
+    paint no text (checkbox, radio, colour, range and file inputs), the Marked
+    Points overlay (it lives inside the preview's isolated document and uses its
+    own sheet's system fonts), and prose containers that only inherit. Controls
+    the shared out-of-repo components render are styled by those components'
+    own sheets, and are not claimed.
+  - *BUG-71 is claimed here, beside AC-1400.* The served bridges are this
+    story's artifacts, and AC-1400 already owns "built, not resolved per
+    request". The import-graph criterion is the guarantee that what was built
+    can load. Formalised where the intent is silent: (a) an import that resolves
+    to no file, or to one outside the repository, fails the build at the point
+    it is found, before any check of the staged tree; (b) the refusal is the
+    ENVIRONMENT class, as the intent names it. BUG-71's "not fixed here" items
+    (`1c builder` not building assets first, the stale `serve` usage text) are
+    not claimed.
+  *Rationale:* each follows from the BUG-70 and BUG-71 bodies. No contradiction
+  between the code and either intent was found.
 
 ## Dependencies
 
