@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-41: REQ-210, REQ-211, REQ-212, R
   BUG-67, BUG-69, BUG-70, BUG-71, BUG-72)'
 created_by: xgd
 created_at: '2026-11-08T12:42:54.689461+00:00'
-updated_at: '2026-11-08T13:56:43.862044+00:00'
+updated_at: '2026-11-08T14:17:36.107679+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -143,7 +143,7 @@ fields:
     justification: 'STORY-104 already covers the pane following the site (AC-1064,
       AC-1067, AC-1070). This fixes the case where the pane failed to follow a business
       switch, so it is the same capability with no new bucket. Evidence: tests/test_UAT_FC_BUG-69_chat_follows_the_business.test.ts.'
-    story_uid: null
+    story_uid: STORY-104
     target_story_ids:
     - STORY-104
     acceptance_criteria_changes:
