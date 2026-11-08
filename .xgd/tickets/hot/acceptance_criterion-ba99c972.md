@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A generated picture can be found by its prompt as soon as generation completes
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:42:29.243082+00:00'
-updated_at: '2026-11-08T06:42:29.243082+00:00'
+updated_at: '2026-11-08T07:13:46.593746+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-39c992d3
   kind: behavior
