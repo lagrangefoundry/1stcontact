@@ -5,7 +5,7 @@ type: request
 title: 'Library: the client can correct what a material is for'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T00:26:16.895405+00:00'
-updated_at: '2026-11-08T20:29:56.314787+00:00'
+updated_at: '2026-11-08T20:29:59.481544+00:00'
 completed_at: '2026-11-08T20:29:56.314787+00:00'
 last_field_updated: status
 status: free_and_reconciled
