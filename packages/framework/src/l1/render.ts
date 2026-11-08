@@ -2160,10 +2160,16 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
       const decls: string[] = []
       const c = cssColor(a.color)
       if (c) decls.push(`color: ${c}`)
-      if (a.sizeScale !== undefined) decls.push(`font-size: ${a.sizeScale}em`)
-      if (a.fontWeight !== undefined) decls.push(`font-weight: ${Math.round(a.fontWeight)}`)
-      if (a.fontStyle) decls.push(`font-style: ${a.fontStyle}`)
-      if (a.baselineShiftEm !== undefined) {
+      // Emit-time guards (Security Policy §2 Layer 2): a value that bypassed
+      // validateL1 must not reach the stylesheet raw.
+      if (a.sizeScale !== undefined && Number.isFinite(a.sizeScale)) {
+        decls.push(`font-size: ${a.sizeScale}em`)
+      }
+      if (a.fontWeight !== undefined && Number.isFinite(a.fontWeight)) {
+        decls.push(`font-weight: ${Math.round(a.fontWeight)}`)
+      }
+      if (a.fontStyle === 'italic' || a.fontStyle === 'normal') decls.push(`font-style: ${a.fontStyle}`)
+      if (a.baselineShiftEm !== undefined && Number.isFinite(a.baselineShiftEm)) {
         decls.push(`vertical-align: ${a.baselineShiftEm}em`)
       }
       const words = escapeHtml(run.text)

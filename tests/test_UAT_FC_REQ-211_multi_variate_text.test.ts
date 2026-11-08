@@ -162,6 +162,36 @@ describe('REQ-211 the substrate accepts inline variation', () => {
     // …and the ordinary values a superscript actually uses are admitted.
     expect(admits({ sizeScale: 0.6, baselineShiftEm: 0.5, fontWeight: 700 })).toBe(true)
   })
+
+  // ── The renderer is the second wall (Security Policy §2 Layer 2) ───────────
+  //
+  // Validation is skipped on purpose: a run value that somehow got past
+  // validateL1 must still be inert when it is emitted.
+  it('test_UAT_FC_REQ_211_run_axes_are_inert_at_emit_time', () => {
+    const doc = docWith({
+      kind: 'text',
+      text: [
+        { text: 'safe <b>' },
+        {
+          text: 'x<script>',
+          axes: {
+            sizeScale: '1;}body{display:none' as unknown as number,
+            baselineShiftEm: '1;}body{display:none' as unknown as number,
+            fontWeight: '700;}body{display:none' as unknown as number,
+            fontStyle: 'italic;color:red' as never,
+          },
+        },
+      ],
+    } as unknown as L1Node)
+    const { html, css } = renderL1Document(doc)
+
+    expect(css).not.toContain('}body{')
+    expect(css).not.toContain('display:none')
+    expect(css).not.toContain('color:red')
+    expect(html).toContain('safe &lt;b&gt;')
+    expect(html).toContain('x&lt;script&gt;')
+    expect(html).not.toContain('<script>')
+  })
 })
 
 describe('REQ-211 the editor exposes multi-run copy as plain strings', () => {
