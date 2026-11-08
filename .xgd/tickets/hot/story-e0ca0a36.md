@@ -6,17 +6,16 @@ title: 'Passwordless sign-in: a person signs in from an emailed link, and an inv
   link signs its recipient in'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-07T08:22:22.281446+00:00'
-updated_at: '2026-11-08T02:44:47.242418+00:00'
+updated_at: '2026-11-08T02:52:08.253305+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-7988e925
   capability_uid: capability-3606e35b
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-4164b433
+  updated_by: bundle-4164b433
 ---
 
 ## Story
