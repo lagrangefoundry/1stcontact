@@ -18,8 +18,9 @@ fields:
   severity: medium
   commits:
   - working_sha: 1cc729c08339b69f3deddc6a24c096bf3b991130
-    reconcile_sha: null
+    reconcile_sha: bd75e133721c5432e8ef958626372d59bc281555
     main_sha: null
+    working_sha_history: []
   version: 0.2.147
   story_points: 3
 ---
