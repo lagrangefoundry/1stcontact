@@ -72,6 +72,15 @@ export function modelSaw(req: ModelRequest): string {
   return [textOf(req.system), ...req.messages.map((message) => textOf(message.content))].join('\n\n')
 }
 
+/**
+ * The SYSTEM content of one request alone, as text — for an assertion about what
+ * a session was primed with (its instruction), as opposed to {@link modelSaw},
+ * which is about whether the model was told something anywhere in the request.
+ */
+export function systemText(req: ModelRequest): string {
+  return textOf(req.system)
+}
+
 /** One Anthropic streaming event, as the SDK emits them. */
 export type WireEvent = Record<string, unknown>
 

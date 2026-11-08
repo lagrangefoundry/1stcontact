@@ -321,7 +321,15 @@ describe('REQ-146 — what the Worker may import, and what it may say', () => {
     const router = withoutComments(
       fs.readFileSync(path.join(workerSrc, 'router.ts'), 'utf8'),
     )
-    const raw = [...router.matchAll(/error:\s*([A-Za-z_.$][\w.$]*)/g)].map((m) => m[1])
+    // A parameter's TYPE ANNOTATION (`error: string`) is not a value leaving the
+    // router, and the same `error:` shape matches it. A TypeScript primitive type
+    // keyword can never be the name of a value carrying `err.message`, so those
+    // positions are skipped; every real value position is still checked.
+    const typeKeywords = new Set(['string', 'unknown', 'any', 'never'])
+    const raw = [...router.matchAll(/error:\s*([A-Za-z_.$][\w.$]*)/g)]
+      .map((m) => m[1])
+      .filter((name) => !typeKeywords.has(name))
+    expect(raw.length, 'the router builds at least one scrubbed error value').toBeGreaterThan(0)
     // Every `error:` value built from a variable must be the scrubbed one.
     for (const name of raw) {
       expect(['scrub'], `unscrubbed error value: ${name}`).toContain(name.split('(')[0])
