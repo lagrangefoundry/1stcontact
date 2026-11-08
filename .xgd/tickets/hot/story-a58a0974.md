@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-11-08T05:40:14.314888+00:00'
+updated_at: '2026-11-08T10:09:54.240041+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -876,8 +876,45 @@ they disagree, the later sections win.
 - **"No `.ts` constant" is claimed over prose, not over read paths.**
   `CONSULTANT_ROLE_TEXT`, `PRODUCT_SYSTEM` and `CONSULTANT_PURPOSE` still exist
   as exported names. They are derived from the file at load and hold no copy
-  of the words, which the as-built section states explicitly. AC-2374 claims
-  that no sentence is a string literal, which is true.
+  of the words, which the as-built section states explicitly.
+- **"Not a TypeScript constant" is a structural decision, not a criterion**
+  (decided at reconciliation review, 2026-11-08, BUNDLE-40 review item 3c).
+  REQ-182 asks that no priming or reminder prose be held as a source-code string
+  constant, so that a prose change is an edit to `priming.json` alone. That is a
+  property of how the source is laid out, and the only way to check it is to read
+  the `.ts` files. AC-2374 therefore no longer claims it. It rests instead on the
+  behaviour this layout exists to guarantee: the model receives exactly the text
+  the configuration file declares, each static priming entry verbatim and in
+  declared order and each static reminder line verbatim. The layout stays as
+  built, and the as-built section says so. The suite still greps the host's
+  modules for configured prose as a supplementary guard (it is cheap and catches
+  a copy pasted back into source). It is no longer the evidence for any
+  criterion.
+- **An unregistered provider is pinned through the host, not only the loader**
+  (decided at reconciliation review, 2026-11-08, BUNDLE-40 review item 3b). Four
+  of AC-2374's five malformed shapes are framework loader behaviour and are
+  exercised by calling the loader directly. The unregistered provider is the one
+  a host can cause by itself: it selects the order with a knowledge base and
+  fails to bind that order's providers. So AC-2374 also pins it end to end.
+  Opening such a session reports a `PrimingConfigError` naming `km-landscape`, a
+  turn on it is refused, and the model is sent nothing.
+- **The placeholder-left-as-written clause is kept and tested**
+  (decided at reconciliation review, 2026-11-08, BUNDLE-40 review item 3a). The
+  shipped templates fill every slot they declare, so the clause cannot be
+  observed over the shipped file. It is tested over a copy of the configuration
+  whose templates carry an extra, valueless slot, loaded through the same
+  `roles.ts` read path. The filled slots are filled, and the valueless one is
+  rendered verbatim into the site line, the change signal and the reminder.
+- **"No separate guard edits a string afterwards" is a structural decision, not a
+  criterion** (decided at reconciliation review, 2026-11-08, BUNDLE-40 review
+  item 3e). AC-2375 said the null-drop is the only mechanism by which a
+  conditional line is left out, with no separate guard editing the assembled
+  string afterwards. No observable test can fail on that: a post-hoc guard that
+  produced the same text would pass every assertion. The clause is moved here.
+  As built, `changeSignal` and the `corpus.delta` provider return `null`, and the
+  framework's assembly drops the entry and its separator (`roles.ts`,
+  `registerSiteProviders`). AC-2375 keeps the observable half: no entry text,
+  no residue and no doubled or trailing separator.
 - **The 60,000 budget and null-drops are one criterion (AC-2375).** The intent
   asks for a declared cap with headroom and a loud, entry-naming overflow with
   no truncation. BUG-65 restates the number (60,000). The general null-drop
