@@ -6,9 +6,9 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-11-08T05:12:32.611366+00:00'
+updated_at: '2026-11-08T05:12:58.069556+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-8e1807f6
