@@ -2,13 +2,13 @@
 uid: acceptance_criterion-b674f256
 id: AC-1384
 type: acceptance_criterion
-title: Granted identities, both controls and how to verify them are recorded in the
-  repository, with no credential
+title: Granted identities, both controls, how to verify them and which service tokens
+  act as which person are recorded in the repository, with no credential
 created_by: xgd
 created_at: '2026-08-31T09:32:31.520341+00:00'
-updated_at: '2026-09-10T04:34:17.901522+00:00'
+updated_at: '2026-11-08T01:40:57.834251+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: title
 status: active
 fields:
   story_uid: story-182e8cb9
@@ -33,18 +33,28 @@ The record carries, as substance an operator could act on six months later:
   reasons, records nothing;
 - how automation authenticates (a service identity), and that its secret belongs
   in a secret store rather than in the repository;
+- **which service-token names act as which person**: the deployment setting
+  that maps a service token's machine name to a person's address, by name, with
+  its `name=address` form, the mapping the production deployment declares, and
+  its rules — empty means nobody, it is configuration and never caller input, a
+  human's own address always wins, it names an existing person rather than
+  creating one, and revoking either the token or the mapping entry is
+  sufficient;
 - where customer sign-in goes instead, so the operator gate is not later
   mistaken for the product's login.
 
 No credential appears in the record. An audience identifier belongs there; a
-service-identity secret does not.
+service-identity secret does not. A service-token name and the address it maps
+to are not credentials and belong there.
 
 ## Verification
 
 Read the policy record held in the repository beside the control application.
 Observe each item above is present as substance rather than as a heading, that
-every granted-identity row carries a reason as well as an address, and that no
-service-identity secret value appears anywhere in it.
+every granted-identity row carries a reason as well as an address, that the
+service-token mapping setting is named with its form and the person the
+production automation identity acts as, and that no service-identity secret
+value appears anywhere in it.
 
 ## Out of scope for this criterion
 
