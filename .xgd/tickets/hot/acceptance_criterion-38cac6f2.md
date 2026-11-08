@@ -2,11 +2,12 @@
 uid: acceptance_criterion-38cac6f2
 id: AC-2094
 type: acceptance_criterion
-title: A conversation with no live turn is not rejoined; a failed rejoin leaves the
-  pane usable; a transport without rejoin support still mounts
+title: The origin reports a conversation live only while a turn is open; a settled
+  or empty conversation is not rejoined; a failed rejoin leaves the pane usable; a
+  transport without rejoin support still mounts
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T03:06:14.307080+00:00'
-updated_at: '2026-11-08T03:04:00.580532+00:00'
+updated_at: '2026-11-08T03:04:38.857451+00:00'
 completed_at: null
 last_field_updated: title
 status: active
