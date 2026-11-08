@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-d87c1fe2'
 created_by: xgd
 created_at: '2026-11-08T08:20:31.947973+00:00'
-updated_at: '2026-11-08T08:20:31.947973+00:00'
+updated_at: '2026-11-08T08:25:03.107783+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-d87c1fe2
@@ -42,6 +42,7 @@ fields:
   fell_through:
   - 'the `code_frozen` request cannot be declined: blocked_by_ruling.files must list
     every file the batch edits'
+  batches_pending: false
 ---
 
 {
