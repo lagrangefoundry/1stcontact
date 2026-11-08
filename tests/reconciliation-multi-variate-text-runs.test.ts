@@ -312,13 +312,13 @@ describe('AC-2449 capture records which text runs share an inline flow', () => {
       expect(sentence[0]!.textFlow).toBe('Serving ')
       expect(runByText(c, '19')?.verticalAlign).toBe('super')
 
-      // Control: two inline spans under one <p> with no break between them DO
-      // share a flow — so a run below that carries no flow id is a flow of one,
-      // not a capture that forgot to record flows.
-      const plain = runByText(c, 'Plain words')
-      const more = runByText(c, 'and more of them')
-      expect(plain?.inlineGroup).toBeTruthy()
-      expect(more?.inlineGroup).toBe(plain!.inlineGroup)
+      // Control: inline elements (<em>, <span>) inside one block with no break
+      // between them DO share a flow — the heading's 'real' (<em>) and 'food'
+      // (<span>) carry the same defined id as the bare text around them, and the
+      // run after the <sup> does too. So a run below that carries no flow id is
+      // a flow of one, not a capture that forgot to record flows.
+      expect(runByText(c, '92')?.inlineGroup).toBe(flowId)
+      expect(runByText(c, '19')?.inlineGroup).toBe(flowId)
 
       // A <br> starts a new flow. Each line of p.broken is then a flow of ONE
       // run, and a single-run flow records no flow membership at all (types.ts:
