@@ -6,10 +6,10 @@ title: Text-height estimation over a multi-run node is consistent with the same 
   as one run
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:28:34.277311+00:00'
-updated_at: '2026-11-08T13:28:34.277311+00:00'
+updated_at: '2026-11-08T13:51:38.820283+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1e340c9a
   kind: behavior
