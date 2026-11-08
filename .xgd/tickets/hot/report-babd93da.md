@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-41: REQ-210, REQ-211, REQ-212, R
   BUG-67, BUG-69, BUG-70, BUG-71, BUG-72)'
 created_by: xgd
 created_at: '2026-11-08T12:42:54.689461+00:00'
-updated_at: '2026-11-08T15:30:38.177915+00:00'
+updated_at: '2026-11-08T15:54:18.374033+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -234,7 +234,7 @@ fields:
     justification: 'STORY-103 owns the conversation host and already pins configuration-file-driven
       priming (AC-2374). Model selection and the ceiling are the same host''s configuration,
       so no new bucket is introduced. Evidence: tests/test_UAT_FC_BUG-67_backend_settings.test.ts.'
-    story_uid: null
+    story_uid: STORY-103
     target_story_ids:
     - STORY-103
     acceptance_criteria_changes:
