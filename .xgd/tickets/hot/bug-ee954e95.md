@@ -18,11 +18,13 @@ fields:
   severity: high
   commits:
   - working_sha: 15273eae89d9951de9f06d6e9ea6ea54aea1d113
-    reconcile_sha: null
+    reconcile_sha: e20d6b6d6f4c8f8f8e43bd4ca40341ca4fd3414d
     main_sha: null
+    working_sha_history: []
   - working_sha: 40398672584952b140c541290a0a18900fcab076
-    reconcile_sha: null
+    reconcile_sha: 9c0f7dd1989f3516d4ac791a6a3944eab02908d0
     main_sha: null
+    working_sha_history: []
   version: 0.2.149
   story_points: 3
 ---
