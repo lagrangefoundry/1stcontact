@@ -6,10 +6,10 @@ title: Half the REST credential pair is a named error naming the missing variabl
   with no fallback to the binding
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T21:06:03.644493+00:00'
-updated_at: '2026-11-08T21:06:03.644493+00:00'
+updated_at: '2026-11-08T21:30:49.852955+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5281f009
   kind: behavior
