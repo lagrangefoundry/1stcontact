@@ -6,10 +6,10 @@ title: edit, reference, revision and url pictures carrying 'after' are refused b
   a browser is leased, each with its stated reason
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T21:43:38.605411+00:00'
-updated_at: '2026-11-08T21:43:38.605411+00:00'
+updated_at: '2026-11-08T22:57:52.989301+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
