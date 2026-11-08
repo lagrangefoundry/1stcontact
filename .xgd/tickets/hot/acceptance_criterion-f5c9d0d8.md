@@ -8,9 +8,9 @@ title: The sending address is the template's own when it names one and MAIL_FROM
   route ignores any from on the request
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T04:11:58.521483+00:00'
-updated_at: '2026-11-08T04:34:12.922642+00:00'
+updated_at: '2026-11-08T10:03:20.003618+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-7d255580
@@ -32,3 +32,8 @@ In a business seeded with the default templates:
 - **Sign-in link.** Request a sign-in link and assert its `from` is `MAIL_FROM`, not the invite address.
 - **Invite form.** Open the invite form and assert it displays the invite template's address as read-only.
 - **Forged sender.** POST an invite carrying `from: attacker@example.com`, and assert the message is sent from the template's address.
+
+
+### Verification additions (reconciliation review gap 1)
+- **Not token-substituted.** A newer `invite` template whose `from` is `Invites {{cta_url}} <invite@1stcontact.io>` is sent through `invitePeople`; the send port receives and the outgoing message record stores that `from` verbatim (no CTA URL in it), while the body's `{{cta_url}}` in the same send is filled.
+- **Forged `from` ignored in what is delivered.** The Worker's invite POST runs with a Resend credential and the provider endpoint stubbed at the global `fetch` boundary; exactly one provider request is made, its `from` is the template's address, and `attacker@example.com` appears nowhere in it — as well as in the record.
