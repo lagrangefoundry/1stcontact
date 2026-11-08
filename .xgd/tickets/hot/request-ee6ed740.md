@@ -5,7 +5,7 @@ type: request
 title: 'The Contacts tab: add a Lead, invite a selection, and see what was sent'
 created_by: xgd
 created_at: '2026-09-06T00:02:09.757977+00:00'
-updated_at: '2026-11-08T00:25:56.248079+00:00'
+updated_at: '2026-11-08T00:26:14.086800+00:00'
 completed_at: '2026-11-08T00:25:56.248079+00:00'
 last_field_updated: status
 status: free_and_reconciled
