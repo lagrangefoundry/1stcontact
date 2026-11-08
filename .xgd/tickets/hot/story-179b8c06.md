@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-11-08T21:32:43.669998+00:00'
+updated_at: '2026-11-08T21:32:44.172154+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -544,3 +544,43 @@ declare `kind: 'behavior'`. The repair was test-only — no runtime code changed
 
 ## Story Points
 3
+
+
+
+## Technical Context — composing the client asset (BUG-75, BUNDLE-42)
+
+The shipped client asset (`capabilities.js`) is built by composing every
+catalogued behavior's `client.js`, in catalog order. Each behavior goes into
+**its own block**, preceded by its `/* behavior: <id> */` marker, with its
+statement-leading `export` keywords stripped. A block gives each behavior its own
+lexical scope: `const`, `let`, `class` and (in a module, which is always strict)
+`function` are block-scoped. So two behaviors may declare the same top-level name
+and the asset still parses. Stripping `export` costs nothing. Every behavior wires
+itself up when the DOM is ready, and nothing imports the asset. The exports exist
+only for the per-behavior unit tests, which import each `client.js` source
+directly.
+
+The asset must be **valid, not just fresh**. Before this fix the behaviors were
+spliced flat into one module scope. `contact-form`, `account-portal` and
+`account-chrome` each declare `ERROR_SELECTOR`, so the whole file was a parse-time
+`SyntaxError` and no behavior ran on any site. Nothing caught it, because the only
+check on the composed asset compared its bytes to its sources. AC-702 now requires
+that the asset load as an ES module. AC-2476 requires that a shared top-level name
+can never break the asset or stop any behavior from running.
+
+**Remaining hazard (not new behavior):** a `var` declaration would still escape
+its block. No `client.js` uses `var` today. That constraint is recorded here so
+that a future behavior author sees it.
+
+**Out of scope:** REQ-212's L1 dialog emits its own inline `<script>` and does not
+go through `capabilities.js`. This change leaves that path alone.
+
+### Reconciliation Decisions (2026-11-08, BUNDLE-42 / BUG-75)
+
+The intent (BUG-75's "What must change"), the code and these ACs agree on every
+point: own-block scoping, `export` stripped, behavior marker kept, and a UAT that
+parses the composed asset as an ES module. The resolution ladder stopped at level
+1, and no transcript was needed. One choice was left to reconciliation: BUG-75
+asks the UAT to "parse" the asset. AC-702 sharpens that to *load it as an ES
+module*, because parsing as a module is the behaviour the browser applies, and
+pattern-matching the text would not have caught this defect.
