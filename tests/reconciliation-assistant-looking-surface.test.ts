@@ -471,20 +471,32 @@ describe('every picture is named one way, and resolves to what it names', () => 
     for (const [tool, param] of pictureParams) {
       const shape = schemas[tool].properties[param] as {
         type: string
-        properties: Record<string, { type: string; enum?: string[] }>
+        properties: Record<string, { type: string; enum?: string[]; description?: string }>
         additionalProperties: boolean
         required: string[]
       }
       expect(shape.type, `${tool}.${param}`).toBe('object')
       expect(Object.keys(shape.properties).sort()).toEqual([
+        'after',
         'bundle',
+        'image',
         'kind',
+        'original',
         'page',
         'revision',
         'url',
         'viewport',
       ])
-      expect(shape.properties.kind.enum).toEqual(['reference', 'draft', 'edit', 'revision', 'url'])
+      expect(shape.properties.kind.enum).toEqual([
+        'reference',
+        'draft',
+        'edit',
+        'revision',
+        'url',
+        'image',
+      ])
+      expect(shape.properties.after.type, `${tool}.${param}.after`).toBe('array')
+      expect(shape.properties.after.description).toContain('Only a `draft` picture can be driven')
       expect(shape.properties.viewport.enum).toEqual(['mobile', 'tablet', 'desktop'])
       expect(shape.properties.revision.type).toBe('integer')
       expect(shape.required).toEqual(['kind'])
