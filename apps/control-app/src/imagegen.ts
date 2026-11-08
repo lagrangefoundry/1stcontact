@@ -263,6 +263,48 @@ export function generatedMaterialStore(
   }
 }
 
+/** The operations the model can call, whose failures it reads. */
+const IMAGE_OPERATIONS = ['create_image', 'edit_image'] as const
+
+/**
+ * Keep the vendor out of every failure the model reads (property 1 above).
+ *
+ * The plugin's declared error sentences are vendor-free, but the runtime appends
+ * the host's own detail after them ("The host reports: …"), and the framework's
+ * detail for an unsupported shape reads `Backend "openai" does not support …`.
+ * So each operation's failure is rewritten here, at the one place this file
+ * composes the plugin: the backend phrase becomes "This generator", and any
+ * remaining vendor or model name becomes "the generator". The error keeps its
+ * code and class, so the declared sentence and the rest of the detail (the
+ * ratios the generator does offer) still reach the model.
+ */
+function vendorless(surface: Untyped, names: string[]): void {
+  const words = [...new Set(names.filter((n) => n.length > 0))]
+  if (words.length === 0) return
+  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  const backendPhrase = new RegExp(`Backend\\s+"(?:${escaped})"`, 'gi')
+  const bare = new RegExp(escaped, 'gi')
+  const scrub = (text: string): string =>
+    text.replace(backendPhrase, 'This generator').replace(bare, 'the generator')
+
+  for (const op of IMAGE_OPERATIONS) {
+    const original = surface[op]
+    if (typeof original !== 'function') continue
+    surface[op] = async (...args: unknown[]): Promise<unknown> => {
+      try {
+        return await original.apply(surface, args)
+      } catch (error) {
+        if (error instanceof Error) {
+          error.message = scrub(error.message)
+          const detail = (error as { detail?: unknown }).detail
+          if (typeof detail === 'string') (error as { detail?: unknown }).detail = scrub(detail)
+        }
+        throw error
+      }
+    }
+  }
+}
+
 /** What a caller may substitute, so the capability is provable with no key. */
 export interface ImageSurfaceOptions {
   /**
@@ -340,7 +382,9 @@ export function imageSurface(
   if (surfaces.length === 0) return null
 
   const surface = surfaces[0]
-  model = String(surface.backend().model)
+  const backend = surface.backend()
+  model = String(backend.model)
+  vendorless(surface, [IMAGE_PROVIDER, String(backend.name ?? ''), model])
   // THE GRANT TRAVELS WITH THE SURFACE, unlike fidelity's, which is an entry in
   // `instances.json`. Two reasons, and the second is the load-bearing one.
   //
