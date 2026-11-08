@@ -5,9 +5,9 @@ type: story
 title: 'Platform Build, Deploy & Smoke: One Path To Ship A Worker, And Proof It Serves'
 created_by: xgd
 created_at: '2026-08-20T05:29:12.423310+00:00'
-updated_at: '2026-11-07T21:17:32.567423+00:00'
+updated_at: '2026-11-08T02:24:14.726689+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-77b28def
@@ -178,6 +178,18 @@ list and in shell history) and uses a form that does not append a newline (which
 become part of the secret). Only the *names* are ever listed. No script, hook document or Worker
 configuration in the repository carries a credential shape, and the documented mechanism never
 echoes a value back.
+
+**One narrow exception, which checks itself.** Two of the credential shapes match on the *value*
+(a provider-prefixed API key, a private-key block) and one matches on the *name* (an assignment
+whose name contains SECRET, TOKEN, API_KEY or PASSWORD, holding a literal). A name is a weak
+signal, and the service-token identity mapping is named after the credential it maps while holding
+none: its value is comma-separated `name=address` pairs binding a service token's common name to
+the person whose automation it is, both halves public. So an identity-mapping variable is exempt
+from the **name-matched** shape only. The value-matched shapes still read the whole file, the
+exempted variable included, so a provider-prefixed key assigned to the exempted name is still
+caught. And the exemption is not taken on trust: every entry the exempted variable carries must be
+a `name=address` pair, and any other entry fails the same scan run. An empty value has no entries
+and passes.
 
 ### In scope
 
@@ -408,6 +420,20 @@ configuration, which is what this story can observe and what a regression can ho
 14. **One breakage may fail more than one check.** BUG-57 states that a site root that stops serving
     genuinely fails every check sharing that response. AC-1337 is sharpened from "exactly the owning
     check" to "the owning check plus exactly those that share its response", which stays exact.
+
+15. **The identity-mapping exemption to the committed-credential scan is an explicit, named list,
+    not a suffix pattern.** *Decided 2026-11-07, reconciling BUNDLE-39 (BUG-59).* BUG-59 states the
+    principle as "a `*_IDENTITIES` var names who a credential is, never what it is", and says it
+    adds that exception to the scans. It does not say whether *any* variable with that suffix is
+    exempt or only the one it introduces. The scan exempts the named service-token identity mapping
+    only. A different, unlisted `*_IDENTITIES` variable holding a credential-named literal is still
+    caught by the name-matched shape. Decided: the criterion states the narrower, listed form.
+    It is the safer reading of a silent intent, since a new variable cannot opt itself out of the
+    scan just by taking the suffix, and it matches the code. The intent's other two properties are
+    stated as written: the exemption covers the name-matched shape only, and every exempted entry is
+    held to the `name=address` grammar in the same run. An entry counts as `name=address` when the
+    name is letters, digits, dots, underscores or hyphens, and the address has one `@` and a dotted
+    domain, with no whitespace or commas.
 
 ## Dependencies
 
