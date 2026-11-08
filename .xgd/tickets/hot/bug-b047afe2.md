@@ -5,7 +5,7 @@ type: bug
 title: Every denial says access 'has ended' and none of them says why
 created_by: CHAT-39
 created_at: '2026-09-06T23:38:43.079204+00:00'
-updated_at: '2026-11-08T00:25:41.648626+00:00'
+updated_at: '2026-11-08T00:26:12.762436+00:00'
 completed_at: '2026-11-08T00:25:41.648626+00:00'
 last_field_updated: status
 status: free_and_reconciled
