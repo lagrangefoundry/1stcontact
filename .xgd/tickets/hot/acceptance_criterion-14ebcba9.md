@@ -7,10 +7,10 @@ title: 'Priming names no knowledge-base document by id: the purpose names the su
   to the method without naming a document'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T05:11:33.534754+00:00'
-updated_at: '2026-11-08T05:11:33.534754+00:00'
+updated_at: '2026-11-08T08:04:02.375793+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
