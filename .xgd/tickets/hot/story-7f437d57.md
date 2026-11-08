@@ -6,9 +6,9 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-11-08T03:11:50.536168+00:00'
+updated_at: '2026-11-08T14:16:45.157197+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -44,7 +44,9 @@ In scope:
   disagree with it. Other dropdowns may exist elsewhere in the chrome for unrelated
   purposes — narrowing a list, say — and are not site controls: the guarantee is about
   what a control offers, not about how many dropdowns the workspace contains. Changing
-  the site changes both halves together.
+  the site changes both halves together. So does changing the business: a conversation
+  belongs to a site *within a business*, and the pane shows the newly selected business's
+  conversation even when its site carries the same slug as the one being left behind.
 - **Replay.** On first open and on every switch, the pane shows what that site's
   conversation already contains, so the assistant never answers from context the
   operator cannot see. One site's conversation never appears under another's. Replay
@@ -69,7 +71,9 @@ In scope:
   cannot rejoin still mounts and simply shows the transcript.
 - **Composing state per conversation.** An unsent, half-typed message belongs to the
   conversation it was typed into: leave for another site and come back and it is still
-  there, and the other site's composer is not holding it.
+  there, and the other site's composer is not holding it. The same holds across
+  businesses: a draft typed under one business's site never surfaces under another
+  business's site of the same slug.
 - **Turns addressed to what is on screen.** Sending goes to the conversation currently
   displayed, and the reply arrives progressively in the message list rather than in one
   lump at the end.
@@ -171,6 +175,17 @@ Out of scope:
   then dropped permanently; the rejoin meanwhile tailed a quiet conversation for the
   watcher's full ten-minute timeout. Correcting the flag removes both; the queue-while-
   streaming gate itself is unchanged and still applies to a genuinely live turn.
+- **The pane's identity is the business plus the conversation, not the conversation id
+  alone (BUG-69).** The origin names a site's conversation from its slug, which is unique
+  only within a business; slugs are per-business by design, so two businesses may each
+  hold a conversation of the same name. The workspace therefore tells the pane which
+  conversation it is showing in the workspace's own address space — scoped by the
+  selected business exactly as request URLs are, and bare when no business is selected —
+  and the pane decides "is this the conversation already on screen?" and keys the
+  composer's draft on that identity. The id turns are addressed to on the wire is
+  unchanged. Before this, a switch between two businesses whose sites shared a slug
+  re-read the right transcript from the origin and then discarded it because the id
+  matched the one already displayed.
 
 ## Reconciliation Decisions
 
@@ -297,6 +312,26 @@ Out of scope:
   a message queued during a live turn is dropped because the builder supplies no queue
   handler. Intent does not ask for that behaviour, nor for a fix to it, so it is noted in
   Technical Context and not written as a criterion.
+
+*Recorded 2026-11-08, reconciling BUNDLE-41 (bundle-0d00566a), item 5 (BUG-69).*
+
+- **The cross-business switch is a new criterion, not a restatement of AC-1064 or
+  AC-1067.** Those criteria speak of sites within one store and were satisfied while the
+  defect shipped: their switches always changed the conversation's name. BUG-69 is the
+  case where the name stays the same and only the business changes, so it gets its own
+  criterion covering both halves BUG-69 names — the transcript shown and the draft kept.
+  *Rationale:* the transcript and the draft fail from one cause (the identity the pane
+  dedupes and keys on), so splitting them would give two criteria with one fix; folding
+  them into AC-1064/AC-1067 would hide the shared-slug case that the existing evidence
+  (REQ-179's shared-slug case asserted only that the origin was asked) never exercised.
+- **The unchanged wire id is recorded, not claimed.** BUG-69 states that the origin's id
+  shape is correct where it lives and is left as is; turns are still addressed to it. An
+  operator cannot observe the id, so this is Technical Context, not a criterion. The
+  externally visible consequence — a message sent after the switch goes to the
+  conversation on screen — is already AC-1065's.
+- **"No business selected" keeps the bare identity.** BUG-69 states the key is bare when
+  no business is selected, matching how requests are scoped. That keeps a workspace with
+  nothing wider in scope behaving exactly as before and needs no criterion of its own.
 
 ## Dependencies
 
