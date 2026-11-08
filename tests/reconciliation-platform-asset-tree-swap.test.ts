@@ -104,6 +104,16 @@ function assetFixture(label: string): string {
     path.join(REPO, 'packages', 'site-schema', 'src', 'l1'),
     path.join(root, 'packages', 'site-schema', 'src', 'l1'),
   )
+  // The framework entries the build serves from outside those trees (REQ-210,
+  // REQ-130): each is self-contained, so the file alone is what the build reads.
+  for (const rel of [
+    path.join('packages', 'site-schema', 'src', 'anchors.ts'),
+    path.join('packages', 'site-schema', 'src', 'svg.ts'),
+    path.join('tools', 'generate', 'src', 'cli', 'capture', 'measure-svg.ts'),
+  ]) {
+    mkdirSync(path.dirname(path.join(root, rel)), { recursive: true })
+    symlinkSync(path.join(REPO, rel), path.join(root, rel))
+  }
   cpSync(
     path.join(REPO, 'packages', 'framework', 'src', 'modules'),
     path.join(root, 'packages', 'framework', 'src', 'modules'),

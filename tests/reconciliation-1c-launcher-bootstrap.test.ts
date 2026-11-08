@@ -324,6 +324,8 @@ describe('story-e15a19ef — 1c assets bootstraps without loading the CLI barrel
       link(path.join('packages', 'site-schema'))
       link(path.join('packages', 'framework', 'src', 'l1'))
       link(path.join('apps', 'control-app', 'src', 'builder'))
+      // A framework entry the build serves from outside those trees (REQ-210).
+      link(path.join('tools', 'generate', 'src', 'cli', 'capture', 'measure-svg.ts'))
       // The modules directory is written into (`module-assets.ts`), so it is a
       // real directory here with each module symlinked in — a symlinked generated
       // file would be followed and clobber this checkout's copy.
@@ -362,10 +364,17 @@ describe('story-e15a19ef — 1c assets bootstraps without loading the CLI barrel
       expect(report.builderFiles).toBeGreaterThan(0)
       expect(report.webuiFiles).toBeGreaterThan(0)
       expect(Object.keys(report.imports).length).toBeGreaterThan(0)
+      // The named entries at their stable URLs (REQ-210 / REQ-130 added the last
+      // four), then what the build found by following their imports ([[BUG-71]]).
       expect(report.frameworkFiles).toEqual([
         'edit-client.js',
         'site-schema-edit.js',
         'site-schema-shade.js',
+        'marked-points.js',
+        'site-schema-anchors.js',
+        'measure-svg.js',
+        'site-schema-svg.js',
+        'packages/site-schema/src/l1/text.js',
       ])
       expect(report.modules.file).toBe('packages/framework/src/modules/module-assets.ts')
 

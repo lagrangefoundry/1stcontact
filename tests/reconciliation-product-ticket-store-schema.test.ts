@@ -42,8 +42,23 @@ const REPO = path.resolve(__dirname, '..')
 const APP = path.join(REPO, 'apps', 'control-app')
 const WRANGLER = path.join(APP, 'wrangler.toml')
 const MIGRATIONS_DIR = path.join(REPO, 'db', 'migrations')
-const TICKET_MIGRATION = path.join(MIGRATIONS_DIR, '0003_ticket_store.sql')
-const SITE_MIGRATION = path.join(MIGRATIONS_DIR, '0001_site_store.sql')
+/**
+ * The one migration ([[REQ-190]]). `0001`–`0009` became a single baseline, so
+ * the ticket store's schema step is a SECTION of it — after the site store's
+ * tables — rather than a file of its own ordered after theirs.
+ */
+const BASELINE = path.join(MIGRATIONS_DIR, '0001_baseline.sql')
+const TICKET_SECTION_START = '-- The ticket store\n'
+const TICKET_SECTION_END = '-- Identity\n'
+
+/** The baseline's ticket-store section: from its header to the next section's. */
+function ticketSection(sql: string): string {
+  const start = sql.indexOf(TICKET_SECTION_START)
+  const end = sql.indexOf(TICKET_SECTION_END, start)
+  expect(start, 'the baseline has a ticket-store section').toBeGreaterThan(-1)
+  expect(end, 'the ticket-store section is followed by the identity section').toBeGreaterThan(start)
+  return sql.slice(start, end)
+}
 const BIN = path.join(REPO, 'tools', 'generate', 'bin', '1c.mjs')
 
 /** The component whose schema this repository transcribes. */
@@ -88,16 +103,20 @@ describe('story-ab1ecd62 — the ticket store schema is applied as a migration i
       expect(path.resolve(path.dirname(WRANGLER), dir)).toBe(MIGRATIONS_DIR)
     }
 
-    // ── (b) and that location holds the step, beside the site store's ───────
-    // The runner applies a DIRECTORY in lexical order, so the order is the file
-    // names — and it is load-bearing: 0001 creates `tenants` without the column
-    // the ticket store writes, and 0003 is what adds it.
+    // ── (b) and that location holds the step, after the site store's ────────
+    // One baseline ([[REQ-190]]), so the order is the order of statements in it:
+    // the shared `tenants` registry and the site store's tables first, then the
+    // ticket store's. Read over the DDL with its prose stripped, so a table named
+    // in a comment is not mistaken for one created.
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()
-    expect(files).toContain(path.basename(TICKET_MIGRATION))
-    expect(files).toContain(path.basename(SITE_MIGRATION))
-    expect(files.indexOf(path.basename(TICKET_MIGRATION))).toBeGreaterThan(
-      files.indexOf(path.basename(SITE_MIGRATION)),
-    )
+    expect(files).toEqual([path.basename(BASELINE)])
+    const ddl = statementsOf(readFileSync(BASELINE, 'utf8'))
+    const created = (table: string): number =>
+      ddl.findIndex((s) => s.startsWith(`CREATE TABLE IF NOT EXISTS ${table} (`))
+    expect(created('tenants'), 'the baseline creates the shared registry').toBeGreaterThan(-1)
+    expect(created('sites'), 'the baseline creates the site store').toBeGreaterThan(created('tenants'))
+    expect(created('tickets'), 'the ticket store comes after the site store').toBeGreaterThan(created('sites'))
+    expect(created('counters')).toBeGreaterThan(created('sites'))
 
     // ── (c) applied from empty, by the real runner, in the declared order ───
     // `wrangler d1 migrations apply` against a fresh local database — not a
@@ -114,9 +133,6 @@ describe('story-ab1ecd62 — the ticket store schema is applied as a migration i
     }
     const first = apply()
     for (const name of files) expect(first).toContain(name)
-    expect(first.indexOf(path.basename(TICKET_MIGRATION))).toBeGreaterThan(
-      first.indexOf(path.basename(SITE_MIGRATION)),
-    )
 
     // ── (d) the result is a database the store needs no further schema work in ──
     const dump = (): { status: number | null; stderr: string; stdout: string } =>
@@ -147,8 +163,8 @@ describe('story-ab1ecd62 — the ticket store schema is applied as a migration i
     for (const table of ['tickets', 'counters', 'tenants']) {
       expect([...byName.keys()], `the applied schema carries ${table}`).toContain(table)
     }
-    // The reconciliation actually happened: `tenants` carries the column 0001
-    // never created.
+    // The registry carries the column the ticket store writes, created WITH it
+    // by the baseline — the component's own `IF NOT EXISTS` CREATE is a no-op.
     expect(byName.get('tenants')).toContain('config')
 
     // ── (e) re-applying the sequence changes nothing ────────────────────────
@@ -186,7 +202,7 @@ describe('story-ab1ecd62 — the schema step stays in agreement with the compone
       }
       expect(SCHEMA_STATEMENTS.length).toBeGreaterThan(0)
 
-      const sql = readFileSync(TICKET_MIGRATION, 'utf8')
+      const sql = ticketSection(readFileSync(BASELINE, 'utf8'))
 
       // ── (a) compared WHOLE, not by table name ──────────────────────────────
       // A check that only looked for `CREATE TABLE … tickets` would keep passing
@@ -202,18 +218,25 @@ describe('story-ab1ecd62 — the schema step stays in agreement with the compone
       // Exercised by removing one from the migration rather than by trusting the
       // comparison: a check that cannot report what is missing leaves a deployed
       // database a version behind with nothing saying so.
-      const dropped = SCHEMA_STATEMENTS[SCHEMA_STATEMENTS.length - 1]
-      const mutilated = flat(sql).replace(flat(dropped), '')
+      // The statement dropped is chosen by what it creates, not by its position:
+      // the component has grown statements after it (the change log, REQ-136).
+      const dropped = SCHEMA_STATEMENTS.find((s) =>
+        flat(s).startsWith('CREATE TABLE IF NOT EXISTS counters'),
+      )
+      expect(dropped, 'the component publishes the counters table').toBeDefined()
+      const mutilated = flat(sql).replace(flat(dropped!), '')
       const missing = missingFromMigration(mutilated, SCHEMA_STATEMENTS)
       expect(missing).toEqual([dropped])
       expect(flat(missing[0])).toContain('counters')
 
-      // ── (d) exactly one part of the step is not a transcription ────────────
+      // ── (d) nothing in the step is locally authored ────────────────────────
+      // The registry reconciliation the old two-migration sequence needed (an
+      // `ALTER TABLE tenants ADD COLUMN config`) is gone ([[REQ-190]]): the
+      // baseline creates `tenants` with `config` before this section, so every
+      // statement here is the component's, verbatim.
       const published = new Set(SCHEMA_STATEMENTS.map(flat))
       const local = statementsOf(sql).filter((s) => !published.has(s))
-      expect(local, 'only the shared registry reconciliation is locally authored').toEqual([
-        'ALTER TABLE tenants ADD COLUMN config TEXT NOT NULL DEFAULT \'{}\'',
-      ])
+      expect(local, 'the ticket-store section is a pure transcription').toEqual([])
     },
   )
 })
@@ -405,6 +428,8 @@ describe('story-ab1ecd62 — the shared component resolves, is reported, and its
     link(path.join('packages', 'site-schema'))
     link(path.join('packages', 'framework', 'src', 'l1'))
     link(path.join('apps', 'control-app', 'src', 'builder'))
+    // A framework entry the build serves from outside those trees (REQ-210).
+    link(path.join('tools', 'generate', 'src', 'cli', 'capture', 'measure-svg.ts'))
     const modules = path.join('packages', 'framework', 'src', 'modules')
     mkdirSync(path.join(mirror, modules), { recursive: true })
     for (const entry of readdirSync(path.join(REPO, modules))) {
