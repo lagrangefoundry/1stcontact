@@ -2,13 +2,13 @@
 uid: acceptance_criterion-bf0d2b7c
 id: AC-1718
 type: acceptance_criterion
-title: The description is the one editable thing, undescribed material says so, and
-  a committed correction is stored as the material's description
+title: The description, and for uploads only the role, are the editable fields; undescribed
+  material says so, and a committed correction is stored as the material's description
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:54.222934+00:00'
-updated_at: '2026-09-14T07:06:46.781469+00:00'
+updated_at: '2026-11-08T13:55:10.435253+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-1500b111
@@ -18,10 +18,12 @@ fields:
 
 ## Criterion
 
-The description — what the platform understands the material to be — is the single editable thing
-on the detail view, and it is presented as such:
+The description, which says what the platform understands the material to be, is the main
+editable thing on the detail view and is presented as such:
 
-- exactly one field of the detail view accepts editing, and it is the description;
+- the editable fields of the detail view are the description and, **for material the client
+  uploaded and only for that**, *What it is for* (REQ-213, stated separately). On fetched or
+  captured material the description is the only editable field;
 - material that nothing has described yet shows, in place of a description, a statement that
   nothing has read it yet and an invitation to say what it is, rather than an empty box with no
   explanation;
@@ -39,8 +41,9 @@ on the detail view, and it is presented as such:
 Select a material carrying no description and observe the "nothing has read this yet" statement,
 with the empty description keeping its own placeholder rather than a rendered blank. Select a
 material whose description contains markdown and observe it rendered — headings as headings,
-emphasis as emphasis — and not as its markers. Observe that exactly one field on the pane is
-editable and that it is the description. Click it and observe an editor holding the markdown
-source. Type a replacement, commit it the way a client does (leave the field), and observe the
-new text stored against that material, shown back on the pane as rendered markdown, and shown in
-its row.
+emphasis as emphasis — and not as its markers. On an uploaded material, observe that exactly two
+fields are editable, the description and *What it is for*. On a fetched or captured material,
+observe that exactly one is, the description. Click the description and observe an editor
+holding the markdown source. Type a replacement, commit it the way a client does (leave the
+field), and observe the new text stored against that material, shown back on the pane as
+rendered markdown, and shown in its row.
