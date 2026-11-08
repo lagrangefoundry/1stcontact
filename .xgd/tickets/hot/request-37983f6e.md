@@ -16,11 +16,13 @@ fields:
   chat_comment: comment-18361267
   commits:
   - working_sha: d64e82a62d41306819c6bca7054d6de2087292e8
-    reconcile_sha: null
+    reconcile_sha: ab06df9eaff0e313068d9758434b593da86d4f05
     main_sha: null
+    working_sha_history: []
   - working_sha: d49d559f7a7e84ee819a576fe1a1cfed2f333af4
-    reconcile_sha: null
+    reconcile_sha: 8a4a9fad19184e9afc564000163ace245c2d925c
     main_sha: null
+    working_sha_history: []
   version: 0.2.143
 ---
 
