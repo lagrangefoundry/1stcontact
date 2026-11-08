@@ -6,16 +6,18 @@ title: 'Identity: add records a Lead, the invite mails a selection, provisioning
   a business, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-08T01:43:04.930528+00:00'
+updated_at: '2026-11-08T01:43:05.179830+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-e5939ceb
   story_kind: upgrade
   story_points: 3
-  updated_by: bundle-7988e925
+  updated_by:
+  - bundle-7988e925
+  - bundle-4164b433
 ---
 
 ## Story
