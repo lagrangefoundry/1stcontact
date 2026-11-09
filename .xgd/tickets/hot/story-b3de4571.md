@@ -6,9 +6,9 @@ title: Author a site's settings, components, page metadata and generated images 
   the control surface
 created_by: xgd
 created_at: '2026-08-10T09:32:44.463811+00:00'
-updated_at: '2026-11-09T22:41:29.315686+00:00'
+updated_at: '2026-11-09T22:41:29.566015+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -18,6 +18,7 @@ fields:
   uat_coverage: pass
   updated_by:
   - bundle-5607a08d
+  - bundle-374f88d6
 ---
 
 ## Story
