@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-44: BUG-80, REQ-217, BUG-83, BUG
   REQ-228, BUG-84, REQ-229)'
 created_by: xgd
 created_at: '2026-11-09T21:52:17.681797+00:00'
-updated_at: '2026-11-09T21:52:17.681797+00:00'
+updated_at: '2026-11-09T21:57:03.508834+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-374f88d6
@@ -53,7 +53,7 @@ fields:
         outside a MIME token is sanitised before it reaches the img src.
       modify: []
       remove: []
-    story_uid: null
+    story_uid: story-58b2cec4
   - index: 2
     component: 'Image tools: a picture made in a turn appears in that turn (REQ-217)'
     item_type: upgrade
