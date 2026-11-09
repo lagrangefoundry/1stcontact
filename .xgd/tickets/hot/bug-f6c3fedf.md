@@ -5,10 +5,10 @@ type: bug
 title: Homepage beta form posts to a route that does not exist
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:42:09.866810+00:00'
-updated_at: '2026-09-11T21:53:24.794150+00:00'
+updated_at: '2026-11-09T05:46:40.909227+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -27,6 +27,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.167
+  bundled_in: bundle-0881342c
 ---
 
 # Homepage beta form: the submit target does not exist, so the fetch never reaches a server

@@ -5,10 +5,10 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-09-12T00:19:13.306256+00:00'
+updated_at: '2026-11-09T05:46:39.685560+00:00'
 completed_at: null
-last_field_updated: body
-status: ready_to_reconcile
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   epic_parent: epic-34760bf1
@@ -26,6 +26,7 @@ fields:
     working_sha_history: []
   version: 0.2.164
   story_points: 8
+  bundled_in: bundle-0881342c
 ---
 
 ## The gap

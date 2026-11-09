@@ -5,10 +5,10 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-09-12T00:19:24.810608+00:00'
+updated_at: '2026-11-09T05:46:40.245214+00:00'
 completed_at: null
-last_field_updated: body
-status: ready_to_reconcile
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   epic_parent: epic-34760bf1
@@ -28,6 +28,7 @@ fields:
     working_sha_history: []
   version: 0.2.166
   story_points: 8
+  bundled_in: bundle-0881342c
 ---
 
 ## The gap
