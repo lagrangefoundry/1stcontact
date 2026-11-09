@@ -6,10 +6,10 @@ title: The Library name is one field in the detail pane and the modal, committed
   one call to the material's title, never its filename, and it persists
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T18:43:30.325796+00:00'
-updated_at: '2026-11-09T18:43:30.325796+00:00'
+updated_at: '2026-11-09T19:53:52.561291+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
