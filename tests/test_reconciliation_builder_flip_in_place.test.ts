@@ -26,7 +26,16 @@
  *
  * Navigations are observed as `src` attribute writes on the frames (a
  * MutationObserver records a write even when the value is unchanged), so "no
- * navigation" is asserted as "no write and no load", never inferred.
+ * navigation" is asserted as "no write and no load", never inferred. The
+ * observer's callback RECORDS what it is handed, so a write is still visible to
+ * `navsOf` after an `await` has let the records be delivered.
+ *
+ * THE WRITES ARE THE REAL ONES (AC-2521). A palette change goes through the
+ * toolbar's Colors popup, a segment save through the edit bridge's click and the
+ * segment modal's Save, and an assistant change through the pane's own turn. Only
+ * the HTTP behind each is stood in for: the palette transport and the chat
+ * transport are the builder's own seams for that, and the copy endpoint is
+ * answered at `fetch`.
  */
 import fs from 'node:fs'
 import { JSDOM, VirtualConsole } from 'jsdom'
@@ -91,8 +100,27 @@ interface Panel {
   on(event: string, cb: (d: unknown) => void): () => void
 }
 
+interface App {
+  panel: Panel
+  toolbar: { get(id: string): HTMLElement | null }
+  chat: { getChat(): { send(text: string): Promise<unknown> } | null }
+  destroy?: () => void
+}
+
+/** The palette the popup paints, and what a write of it answers. */
+const PALETTE_ENTRIES = [{ name: 'primary', value: '#112233', count: 1 }]
+
+/** One segment's copy envelope: a single colour field, so a pick makes it dirty. */
+const COPY_ENVELOPE = {
+  kind: 'container',
+  fields: [{ name: 'color', type: 'color', label: 'Colour' }],
+  values: { color: '#000000' },
+  palette: { primary: { value: '#112233' } },
+  panel: null,
+}
+
 /** `app.js` imports the webui components by bare specifier, hence the dynamic load. */
-let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => { panel: Panel; destroy?: () => void }
+let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => App
 let previewUrl: (slug: string, channel: string, rel?: string) => string
 
 const BUILDER_CSS = fs.readFileSync('apps/control-app/src/builder/builder.css', 'utf8')
@@ -101,7 +129,7 @@ if (!WEBUI_INSTALLED) console.warn(`story-e674c60a flip-in-place suite skipped: 
 
 describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in place (BUG-79)', () => {
   let root: HTMLElement
-  let app: { panel: Panel; destroy?: () => void }
+  let app: App
   /** True only while `arrive` is firing a frame's `load`. */
   let delivering = false
   /** What each frame is showing. */
@@ -126,6 +154,22 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     showing = new Map()
     envLoads = new Map()
     navLog = []
+    // The assistant's pane measures and queries media; jsdom has neither.
+    globalThis.ResizeObserver ??= class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as never
+    globalThis.matchMedia ??= ((q: string) => ({
+      matches: false,
+      media: q,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      onchange: null,
+      dispatchEvent: () => false,
+    })) as never
     root.addEventListener(
       'load',
       (ev) => {
@@ -151,9 +195,16 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
         get: () => showing.get(f)?.doc ?? null,
       })
     }
-    observer = new MutationObserver(() => {})
+    observer = new MutationObserver((records) => record(records))
     observer.observe(panelEl(), { attributes: true, attributeFilter: ['src'], subtree: true })
     return app
+  }
+
+  function record(records: MutationRecord[]) {
+    for (const r of records) {
+      const el = r.target as HTMLIFrameElement
+      navLog.push({ frame: el, src: el.getAttribute('src') })
+    }
   }
 
   const panelEl = () => root.querySelector('.builder-panel') as HTMLElement
@@ -166,10 +217,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     root.querySelector(`.builder-toolbar__modes button[data-mode="${id}"]`) as HTMLButtonElement
 
   function drain() {
-    for (const r of observer?.takeRecords() ?? []) {
-      const el = r.target as HTMLIFrameElement
-      navLog.push({ frame: el, src: el.getAttribute('src') })
-    }
+    record(observer?.takeRecords() ?? [])
   }
   const navsOf = (f: HTMLIFrameElement) => {
     drain()
@@ -182,6 +230,69 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
   }
   /** Let any environment-fired `load` land before counting. */
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  /** Wait, bounded, for a condition the composition reaches asynchronously. */
+  async function until(cond: () => boolean, what: string) {
+    for (let i = 0; i < 400 && !cond(); i++) await new Promise((r) => setTimeout(r, 5))
+    expect(cond(), `timed out waiting for ${what}`).toBe(true)
+  }
+
+  /** The open dialog holding `selector`, once it has painted. */
+  async function dialogWith(selector: string): Promise<HTMLElement> {
+    const find = () =>
+      ([...document.querySelectorAll('.builder-modal')] as HTMLElement[]).find((m) => m.querySelector(selector)) ??
+      null
+    await until(() => find() !== null, `a dialog holding ${selector}`)
+    return find() as HTMLElement
+  }
+
+  const buttonIn = (host: Element, label: string) =>
+    [...host.querySelectorAll('button')].find((b) => b.textContent === label) as HTMLButtonElement
+
+  /** Select a palette entry in the popup, as the operator's click on its swatch does. */
+  async function pickEntry(popup: HTMLElement, name: string) {
+    const input = () => popup.querySelector(`.builder-palette__swatch-input[value="${name}"]`) as HTMLInputElement | null
+    await until(() => input() !== null, `the ${name} swatch`)
+    const el = input() as HTMLInputElement
+    el.checked = true
+    el.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+
+  /** The palette origin, at the builder's own transport seam. */
+  function paletteOrigin() {
+    const writes: unknown[] = []
+    return {
+      writes,
+      transport: {
+        get: async () => ({ entries: PALETTE_ENTRIES }),
+        write: async (body: unknown) => {
+          writes.push(body)
+          return { entries: PALETTE_ENTRIES, count: 1 }
+        },
+      },
+    }
+  }
+
+  /** The copy endpoint (`/api/copy`), answered at `fetch`; everything else passes through. */
+  function copyOrigin() {
+    const real = globalThis.fetch
+    const posts: unknown[] = []
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (!url.includes('/api/copy')) return real(input, init)
+      if (init?.method === 'POST') posts.push(JSON.parse(String(init.body)))
+      return new Response(JSON.stringify(COPY_ENVELOPE), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }) as typeof fetch
+    return {
+      posts,
+      restore: () => {
+        globalThis.fetch = real
+      },
+    }
+  }
 
   /**
    * Deliver a real render to a frame, as a browser delivers it: a document at
@@ -289,8 +400,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     expect(shown()).toBe(editFrame())
     expect(app.panel.getSrc()).toBe(previewUrl('acme', 'edit', 'contact'))
     modeButton('view').click()
-    // Read before yielding: the observer hands its records to its callback at
-    // the next microtask, so a navigation is only observable synchronously.
+    // Read at once, before anything else could happen.
     expect(navsOf(viewFrame())).toEqual([])
     expect(navsOf(editFrame())).toEqual([])
     expect(viewFrame().getAttribute('src')).toBe(viewSrc)
@@ -431,15 +541,25 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     expect(back.scrolled.at(-1)).toBe(300)
   })
 
-  it('test_UAT_AC2521_a_write_reloads_the_shown_page_in_place_and_stales_the_others', async () => {
-    const { view, edit } = await mountBothLoaded()
+  it('test_UAT_AC2521_a_palette_change_reloads_the_shown_page_in_place_and_stales_the_others', async () => {
+    const palette = paletteOrigin()
+    const { view, edit } = await mountBothLoaded({ paletteTransport: palette.transport })
     expect(shown()).toBe(viewFrame())
 
-    app.panel.reloadDocument()
-    await tick()
+    // The operator changes a colour through the toolbar's Colors popup.
+    const colors = app.toolbar.get('colors') as HTMLElement
+    expect(colors).not.toBeNull()
+    colors.click()
+    const popup = await dialogWith('.builder-palette__list')
+    await pickEntry(popup, 'primary')
+    const hex = popup.querySelector('.builder-palette__hex-text') as HTMLInputElement
+    hex.value = '#123456'
+    hex.dispatchEvent(new Event('input', { bubbles: true }))
+    buttonIn(popup, 'Change color').click()
+    await until(() => palette.writes.length === 1 && view.reloads() > 0, 'the palette write and its reload')
 
-    // The shown document reloads in place: its own window's reload, not a
-    // re-pointed `src`.
+    // The shown document reloads in place: its own window's reload, once, and
+    // not a re-pointed `src`.
     expect(view.reloads()).toBe(1)
     expect(navsOf(viewFrame())).toEqual([])
     // The idle channel is not re-rendered at write time.
@@ -447,7 +567,11 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     expect(navsOf(editFrame())).toEqual([])
     expect(envLoads.get(editFrame()) ?? 0).toBe(0)
 
-    // The reload arrives; still nothing for the idle channel.
+    buttonIn(popup, 'Close').click()
+    await until(() => !popup.isConnected, 'the popup to close')
+
+    // The reload arrives; still nothing for the idle channel (it is stale, not
+    // pointed elsewhere, so it is not primed).
     await arrive(viewFrame(), 'draft', 'acme', '', 'View of acme, after the write')
     await tick()
     expect(navsOf(editFrame())).toEqual([])
@@ -462,23 +586,108 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     expect(seen).toEqual([])
     const fresh = await arrive(editFrame(), 'edit', 'acme', '', 'Edit of acme, after the write')
     expect(seen).toEqual([fresh.doc])
+  })
 
-    // Separately: a link followed inside the shown frame is kept by a write.
-    modeButton('view').click()
+  it('test_UAT_AC2521_a_segment_save_reloads_the_shown_page_in_place_and_stales_the_others', async () => {
+    const palette = paletteOrigin()
+    const { view, edit } = await mountBothLoaded({
+      editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
+      paletteTransport: palette.transport,
+    })
+    // The edit render names its page, as the origin's does, so a segment has an
+    // address to save against.
+    edit.doc.body.setAttribute(L1_EDIT_PAGE_ATTR, 'home')
+
+    // The operator is editing: Edit is shown, View is the idle channel.
+    modeButton('edit').click()
+    await tick()
+    expect(shown()).toBe(editFrame())
     clearNavs()
+
+    const copy = copyOrigin()
+    try {
+      // Click a segment on the page on screen, stage a colour, and Save.
+      const segment = edit.doc.querySelector(`[${L1_EDIT_SEGMENT_ATTR}]`) as HTMLElement
+      expect(segment).not.toBeNull()
+      segment.dispatchEvent(new edit.win.MouseEvent('click', { bubbles: true, cancelable: true }))
+      const modal = await dialogWith('.builder-color__swatch')
+      ;(modal.querySelector('.builder-color__swatch') as HTMLButtonElement).click()
+      const picker = await dialogWith('.builder-palette__list')
+      await pickEntry(picker, 'primary')
+      buttonIn(picker, 'Use this color').click()
+      await until(() => !picker.isConnected, 'the colour picker to answer')
+      await tick()
+      buttonIn(modal, 'Save').click()
+      await until(() => copy.posts.length === 1 && edit.reloads() > 0, 'the save and its reload')
+      await until(() => !modal.isConnected, 'the segment modal to close')
+    } finally {
+      copy.restore()
+    }
+
+    // The shown document (Edit) reloads in place, once.
+    expect(edit.reloads()).toBe(1)
+    expect(navsOf(editFrame())).toEqual([])
+    // The idle channel is not re-rendered at write time…
+    expect(view.reloads()).toBe(0)
+    expect(navsOf(viewFrame())).toEqual([])
+    expect(envLoads.get(viewFrame()) ?? 0).toBe(0)
+
+    // …but it is out of date: the next flip to it fetches rather than revealing
+    // the pre-write page. Read before any await.
+    const seen: unknown[] = []
+    app.panel.on('document', (d) => seen.push(d))
+    modeButton('view').click()
+    expect(navsOf(viewFrame())).toEqual([previewUrl('acme', 'draft')])
+    expect(seen).not.toContain(view.doc)
+  })
+
+  it('test_UAT_AC2521_an_assistant_change_reloads_the_linked_page_in_place_and_stales_the_others', async () => {
+    const { view } = await mountBothLoaded({
+      chatTransport: {
+        openSession: async (slug: string) => ({ sessionId: `site-${slug}`, turns: [], ready: true }),
+        streamPrompt: async function* () {
+          yield { kind: 'tool_activity', content: 'tool_call set_copy', meta: { name: 'set_copy' } }
+          yield { kind: 'site_changed', content: '', meta: { at: 1, changes: 1 } }
+          yield { kind: 'text', content: 'Done.' }
+          yield { kind: 'done' }
+        },
+      },
+    })
+    expect(shown()).toBe(viewFrame())
+
+    // The reader follows a link inside View; Edit is primed at that page behind
+    // it and arrives there.
     const linked = await arrive(viewFrame(), 'draft', 'acme', 'contact', 'Contact page')
     // The pane never re-pointed the frame; the document moved by itself.
     expect(viewFrame().getAttribute('src')).toBe(previewUrl('acme', 'draft'))
-    clearNavs()
-    app.panel.reloadDocument()
+    const linkedEdit = await arrive(editFrame(), 'edit', 'acme', 'contact', 'Edit of contact')
     await tick()
+    clearNavs()
+
+    // The assistant writes the site in a turn.
+    await until(() => app.chat.getChat() !== null, 'the assistant session')
+    await (app.chat.getChat() as { send(text: string): Promise<unknown> }).send('Make the headline bigger.')
+    await tick()
+
     // The reload is the linked document's own, so it reloads the linked page —
-    // not the page the mode first opened.
+    // not the page the mode first opened — and the page that was left is not.
     expect(linked.reloads()).toBe(1)
+    expect(view.reloads()).toBe(0)
     expect(new URL(linked.win.location.href).pathname).toBe(
       new URL(previewUrl('acme', 'draft', 'contact'), window.location.origin).pathname,
     )
     expect(navsOf(viewFrame())).toEqual([])
+    // The idle channel is not re-rendered at write time…
+    expect(linkedEdit.reloads()).toBe(0)
+    expect(navsOf(editFrame())).toEqual([])
+
+    // …and the next flip to it fetches the same page, newer, rather than
+    // revealing the pre-write one. Read before any await.
+    const seen: unknown[] = []
+    app.panel.on('document', (d) => seen.push(d))
+    modeButton('edit').click()
+    expect(navsOf(editFrame())).toEqual([previewUrl('acme', 'edit', 'contact')])
+    expect(seen).not.toContain(linkedEdit.doc)
   })
 
   it('test_UAT_AC2522_a_change_of_site_or_a_refresh_invalidates_every_channel', async () => {
@@ -536,9 +745,8 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     // View's new-site document arrives. Before any flip, the idle Edit frame —
     // still holding acme's edit page, a different address — is primed at
     // other's edit page behind it.
-    // Asserted on the attribute: the prime runs inside the load `arrive`
-    // dispatches, and the observer hands its records to its callback at the
-    // microtask `await` yields, so `navsOf` would read empty here either way.
+    // Asserted on the attribute as well as the write: the prime runs inside the
+    // load `arrive` dispatches.
     expect(editFrame().getAttribute('src')).toBe(previewUrl('acme', 'edit'))
     await arrive(viewFrame(), 'draft', 'other', '', 'View of other')
     expect(shown()).toBe(viewFrame())
