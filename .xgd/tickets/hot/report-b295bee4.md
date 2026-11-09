@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T14:30:01.151796+00:00'
-updated_at: '2026-11-09T14:30:01.151796+00:00'
+updated_at: '2026-11-09T14:37:33.003961+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -34,6 +34,7 @@ fields:
       rung3: 'Tests stand; AC-688 is excluded as stuck on XGD BUG-1695 plus missing
         browser binaries (operator: pnpm --filter ./tools/generate exec playwright
         install webkit firefox).'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 45
