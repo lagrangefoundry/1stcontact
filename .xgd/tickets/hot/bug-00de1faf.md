@@ -5,7 +5,7 @@ type: bug
 title: 'Builder: View/Edit flips in place instead of reloading the pane'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T01:55:00.746671+00:00'
-updated_at: '2026-11-09T05:28:49.363084+00:00'
+updated_at: '2026-11-09T05:35:08.751155+00:00'
 completed_at: '2026-11-09T05:28:49.363084+00:00'
 last_field_updated: status
 status: free_and_reconciled
@@ -16,14 +16,9 @@ fields:
   chat_comment: comment-d003a9da
   severity: medium
   commits:
-  - working_sha: e6499d30402df06c616bb368f66ca5e9f2f396d8
-    reconcile_sha: 045c153c96a00d1da9f8b39f658f4184040ac538
-    main_sha: null
-    working_sha_history: []
-  - working_sha: ca7053f3e91098e73a92047025249d719cc27d03
-    reconcile_sha: 416e88ced0978766426cee9654f1b05020330c1b
-    main_sha: null
-    working_sha_history: []
+  - working_sha: null
+    reconcile_sha: null
+    main_sha: 915bbd249dddfc604fdd6f12fd1f312c90b35039
   version: 0.2.160
   story_points: 3
   regression_anchor_uid: report-d402710c
@@ -33,6 +28,7 @@ fields:
   session_builder_started_at: '2026-11-09T04:24:40.130279+00:00'
   session_assessor: b4af1ae2-8410-415b-9bac-788e7ee31ca7
   session_assessor_started_at: '2026-11-09T04:35:10.809120+00:00'
+  merged_at_commit: 915bbd249dddfc604fdd6f12fd1f312c90b35039
 ---
 
 ## Symptom
