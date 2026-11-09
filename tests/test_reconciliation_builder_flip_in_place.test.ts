@@ -536,10 +536,14 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     // View's new-site document arrives. Before any flip, the idle Edit frame —
     // still holding acme's edit page, a different address — is primed at
     // other's edit page behind it.
+    // Asserted on the attribute: the prime runs inside the load `arrive`
+    // dispatches, and the observer hands its records to its callback at the
+    // microtask `await` yields, so `navsOf` would read empty here either way.
+    expect(editFrame().getAttribute('src')).toBe(previewUrl('acme', 'edit'))
     await arrive(viewFrame(), 'draft', 'other', '', 'View of other')
     expect(shown()).toBe(viewFrame())
-    expect(navsOf(editFrame())).toEqual([previewUrl('other', 'edit')])
-    expect(navsOf(viewFrame())).toEqual([])
+    expect(editFrame().getAttribute('src')).toBe(previewUrl('other', 'edit'))
+    expect(viewFrame().getAttribute('src')).toBe(previewUrl('other', 'draft'))
 
     // The primed document arrives while hidden; the flip then reveals it in
     // place, holding other's edit document and never acme's.
