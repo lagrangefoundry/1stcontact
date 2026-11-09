@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-11-09T23:31:39.439147+00:00'
+updated_at: '2026-11-09T23:31:39.726186+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -985,3 +985,65 @@ holds with no knowledge base present at all.
 ## Story Points
 
 3
+
+
+
+## REQ-228 Half A — reading the business's own tickets (reconciled 2026-11-09, BUNDLE-44)
+
+This section extends the story's *In scope* list above and amends one
+*Out of scope* bullet; it is placed here rather than inline because it was
+added during reconciliation of BUNDLE-44.
+
+**In scope (added):**
+
+- **Reading what this business already has** — on the deployed host the
+  consultant can read the business's own ticket store through the shared ticket
+  surface: any ticket by identifier, its comments, backlinks and history, and a
+  query over the store. That store holds every earlier conversation with this
+  client as a `chat` ticket, with the conversation's ledger as its body and its
+  transcript as a `chat_transcript` comment, alongside the client's uploaded
+  material and the engagement ledgers — so the assistant can look up what it and
+  this client already worked out. It reads; it never writes through this
+  surface (the one write it has into a ticket is the ledger operation above,
+  confined to this conversation's own ticket). The grant is gated, audited and
+  offered from the same surface as every other operation, and it reaches this
+  business only: the store is bound to the business before the surface is built,
+  and a reference naming another project is refused. On the command line there
+  is no ticket store and the surface is simply absent.
+
+**Out of scope (amended):** the bullet *"The tenant's own knowledge base … Nothing
+here is tenant-scoped"* continues to hold for the **knowledge corpus** (search and
+the awareness map). It no longer holds for tickets: the read access above is
+tenant-scoped by construction. How the client's corpus is indexed and searched
+remains the client knowledge base capability's.
+
+### Reconciliation Decisions — 2026-11-09 (BUNDLE-44, REQ-228 Half A)
+
+Intent: REQ-228 *Half A — grant the ticket surface* and *Half A is granted, and
+the reach into past conversations is the point* (operator decision 2026-09-11),
+resolved at ladder level 1 (the intent ticket body): *"the consultant is granted
+`ReadTickets` over this client's whole store. `WriteTickets` is still withheld"*;
+*"That reach is the intention, not a side effect to be narrowed"*; *"Both surfaces
+are composed only where there is a ticket store. The `1c` CLI has none"*.
+
+- **Two criteria, not five.** The code's suite pins five claims (read-not-write,
+  past conversations readable, local-only by unset axes, grant travels with the
+  surface, tenant handle is the barrier). They are one observable capability —
+  what the consultant can and cannot reach through the ticket surface — so they
+  are one criterion; absence on the CLI is the second because it fails
+  independently.
+- **"Local-only falls out of unset axes" is design, not criterion.** The
+  observable half — every ticket in the own store readable, another project's
+  reference refused — is in the criterion; that it is achieved by leaving the
+  `project`/`ticket` scope axes unset rather than by a predicate is recorded here
+  only.
+- **"The grant is not in `instances.json`" is kept in the criterion** because the
+  file is a published configuration artifact and the intent states the rule
+  explicitly; a grant moved there would be unchecked by the declaration
+  validator.
+- **Unconditional on the Worker host** — formalised now (intent silent on the
+  interaction with the other optional surfaces): the code composes the ticket
+  surface regardless of knowledge base, image credential, renderer or catalogue,
+  because the Worker host always has a ticket store. Rationale: reading tickets
+  needs no site or corpus, and the transcript itself lives in that store.
+- **No code-issue found.** The code matches the intent on every point checked.
