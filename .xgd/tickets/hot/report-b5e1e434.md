@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-aacb7060'
 created_by: xgd
 created_at: '2026-11-09T23:49:10.102737+00:00'
-updated_at: '2026-11-09T23:49:10.102737+00:00'
+updated_at: '2026-11-09T23:55:45.302951+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-aacb7060
@@ -38,6 +38,7 @@ fields:
       criterion) or AC-1712 (orphaned acceptance criterion) or AC-1713 (orphaned acceptance
       criterion) or test_UAT_AC2015 or test_UAT_AC2016 or test_UAT_AC2017 or test_UAT_AC1709
       or test_UAT_AC1710 or test_UAT_AC1711 or test_UAT_AC1712 or test_UAT_AC1713
+  batches_pending: false
 ---
 
 {
