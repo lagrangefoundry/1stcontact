@@ -6,10 +6,10 @@ title: A behaviour module's own panel is untouched by state application and keep
   its declared settled state
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T23:48:29.618427+00:00'
-updated_at: '2026-11-08T23:48:29.618427+00:00'
+updated_at: '2026-11-09T00:07:48.966898+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e214a00d
   kind: behavior
