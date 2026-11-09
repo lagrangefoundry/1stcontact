@@ -6,10 +6,10 @@ title: A no-JavaScript form POST is captured identically and receives an HTML co
   page
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T00:30:15.155718+00:00'
-updated_at: '2026-11-09T00:44:50.379358+00:00'
+updated_at: '2026-11-09T00:54:12.614378+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f2e5032c
   kind: behavior
