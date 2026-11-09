@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T08:59:20.775506+00:00'
-updated_at: '2026-11-09T08:59:20.775506+00:00'
+updated_at: '2026-11-09T09:06:48.754298+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -35,6 +35,7 @@ fields:
       rung3: Tests stand; AC-688 orphan status is XGD tooling defect BUG-1696 plus
         a sandbox-blocked browser install, excluded from batches per BUG-1067.
   fix_iteration: 16
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 16
