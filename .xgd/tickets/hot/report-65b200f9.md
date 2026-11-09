@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-44: BUG-80, REQ-217, BUG-83, BUG
   REQ-228, BUG-84, REQ-229)'
 created_by: xgd
 created_at: '2026-11-09T21:52:17.681797+00:00'
-updated_at: '2026-11-09T23:19:18.280406+00:00'
+updated_at: '2026-11-09T23:32:12.739222+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -206,7 +206,7 @@ fields:
         session opens normally.
       modify: []
       remove: []
-    story_uid: null
+    story_uid: story-a58a0974
   - index: 6
     component: Site-asset rights gate on the seed/push door (BUG-84)
     item_type: upgrade
