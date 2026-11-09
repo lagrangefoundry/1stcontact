@@ -55,10 +55,12 @@ import type {
  * rule (`resolveStoredImage` via `mergeImageLibraries`, assembled exactly as
  * `router.ts` assembles it), the site half (`siteImageLibrary` over a real
  * in-memory `SiteStore`), the Library half (`materialImageLibrary`), the
- * rasteriser's wrapper document, the reduction and the content-type table.
+ * rasteriser's shell document and byte delivery (BUG-80), the reduction and the
+ * content-type table.
  *
  * TWO DOUBLES, both genuine external boundaries:
- *   - the BROWSER — a `BrowserDriver` that records every lease and navigation,
+ *   - the BROWSER — a `BrowserDriver` that records every lease, navigation and
+ *     evaluated script (so the byte deliveries can be read back),
  *     answers the decode question as a browser would (or reports a failed
  *     decode), and screenshots a real PNG of whatever size it is asked for;
  *   - D1 — the ticket store `materialImageLibrary` reads, answered out of memory
@@ -106,6 +108,8 @@ const PNG_BASE64_HEAD = 'iVBORw0KGgo'
 interface BrowserLog {
   leases: number
   navigated: string[]
+  /** Every script the page was asked to evaluate, in order. */
+  queried: string[]
 }
 
 /**
@@ -115,7 +119,7 @@ interface BrowserLog {
  * was laid out at, or `null` for a picture the browser would not decode.
  */
 function browser(layout: { width: number; height: number } | null = { width: 200, height: 100 }) {
-  const log: BrowserLog = { leases: 0, navigated: [] }
+  const log: BrowserLog = { leases: 0, navigated: [], queried: [] }
   class RecordingDriver implements BrowserDriver {
     async navigate(url: string, _viewport?: Viewport): Promise<void> {
       log.navigated.push(url)
@@ -125,7 +129,8 @@ function browser(layout: { width: number; height: number } | null = { width: 200
       const h = viewport?.height ?? layout?.height ?? 48
       return png(solid(w, h, [12, 34, 56]))
     }
-    async query<T>(_script: string): Promise<T> {
+    async query<T>(script: string): Promise<T> {
+      log.queried.push(script)
       if (!layout) return { ok: false } as T
       return { ok: true, ...layout, naturalWidth: layout.width, naturalHeight: layout.height } as T
     }
@@ -151,6 +156,65 @@ function browser(layout: { width: number; height: number } | null = { width: 200
 function documentOf(url: string): string {
   expect(url.startsWith('data:text/html;base64,')).toBe(true)
   return new TextDecoder().decode(base64ToBytes(url.slice('data:text/html;base64,'.length)))
+}
+
+const bytesToBase64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64')
+
+/** The base64 one byte delivery carried, or `null` for any other script. */
+function deliveredChunk(script: string): string | null {
+  return /window\.__pic=window\.__pic\|\|\[\]\)\.push\("([A-Za-z0-9+/=]*)"\)/.exec(script)?.[1] ?? null
+}
+
+/**
+ * Each rasterisation the browser was asked for, read back out of the scripts it
+ * evaluated: the base64 its byte deliveries carried, joined in order, and the
+ * script that assembled them into the `<img>` and asked it to decode.
+ */
+function deliveries(log: BrowserLog): { base64: string; decode: string }[] {
+  const out: { base64: string; decode: string }[] = []
+  let chunks: string[] = []
+  for (const script of log.queried) {
+    const chunk = deliveredChunk(script)
+    if (chunk !== null) chunks.push(chunk)
+    else if (script.includes('img.decode')) {
+      out.push({ base64: chunks.join(''), decode: script })
+      chunks = []
+    }
+  }
+  return out
+}
+
+/**
+ * BUG-80 / AC-2485: the `index`th stored picture reached the browser through
+ * its delivery channel, not the address it was navigated to. The navigated
+ * address is the constant shell (an empty `<img>`, no picture, nothing to
+ * fetch); the delivered chunks join to exactly the picture's base64; and the
+ * decode script names the picture's own media type.
+ */
+function expectDeliveredThroughTheShell(
+  log: BrowserLog,
+  index: number,
+  bytes: Uint8Array,
+  mediaType: string,
+): void {
+  const picture = bytesToBase64(bytes)
+  const url = log.navigated[index]
+  // The shell: the same address for every picture, a few hundred characters.
+  expect(url).toBe(log.navigated[0])
+  expect(url.length).toBeLessThan(1000)
+  expect(url).not.toContain(picture)
+  const shell = documentOf(url)
+  expect(shell).toContain('<img id="stored">')
+  expect(shell).not.toContain(picture)
+  expect(shell).not.toContain(';base64,')
+  expect(shell).not.toMatch(/https?:\/\//)
+
+  const delivered = deliveries(log)[index]
+  expect(delivered, `delivery ${index}`).toBeDefined()
+  expect(delivered.base64).toBe(picture)
+  expect(delivered.decode).toContain(`'data:${mediaType};base64,'`)
+  expect(delivered.decode).not.toContain('application/octet-stream')
+  expect(delivered.decode).not.toMatch(/https?:\/\//)
 }
 
 // ── the Library, over a D1 answered out of memory ────────────────────────────
@@ -512,14 +576,13 @@ describe('a stored picture comes back as an image', () => {
     }
     expect(passthrough.eyes.log.leases).toBe(0)
 
-    // JPEG: a browser is leased and shown a data: document with the bytes inline.
+    // JPEG: a browser is leased, navigated to the constant shell, and handed the
+    // bytes through its delivery channel (BUG-80) — never sent to fetch them.
     const blocks = blocksOf(await shoot(box, { kind: 'image', image: 'photo.jpg' }))
     expect(passthrough.eyes.log.leases).toBe(1)
     expect(passthrough.eyes.log.navigated).toHaveLength(1)
-    const doc = documentOf(passthrough.eyes.log.navigated[0])
-    const inline = btoa(String.fromCharCode(...jpegBytes(3)))
-    expect(doc).toContain(`src="data:image/jpeg;base64,${inline}"`)
-    expect(doc).not.toMatch(/https?:\/\//)
+    expect(deliveries(passthrough.eyes.log)).toHaveLength(1)
+    expectDeliveredThroughTheShell(passthrough.eyes.log, 0, jpegBytes(3), 'image/jpeg')
     expect(pngDimensions(imageBytesOf(blocks), 'jpeg')).toEqual({ width: 200, height: 100 })
     expect(textOf(blocks)).toContain('site image photo.jpg — 200×100')
 
@@ -561,7 +624,7 @@ describe('a drawing says how it was photographed, and a stored picture cannot be
     expect(caption.text).toContain('letter widths and line breaks')
     expect(caption.text).toContain('not evidence')
     expect(caption.text).toContain('measure_drawing')
-    expect(documentOf(eyes.log.navigated[0])).toContain('src="data:image/svg+xml;base64,')
+    expectDeliveredThroughTheShell(eyes.log, 0, svgBytes(), 'image/svg+xml')
 
     const photo = blocksOf(await shoot(box, { kind: 'image', image: 'photo.jpg' }))
     expect(textOf(photo)).not.toContain('default face')
@@ -718,12 +781,12 @@ describe('compare accepts a stored picture on either side', () => {
     expect(swapped.meanDifference).toBe(forward.meanDifference)
     expect(swapped.percentDifferent).toBe(forward.percentDifferent)
 
-    // The non-PNG side was rasterised the way `screenshot` rasterises it: a
-    // data: document carrying the JPEG's own bytes inline.
-    expect(eyes.log.navigated.length).toBeGreaterThan(0)
-    const inline = btoa(String.fromCharCode(...jpegBytes(5)))
-    for (const url of eyes.log.navigated) {
-      expect(documentOf(url)).toContain(`src="data:image/jpeg;base64,${inline}"`)
+    // The non-PNG side was rasterised the way `screenshot` rasterises it: the
+    // constant shell, then the JPEG's own bytes through the delivery channel.
+    expect(eyes.log.navigated).toHaveLength(2)
+    expect(deliveries(eyes.log)).toHaveLength(2)
+    for (const index of [0, 1]) {
+      expectDeliveredThroughTheShell(eyes.log, index, jpegBytes(5), 'image/jpeg')
     }
 
     // A Library picture is labelled as one when it is a side.
@@ -770,10 +833,8 @@ describe('.gif and .avif site assets carry their image content types', () => {
     const box = await consultantBox(fixture, deps)
     blocksOf(await shoot(box, { kind: 'image', image: 'anim.gif' }))
     blocksOf(await shoot(box, { kind: 'image', image: 'photo.avif' }))
-    expect(documentOf(eyes.log.navigated[0])).toContain('src="data:image/gif;base64,')
-    expect(documentOf(eyes.log.navigated[1])).toContain('src="data:image/avif;base64,')
-    for (const url of eyes.log.navigated) {
-      expect(documentOf(url)).not.toContain('application/octet-stream')
-    }
+    expect(eyes.log.navigated).toHaveLength(2)
+    expectDeliveredThroughTheShell(eyes.log, 0, gifBytes(), 'image/gif')
+    expectDeliveredThroughTheShell(eyes.log, 1, new Uint8Array([0, 0, 0, 0x1c]), 'image/avif')
   })
 })
