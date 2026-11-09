@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for report-d402710c'
 created_by: xgd
 created_at: '2026-11-09T04:24:23.120625+00:00'
-updated_at: '2026-11-09T04:33:09.088130+00:00'
+updated_at: '2026-11-09T04:35:32.605759+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: report-d402710c
@@ -39,6 +39,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
