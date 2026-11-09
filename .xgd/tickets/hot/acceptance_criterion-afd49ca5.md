@@ -6,10 +6,10 @@ title: The builder's empty detail state is one styled box shared by the Library 
   Contacts
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T14:25:09.915984+00:00'
-updated_at: '2026-11-08T14:25:09.915984+00:00'
+updated_at: '2026-11-09T00:26:47.928834+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
