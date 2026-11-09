@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: free-coded BUG-79 (View/Edit flips in place)'
 created_by: xgd
 created_at: '2026-11-09T03:08:27.020857+00:00'
-updated_at: '2026-11-09T03:08:27.020857+00:00'
+updated_at: '2026-11-09T03:14:58.181928+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bug-00de1faf
@@ -46,7 +46,7 @@ fields:
       says ''The fix is not a better restore. It is not to navigate.'' The FC test
       tests/test_UAT_FC_BUG-79_flip_in_place.test.ts (6 UATs) has no AC yet and must
       be mapped to ACs here.'
-    story_uid: null
+    story_uid: story-e674c60a
     target_story_ids:
     - story-e674c60a
     acceptance_criteria_changes:
