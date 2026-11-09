@@ -6,7 +6,7 @@ title: An SVG drawing carries a default-face caption pointing to measure_drawing
   after on an image picture is refused
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T23:03:35.000286+00:00'
-updated_at: '2026-11-09T01:25:30.093015+00:00'
+updated_at: '2026-11-09T02:13:55.984362+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -27,4 +27,4 @@ A raster stored picture carries no such caption. An `image` picture carrying `af
 ## Verification
 Screenshot a stored `.svg` site asset and assert the leading text block contains the default-face caption, says letter widths and line breaks are not evidence, and names `measure_drawing`; screenshot a stored JPEG and assert no such caption. Call `screenshot` with `{kind: 'image', image: 'hero.png', after: ['click "Go"']}` and assert the refusal says a stored picture is not a page and names `edit_image`, with the image store and browser doubles unused.
 
-> **Divergence and code issue** (BUNDLE-42 reconciliation review, 2026-11-08). The shipped caption (`DRAWING_RASTER_NOTE`, `tools/generate/src/cli/picture.ts:329-332`, mirrored in `fidelity-surface.json`) names the default face and `measure_drawing` but does **not** say letter widths and line breaks are not evidence. This AC states the EPIC-1 intent. Code is frozen in this reconcile, so the one-line caption change needs a scoped code_frozen exception on `picture.ts` (and the surface JSON if it carries the text). Until that lands, the existing UAT (`tests/reconciliation-assistant-sees-a-stored-picture.test.ts`, the AC-2486 case) pins only the default-face and `measure_drawing` halves, and must gain the letter-widths/line-breaks assertion together with the code change. See STORY-157 "Code issue flagged — the drawing caption does not say letter widths are not evidence".
+> **Resolved** (BUNDLE-42 reconciliation review, 2026-11-08; code_frozen override report-0fca9951). The caption gap recorded here earlier is closed. `DRAWING_RASTER_NOTE` (`tools/generate/src/cli/picture.ts:331-335`) and the surface prose (`tools/generate/src/cli/ai/fidelity-surface.json:200`) now say letter widths and line breaks are not evidence. The UAT (`tests/reconciliation-assistant-sees-a-stored-picture.test.ts`, the AC-2486 case, :560-562) asserts all three halves: default face, not evidence, and `measure_drawing`. One divergence remains and is recorded on STORY-157: drawings are still rasterised in a bare `data:` document rather than the site's draft preview.
