@@ -6,10 +6,10 @@ title: 'Public forms accept a submission: anonymous lead capture with asset deli
   and anti-abuse controls'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T00:28:58.988888+00:00'
-updated_at: '2026-11-09T19:55:56.112689+00:00'
+updated_at: '2026-11-09T19:57:25.301581+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-7ba3af93
   capability_uid: capability-e5939ceb
