@@ -6,10 +6,10 @@ title: get_library_item returns one item with its description, by catalogue name
   filename or title
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T23:18:42.343670+00:00'
-updated_at: '2026-11-09T23:18:42.343670+00:00'
+updated_at: '2026-11-09T23:29:52.648965+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a0b20525
   kind: behavior
