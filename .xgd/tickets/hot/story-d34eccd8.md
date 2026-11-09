@@ -6,9 +6,9 @@ title: 'Serve a published site: a URL names a site, the revision record says whi
   bytes'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-11-09T00:59:13.582536+00:00'
+updated_at: '2026-11-09T06:20:09.375104+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -146,22 +146,31 @@ In scope:
   writer recorded.
 - **Freshness policy that matches addressing, and a cache that follows it.**
   Published addresses are not revision-scoped, so they carry a short lifetime
-  and are never declared immutable. A repeat anonymous request for an address
-  that already answered is served without reading the store again, while a
-  not-found is never retained — an address that answered not-found begins serving
-  the moment a publish makes it real, with no wait and no manual invalidation.
-  Published sites are meant to be indexed, so no response asks a crawler to stay
-  away.
+  and are never declared immutable — with one exception whose name cannot change
+  meaning (next bullet). A repeat anonymous request for an address that already
+  answered is served without reading the store again, while a not-found is never
+  retained — an address that answered not-found begins serving the moment a
+  publish makes it real, with no wait and no manual invalidation. Published sites
+  are meant to be indexed, so no response asks a crawler to stay away.
+- **A delivery rendition is cached forever (REQ-222).** The image renditions a
+  publish writes under a site's derived-assets path are named for the source
+  bytes and the width they were rendered at, so a file at that path can never
+  change meaning. They are served publicly cacheable for a year and declared
+  immutable, so a repeat visitor never pays for the same smaller photograph
+  twice. The requested path decides: every other published byte, including the
+  original picture and any page reached by the clean-URL fallback, keeps the
+  short lifetime.
 
 Out of scope: authentication beyond reading an existing session to pick the
 chrome's state — issuing sessions, the sign-in endpoint, and access control are
 not here; the account-chrome module itself (its states, markup and preset belong
 to the module-catalog story); custom domains and per-site subdomain routing; the
 clean-URL agreement between the local preview server and this one, which is its
-own story; minting a revision and writing the bytes, which are the operator
-half's; and the behaviour of the lead endpoint itself (validation, controls,
-acknowledgement, contact write, asset delivery), which is the REQ-223
-lead-capture story's. This story pins only that the doorway is the one exception.
+own story; minting a revision and writing the bytes — including building the
+image width ladder — which are the operator half's; and the behaviour of the lead
+endpoint itself (validation, controls, acknowledgement, contact write, asset
+delivery), which is the REQ-223 lead-capture story's. This story pins only that
+the doorway is the one exception.
 
 ## Technical Context
 
@@ -185,7 +194,9 @@ lead-capture story's. This story pins only that the doorway is the one exception
   the record-authority criterion instead: every key is composed from a
   server-side constant plus a value the record supplied, so no request can name
   bytes outside a live revision's rendered output — the frozen definition
-  shipped beside that output included.
+  shipped beside that output included. The tenant-scoped rendition cache the
+  publish keeps sits outside every revision's rendered output, so it is
+  unreachable by the same rule.
 - **The apex holding response is superseded (REQ-200, BUNDLE-38).** The earlier
   criterion that the root returned a fixed greeting and never served a site
   (AC-913) is retired as superseded: REQ-200 states that the greeting is replaced
@@ -197,6 +208,10 @@ lead-capture story's. This story pins only that the doorway is the one exception
   is resolved through `parseRoute` (apex path `/api/lead`, or the keyed site's
   asset path `/api/lead`), before the method gate. Everything else falls to the
   `405` with `allow: GET, HEAD`. The handler is `apps/public-site/src/lead.ts`.
+- **The immutable rendition (REQ-222, BUNDLE-43).** Code evidence:
+  `apps/public-site/src/index.ts` chooses the cache header from the *requested*
+  path — `assets/d/` gets `public, max-age=31536000, immutable`, everything else
+  `public, max-age=60`.
 - **One operator step remains for production.** The front-page definition is
   committed but its key is minted only when it is published, so the apex key
   configuration cannot be committed ahead of it. Until it is set the apex answers
@@ -206,6 +221,8 @@ lead-capture story's. This story pins only that the doorway is the one exception
   client can pair newly published markup with a previously cached stylesheet. The
   criteria pin the short lifetime, not the absence of the window; closing it
   (revision-scoped published asset paths, or a purge on publish) is additive.
+  Content-addressed renditions are the first bytes to which the closed form
+  already applies.
 - **Carried-forward uncertainty:** the end-to-end check against a live bucket and
   the apex custom-domain provisioning have never been run in session. The
   evidence drives the real request entry point — inside the Workers runtime
@@ -287,11 +304,26 @@ Recorded 2026-11-08 during reconciliation of BUNDLE-42 (REQ-223):
     gets the ordinary not-found unless a published page sits at that path. No
     criterion singles it out.
 
+Recorded 2026-11-08 during reconciliation of BUNDLE-43 (REQ-222):
+
+11. **"Never immutable" gains exactly one exception: the delivery rendition**
+    (settled at ladder level 1). REQ-222: *"A content-addressed rendition is
+    that today — `<sha>-<width><ext>` over the source bytes … so the ladder takes
+    it now. The requested path decides, so nothing else inherits it."* Body,
+    code and plan agree. AC-909 is amended to carve out the derived-assets path
+    and nothing else; the immutable policy itself is pinned in its own criterion.
+12. **A year, stated as such** (decided now, 2026-11-08). REQ-222 says
+    "cached forever" and does not name a lifetime. The code uses one year with
+    the immutable directive, the conventional ceiling for "forever"; the
+    criterion pins both.
+
 ## Dependencies
 
 - The operator half of the same capability — hard: this story serves the storage
   layout and reads the revision log that story writes. Since REQ-190 there is no
-  slug claim between them: the address is the site key the store mints.
+  slug claim between them: the address is the site key the store mints. Since
+  REQ-222 that layout includes the derived-assets path the immutable policy keys
+  on.
 - The account-chrome module (module-catalog story, REQ-200) — hard for the
   session criteria: the server rewrites the state attribute that module emits.
 - REQ-134 (lagrange-framework) sessions — soft: absent session tables read as
