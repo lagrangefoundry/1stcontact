@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded BUNDLE-43 (REQ-222, REQ-221, REQ-219, RE
   BUG-78)'
 created_by: xgd
 created_at: '2026-11-09T06:16:50.788808+00:00'
-updated_at: '2026-11-09T06:16:50.788808+00:00'
+updated_at: '2026-11-09T06:21:25.804596+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-0881342c
@@ -60,7 +60,7 @@ fields:
     intent_delta_summary: Publish additionally freezes a per-revision, content-addressed,
       never-upscaled width ladder and manifest; serving marks renditions immutable.
       The draft is unchanged.
-    story_uid: null
+    story_uid: story-5349d01f
   - index: 2
     component: L1 renderer — srcset, sizes, intrinsic dimensions and the background
       ladder
