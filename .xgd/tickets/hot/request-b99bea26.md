@@ -5,7 +5,7 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-11-09T20:39:10.193166+00:00'
+updated_at: '2026-11-09T20:39:13.097709+00:00'
 completed_at: '2026-11-09T20:39:10.193166+00:00'
 last_field_updated: status
 status: free_and_reconciled
