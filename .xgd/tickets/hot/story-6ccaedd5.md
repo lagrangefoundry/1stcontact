@@ -6,9 +6,9 @@ title: 'Ingestion: A File Handed To The Platform Becomes Stored, Classified, Fin
   Material'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:06:12.315229+00:00'
-updated_at: '2026-11-01T03:17:23.511082+00:00'
+updated_at: '2026-11-09T17:47:27.934189+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -58,14 +58,37 @@ the sender actually *stated* is never second-guessed, and an extension the platf
 reader for still leaves the generic type in place, so a file nothing can read still degrades
 honestly rather than being refused.
 
+**HEIC is converted at the door.** HEIC is what a modern iPhone produces by default, and
+nothing downstream can read it: the Library cannot preview it, the describer cannot look at it,
+the editor cannot open it and the site cannot serve it. So, on the upload entry point and
+before anything is created, the platform reads the file's leading bytes: an ISO base-media file
+whose `ftyp` major brand is a HEIF brand (`heic`, `heix`, `hevc`, `hevx`, `heim`, `heis`, `mif1`,
+`msf1`) is converted to JPEG through the image converter, and the name changes with the bytes
+(`shopfront.HEIC` → `shopfront.jpg`). What then enters the ordinary pipeline is an ordinary JPEG
+image, and every later step works on it without knowing what it arrived as. The declared type is
+not consulted in either direction, because a file dragged from Finder normally arrives with no
+type at all. The HEIC bytes are deliberately not kept: nothing can be done with them, and the
+client has the original on their phone. AVIF shares the container and is left alone, and every
+other upload passes through byte for byte.
+
+A HEIC that cannot be converted is **refused, never stored as HEIC**. There are three
+refusals, each saying something different: this deployment has no converter configured; the
+file is too large for the converter, whose input ceiling is below the material ceiling; or the
+conversion failed on these bytes. The two refusals about the format name HEIC and give the remedy
+(*Settings → Camera → Formats → Most Compatible* on the phone); the size refusal gives the size.
+None creates a material or writes any bytes.
+The converter binding is declared in both the local and the production deployment environments,
+so local development and the deployed Worker cannot quietly disagree about whether conversion is
+possible.
+
 Nothing here runs without a model. A deployment with **no model key configured** says so once
 rather than one upload at a time: the status endpoint reports it, the builder shows a banner
 across the top and accepts no input while it is up, and both ingestion routes refuse with a
 service-unavailable answer before any bytes are read, so no undescribed material is ever stored.
 
-Three refusals bound it: a file above the per-file ceiling and a file with no bytes at all are
-refused before anything is created, in words a non-technical client can act on; and a client
-is never asked whether they own what they are uploading, because the answer would be
+Three further refusals bound it: a file above the per-file ceiling and a file with no bytes at
+all are refused before anything is created, in words a non-technical client can act on; and a
+client is never asked whether they own what they are uploading, because the answer would be
 confidently wrong and the dangerous action is forbidden outright elsewhere instead.
 
 Two properties make the pipeline safe to interrupt and safe to share. **No record ever names
@@ -75,16 +98,18 @@ private store under the account's own prefix, never in the store that serves the
 internet, so one account's upload is invisible to another account's list and to another
 account's search.
 
-**In scope**: the ingestion path itself — content-type resolution, classification, record
-creation, the text comment, the ordering, the ceiling and empty-file refusals, the no-model-key
-gate (status, banner, refusal), the index announcement including where full text is indexed, and
-what happens when no indexer is configured.
+**In scope**: the ingestion path itself — content-type resolution, HEIC conversion at the upload
+door and its three refusals, the converter binding's declaration in both deployment
+environments, classification, record creation, the text comment, the ordering, the ceiling and
+empty-file refusals, the no-model-key gate (status, banner, refusal), the index announcement
+including where full text is indexed, and what happens when no indexer is configured.
 
 **Out of scope**, each covered by its own story: how a file is described (the extractors, the
 six honest outcomes when description is impossible); the guard in front of material fetched on
-the client's behalf; the gate in front of promoting material into a site's public asset
-library; the declared field vocabulary the record is written in; and the Library surfaces that
-list, show and correct material.
+the client's behalf, which is never HEIC-converted because it is not the door; the gate in front
+of promoting material into a site's public asset library; the declared field vocabulary the
+record is written in; the Library surfaces that list, show and correct material; and how the
+builder shows a refusal to the client (STORY-145).
 
 ## Technical Context
 
@@ -126,6 +151,24 @@ list, show and correct material.
   deep hits name the material — so the deletion cannot falsify them.
 - The no-model-key gate counts a host-injected describer as configured: the question it asks is
   whether a description can be written, not whether an environment secret is present.
+
+- **HEIC at the door (REQ-221, bundle-0881342c).** The conversion runs in front of the
+  ingestion, not inside it: the ingestion creates the material record and then attaches the
+  bytes, so a conversion attempted inside it could fail with a record already written. Done
+  first, it either hands the ingestion an ordinary JPEG or refuses, and nothing has been created
+  either way (AC-1681's property, held by construction). The converter is a seam over the
+  Cloudflare Images binding (`IMAGES`). An absent binding is reported as "no converter", not as
+  a converter that throws, because the two refusals say different things. The conversion asks
+  for JPEG at quality 90 because the stored file is the master that the publish-time width
+  ladder (REQ-222) and the recipe renderer (REQ-219) both re-derive from. JPEG and not AVIF
+  because the vision describer does not read AVIF. The converter's own error is kept as the
+  refusal's cause for an operator and is never part of the client's sentence.
+- **What runs in production is the refusal.** HEIC input is an Enterprise-plan format at
+  Cloudflare, and the deployment's account is `standard` (queried 2026-09-11, recorded in
+  REQ-221). So the conversion branch is proven through the seam, and a real iPhone photograph
+  meets the "no converter can read it" / "could not be converted" refusal with the *Most
+  Compatible* remedy. The criteria pin both branches; what the live API does with real HEIC
+  bytes is a question about the account and is not asserted.
 
 ## Reconciliation Decisions
 
@@ -186,10 +229,38 @@ list, show and correct material.
   banner itself is blocked. The landed builder leaves it live so its text can be copied into a
   support message. Folded into the no-key criterion rather than raised separately.
 
+- **A converted HEIC is the one exception to "a stated type is never second-guessed"** (decided
+  at reconciliation, 2026-11-09; settled at level 1, the ticket body): REQ-221 says *"The
+  declared type is not consulted at all, in either direction"*. That is explicit, so AC-1810 is
+  sharpened with the exception rather than being superseded: the bytes are replaced, and the type
+  and name follow the new bytes. Bytes that are not HEIF keep their declared type, even
+  `image/heic`.
+- **The converter's size ceiling is 20 MiB, read in binary** (decided at reconciliation,
+  2026-11-09): REQ-221 requires that a photograph too large for the converter is refused for its
+  size, and gives no number. The landed code uses 20 × 1024 × 1024 bytes, taking the larger
+  reading of Cloudflare's "20 MB" so the check never refuses a file the converter would have
+  taken. Formalized in AC-2536 because the band between this ceiling and the 25 MiB material
+  ceiling is exactly the band the intent calls out.
+- **A name that is only an extension becomes `photograph.jpg`** (decided at reconciliation,
+  2026-11-09): REQ-221 says such a name *"has nothing in front of the dot to keep and becomes a
+  plain name"* without naming it. The landed code names it `photograph.jpg`, which keeps the
+  extension the silent-type path depends on. Formalized in AC-2534.
+- **CODE-ISSUE for `fix_uat_coverage`: the Images binding is declared twice per environment.**
+  REQ-221 says *"The Images binding is declared on both sides of `wrangler.toml`"*, and REQ-222
+  says the same for the width ladder. Each change added its own `[images]` table, so the control
+  app's `wrangler.toml` now defines `[images]` twice at the top level and `[env.production.images]`
+  twice. TOML forbids defining the same table twice, so a real parser (and therefore `wrangler`)
+  should refuse the file. The existing binding UAT reads the file with a line-based helper and
+  cannot see this. AC-2537 requires each environment to declare the binding exactly once, and its
+  verification uses a real TOML parser. Fix: merge each pair into a single declaration that keeps
+  both comments' rationale. Main has no `[images]` table, so this came in with this bundle.
+
 ## Dependencies
 
 None. (The index announcement resolves to the client's knowledge base where one is configured,
-but the pipeline is complete and observable with the seam unwired.)
+but the pipeline is complete and observable with the seam unwired. The HEIC converter resolves
+to the Images binding where one is declared, and the refusal path is complete and observable
+with the seam unwired.)
 
 ## Story Points
 
