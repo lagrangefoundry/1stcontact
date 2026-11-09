@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-d402710c'
 created_by: xgd
 created_at: '2026-11-09T04:20:49.841914+00:00'
-updated_at: '2026-11-09T04:20:49.841914+00:00'
+updated_at: '2026-11-09T04:33:08.187407+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -75,6 +75,7 @@ fields:
         the BUG-79 symptom. AC-2496 paragraph 3 and its UAT absorbed this, and only
         the code can satisfy the intent; the tip is not ahead (045c153c96 is the latest
         panel.js commit).'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 1
