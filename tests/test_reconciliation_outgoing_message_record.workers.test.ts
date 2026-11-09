@@ -11,6 +11,7 @@ import {
 } from '../apps/control-app/src/email-webhook'
 import {
   EMAIL_TYPE,
+  MESSAGE_STATUSES,
   messagesFor,
   sendRecordedEmail,
   type MessageRecord,
@@ -190,8 +191,9 @@ describe('story-219b4217 — the email record type', () => {
       body: { required?: boolean; non_empty?: boolean }
     }
     const f = schema.fields
-    expect(Object.keys(f).sort()).toEqual(
-      [
+    // The AC's field contract is present (other stories may add optional fields).
+    expect(Object.keys(f)).toEqual(
+      expect.arrayContaining([
         'address_id',
         'contact_id',
         'failure',
@@ -204,7 +206,15 @@ describe('story-219b4217 — the email record type', () => {
         'template_key',
         'template_uid',
         'to',
-      ].sort(),
+      ]),
+    )
+    // Nothing beyond the AC's list is required of a record (status is required but defaulted).
+    const required = Object.entries(f)
+      .filter(([, spec]) => spec.required)
+      .map(([name]) => name)
+      .sort()
+    expect(required).toEqual(
+      ['address_id', 'contact_id', 'from', 'queued_at', 'status', 'subject', 'template_key', 'to'].sort(),
     )
     // Identity keys are plain strings, not ticket references.
     for (const name of ['contact_id', 'address_id', 'template_key', 'subject', 'from', 'to', 'queued_at']) {
@@ -215,7 +225,10 @@ describe('story-219b4217 — the email record type', () => {
       expect(f[name].required ?? false, name).toBe(false)
     }
     expect(f.status).toMatchObject({ type: 'enum', default: 'queued' })
-    expect(f.status.enum).toEqual(['queued', 'sent', 'delivered', 'bounced', 'failed'])
+    expect(f.status.enum).toEqual(['queued', 'sent', 'delivered', 'bounced', 'complained', 'failed'])
+    // One vocabulary: the schema's enum is the exported list, member for member.
+    expect(f.status.enum).toEqual([...MESSAGE_STATUSES])
+    expect(f.status.enum).toContain('complained')
     expect(schema.body.required).toBe(true)
     expect(schema.body.non_empty ?? false).toBe(false)
 
@@ -255,6 +268,22 @@ describe('story-219b4217 — the email record type', () => {
       body: '',
     })
     expect(ticket.fields.status).toBe('queued')
+
+    // Every status in the vocabulary is accepted by the store — complained included.
+    for (const status of MESSAGE_STATUSES) {
+      const moved = await store.update({ uid: ticket.uid, patch: { fields: { status } } })
+      expect(moved.ticket.fields.status, status).toBe(status)
+    }
+    await store.update({ uid: ticket.uid, patch: { fields: { status: 'complained' } } })
+    const reread = (await emailTickets(await storeOf('s219b-ac2287'))).find((t) => t.uid === ticket.uid)
+    expect(reread?.fields.status).toBe('complained')
+
+    // A status outside the vocabulary is refused, and the stored one stands.
+    await expect(
+      store.update({ uid: ticket.uid, patch: { fields: { status: 'spam' } } }),
+    ).rejects.toThrow()
+    const after = (await emailTickets(await storeOf('s219b-ac2287'))).find((t) => t.uid === ticket.uid)
+    expect(after?.fields.status).toBe('complained')
   })
 })
 
@@ -447,6 +476,19 @@ describe('story-219b4217 — the delivery webhook', () => {
     expect(delivered.status).toBe(200)
     expect((await recordOf(first, inFirst.message.contactId)).status).toBe('delivered')
     expect((await recordOf(second, inSecond.message.contactId)).status).toBe('bounced')
+
+    // A complaint, through the real signed webhook, lands as its own status.
+    const fresh = await sentIn(second, 'prov_ac2293_complaint')
+    const complained = await post(await signed(payloadFor('email.complained', 'prov_ac2293_complaint')))
+    expect(complained.status).toBe(200)
+    const reported = await recordOf(second, fresh.message.contactId)
+    expect(reported.status).toBe('complained')
+    expect(reported.status).not.toBe('bounced')
+    expect(reported.addressId).toBe(fresh.message.addressId)
+    expect(reported.contactId).toBe(fresh.message.contactId)
+    // Nothing else moved.
+    expect((await recordOf(first, inFirst.message.contactId)).status).toBe('delivered')
+    expect((await recordOf(second, inSecond.message.contactId)).status).toBe('bounced')
   })
 
   it('test_UAT_AC2294_missing_or_unverifiable_signature_is_refused_identically_and_writes_nothing', async () => {
@@ -586,20 +628,36 @@ describe('story-219b4217 — the delivery webhook', () => {
 
   it('test_UAT_AC2299_verified_non_delivery_events_are_acknowledged_and_change_nothing', async () => {
     const business = 's219b-ac2299'
-    const { message } = await sentIn(business, 'prov_ac2299')
+    const b = await sentIn(business, 'prov_ac2299')
+    const c = await sentIn(business, 'prov_ac2299_c')
     expect(
       (await post(await signed(payloadFor('email.bounced', 'prov_ac2299', 'mailbox full')))).status,
     ).toBe(200)
-    const bounced = await recordOf(business, message.contactId)
+    expect((await post(await signed(payloadFor('email.complained', 'prov_ac2299_c')))).status).toBe(200)
+    const bounced = await recordOf(business, b.message.contactId)
+    const complained = await recordOf(business, c.message.contactId)
     expect(bounced.status).toBe('bounced')
+    expect(complained.status).toBe('complained')
 
-    for (const type of ['email.sent', 'email.opened', 'email.clicked', 'email.delivery_delayed']) {
-      expect(await post(await signed(payloadFor(type, 'prov_ac2299'))), type).toEqual({
-        status: 200,
-        text: 'Ignored.',
-      })
-      expect(await recordOf(business, message.contactId)).toEqual(bounced)
+    for (const [providerId, contactId, settled] of [
+      ['prov_ac2299', b.message.contactId, bounced],
+      ['prov_ac2299_c', c.message.contactId, complained],
+    ] as const) {
+      for (const type of ['email.sent', 'email.opened', 'email.clicked', 'email.delivery_delayed']) {
+        expect(await post(await signed(payloadFor(type, providerId))), `${providerId} ${type}`).toEqual({
+          status: 200,
+          text: 'Ignored.',
+        })
+        expect(await recordOf(business, contactId)).toEqual(settled)
+      }
     }
+
+    // A complaint is acted on, not ignored: a sent record changes.
+    const s = await sentIn(business, 'prov_ac2299_s')
+    const acted = await post(await signed(payloadFor('email.complained', 'prov_ac2299_s')))
+    expect(acted.status).toBe(200)
+    expect(acted.text).not.toBe('Ignored.')
+    expect((await recordOf(business, s.message.contactId)).status).toBe('complained')
   })
 })
 
