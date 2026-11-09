@@ -6,16 +6,18 @@ title: 'Serve a published site: a URL names a site, the revision record says whi
   bytes'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-11-09T00:59:13.318827+00:00'
+updated_at: '2026-11-09T00:59:13.582536+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
   capability_uid: capability-a12e557f
   story_kind: upgrade
   story_points: 3
-  updated_by: bundle-7988e925
+  updated_by:
+  - bundle-7988e925
+  - bundle-7ba3af93
   uat_coverage: pass
 ---
 
