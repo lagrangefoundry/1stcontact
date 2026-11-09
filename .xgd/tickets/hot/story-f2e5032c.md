@@ -6,9 +6,9 @@ title: 'Public forms accept a submission: anonymous lead capture with asset deli
   and anti-abuse controls'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T00:28:58.988888+00:00'
-updated_at: '2026-11-09T20:04:36.197901+00:00'
+updated_at: '2026-11-09T20:26:21.551066+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-7ba3af93
@@ -72,3 +72,9 @@ None.
 
 ## Story Points
 3 (+2 for the BUG-78 preview upgrade)
+
+
+
+### Code-issue, flagged at the BUNDLE-43 reconciliation review (2026-11-09)
+
+The control app's preview route assumes "a rendered form's `action` resolves against whichever host served the document", so one `action` value is correct both published and in the preview. That holds only for a **document-relative** `action` (`api/lead`): against `/preview/<slug>/draft/` it resolves to the preview lead route, and against `/site/<key>/` to the published one. The contact form emits its configured `action` verbatim (`assertSafeUrl` only; the L1 `relativizeUrl` is never applied to it), so a **root-relative** `/api/lead` resolves to the host root, which on the control app is not a lead route. AC-2515 pins the document-relative path end to end and states the root-relative case as out of scope. Whether the renderer should relativize a form `action` the way it does `src` and `href` is left for follow-up; nothing here is formalised as intended behaviour.
