@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-179b8c06'
 created_by: xgd
 created_at: '2026-11-09T23:02:54.916112+00:00'
-updated_at: '2026-11-09T23:02:54.916112+00:00'
+updated_at: '2026-11-09T23:11:45.401177+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -64,6 +64,7 @@ fields:
         exists at the reference.'
       rung3: 'Not reached: the tests as written do not stand; the code is right and
         the fixtures migrate to the current contract.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 5
