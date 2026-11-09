@@ -5,7 +5,7 @@ type: bug
 title: capabilities.js is a syntax error — no behavior module client code runs
 created_by: REQ-212
 created_at: '2026-09-10T20:23:03.804692+00:00'
-updated_at: '2026-11-09T02:43:33.359314+00:00'
+updated_at: '2026-11-09T02:43:35.515361+00:00'
 completed_at: '2026-11-09T02:43:33.359314+00:00'
 last_field_updated: status
 status: free_and_reconciled
