@@ -6,9 +6,9 @@ title: The channel left behind stays connected and laid out, hidden by visibilit
   and never taken out of layout
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T03:11:34.147854+00:00'
-updated_at: '2026-11-09T03:53:14.166002+00:00'
+updated_at: '2026-11-09T04:54:16.125172+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -34,5 +34,5 @@ computed `display` other than `none`. Assert its computed `visibility` is
 `hidden` and it receives no pointer events. Assert exactly one frame carries
 `.builder-panel__frame`, and that it is the frame the pane reports as shown.
 
-Reference UAT: `tests/test_UAT_FC_BUG-79_flip_in_place.test.ts`
-(the_channel_left_behind_stays_laid_out).
+Reference UAT: `tests/test_reconciliation_builder_flip_in_place.test.ts`
+(`test_UAT_AC2518_the_channel_left_behind_stays_connected_and_laid_out_hidden_by_visibility`).
