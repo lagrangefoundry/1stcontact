@@ -6,9 +6,9 @@ title: A HEIC that cannot be converted (no converter, too large for it, or conve
   failed) is refused with a distinct sentence each, and nothing is created
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T17:46:02.715998+00:00'
-updated_at: '2026-11-09T17:46:02.715998+00:00'
+updated_at: '2026-11-09T17:47:22.565098+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-6ccaedd5
@@ -34,8 +34,8 @@ three refusals, and each says something different because each is a different fa
   gives the same remedy. The converter's own technical detail is not shown to the client.
 
 In all three cases no material is created, no bytes are written to the material store, and
-nothing is announced to the index. The refusals name the format and the remedy, not the file,
-because the surfaces that show them already name the file. As with every refusal in this
+nothing is announced to the index. None of the three sentences names the file, because the
+surfaces that show them already name it. As with every refusal in this
 pipeline, a record can never point at bytes that are not there.
 
 ## Verification
