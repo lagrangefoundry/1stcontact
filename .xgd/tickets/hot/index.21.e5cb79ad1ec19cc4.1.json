@@ -2,7 +2,7 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-09T02:50:39.359670+00:00",
-  "ticket_count": 12477,
+  "ticket_count": 12478,
   "rebuild_epoch": 1794192627.111116,
   "tickets": {
     "acceptance_criterion-002fc710": {
@@ -185415,66 +185415,6 @@
         ]
       }
     },
-    "bundle-7ba3af93": {
-      "id": "BUNDLE-42",
-      "type": "bundle",
-      "status": "free_and_reconciled",
-      "updated_at": "2026-11-09T02:50:05.062963+00:00",
-      "created_at": "2026-11-08T20:38:01.654591+00:00",
-      "completed_at": "2026-11-09T02:43:30.288706+00:00",
-      "title": "BUG-73 + BUG-75 + REQ-216 + REQ-215 + REQ-223 + 1 more",
-      "fields": {
-        "auto_merge_back": true,
-        "commits": [
-          {
-            "working_sha": null,
-            "reconcile_sha": null,
-            "main_sha": "9b4bf16e21ad91c89cb757230a07f3ef21fc7567"
-          }
-        ],
-        "bundle_type": "reconcile",
-        "priority": "medium",
-        "_prose_backlinks": [
-          "request-b474390f",
-          "request-4af0cf7f",
-          "request-86e78464",
-          "doc-92653384",
-          "request-37983f6e",
-          "request-b88b79fe",
-          "request-f522d726",
-          "request-70217652",
-          "request-37983f6e",
-          "request-41796766",
-          "request-8a5f499e",
-          "request-8a5f499e",
-          "request-37983f6e",
-          "request-41796766",
-          "request-8a5f499e",
-          "request-8a5f499e",
-          "request-41796766",
-          "request-41796766",
-          "request-3a064234",
-          "request-86e78464",
-          "request-a2f3c272",
-          "request-41796766",
-          "request-37983f6e",
-          "request-41796766",
-          "request-a2f3c272",
-          "request-37983f6e",
-          "bug-f6c3fedf",
-          "chat-cbe0b821",
-          "request-9b70eeca",
-          "doc-5fb49239",
-          "doc-95b51bb6",
-          "chat-cbe0b821",
-          "chat-cbe0b821",
-          "doc-708a06c6",
-          "doc-5fb49239",
-          "bug-f6c3fedf",
-          "request-4af0cf7f"
-        ]
-      }
-    },
     "comment-009bd3d8": {
       "id": "COMMENT-8057",
       "type": "comment",
@@ -188818,6 +188758,81 @@
       "fields": {
         "subject_uid": "bundle-7ba3af93",
         "report_kind": "permissions_audit"
+      }
+    },
+    "report-31e4ef4f": {
+      "id": "REPORT-11672",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-09T02:50:56.900147+00:00",
+      "created_at": "2026-11-09T02:50:56.900147+00:00",
+      "completed_at": null,
+      "title": "Regression success: none caught (reconciliation)",
+      "fields": {
+        "subject_uid": "bundle-7ba3af93",
+        "intent_uid": "bundle-7ba3af93",
+        "report_kind": "regression_success",
+        "cycle": "reconciliation"
+      }
+    },
+    "bundle-7ba3af93": {
+      "id": "BUNDLE-42",
+      "type": "bundle",
+      "status": "free_and_reconciled",
+      "updated_at": "2026-11-09T02:51:42.684135+00:00",
+      "created_at": "2026-11-08T20:38:01.654591+00:00",
+      "completed_at": "2026-11-09T02:43:30.288706+00:00",
+      "title": "BUG-73 + BUG-75 + REQ-216 + REQ-215 + REQ-223 + 1 more",
+      "fields": {
+        "auto_merge_back": true,
+        "commits": [
+          {
+            "working_sha": null,
+            "reconcile_sha": null,
+            "main_sha": "9b4bf16e21ad91c89cb757230a07f3ef21fc7567"
+          }
+        ],
+        "bundle_type": "reconcile",
+        "priority": "medium",
+        "_prose_backlinks": [
+          "request-b474390f",
+          "request-4af0cf7f",
+          "request-86e78464",
+          "doc-92653384",
+          "request-37983f6e",
+          "request-b88b79fe",
+          "request-f522d726",
+          "request-70217652",
+          "request-37983f6e",
+          "request-41796766",
+          "request-8a5f499e",
+          "request-8a5f499e",
+          "request-37983f6e",
+          "request-41796766",
+          "request-8a5f499e",
+          "request-8a5f499e",
+          "request-41796766",
+          "request-41796766",
+          "request-3a064234",
+          "request-86e78464",
+          "request-a2f3c272",
+          "request-41796766",
+          "request-37983f6e",
+          "request-41796766",
+          "request-a2f3c272",
+          "request-37983f6e",
+          "bug-f6c3fedf",
+          "chat-cbe0b821",
+          "request-9b70eeca",
+          "doc-5fb49239",
+          "doc-95b51bb6",
+          "chat-cbe0b821",
+          "chat-cbe0b821",
+          "doc-708a06c6",
+          "doc-5fb49239",
+          "bug-f6c3fedf",
+          "request-4af0cf7f"
+        ]
       }
     }
   },
@@ -194305,7 +194320,8 @@
       "report-f52427c2",
       "report-f7ed5a8a",
       "report-fdde66c7",
-      "report-8d7e2401"
+      "report-8d7e2401",
+      "report-31e4ef4f"
     ],
     "bundle": [
       "bundle-0385746c",
@@ -206165,7 +206181,8 @@
         "report-0f0f8020",
         "report-b7bb3537",
         "report-53bc4397",
-        "report-3402102d"
+        "report-3402102d",
+        "report-31e4ef4f"
       ],
       "overlap_resolution": [
         "report-044db82b",
@@ -207865,7 +207882,6 @@
         "bug-ee954e95",
         "bug-f3c725f3",
         "bundle-0d00566a",
-        "bundle-7ba3af93",
         "request-1f64eecf",
         "request-37983f6e",
         "request-51d90ad9",
@@ -207878,7 +207894,8 @@
         "request-d648490d",
         "request-d71a191f",
         "request-fc2557ae",
-        "todo-a9767ab0"
+        "todo-a9767ab0",
+        "bundle-7ba3af93"
       ]
     },
     "commits": {
@@ -213793,9 +213810,6 @@
       "6c68521e79a83b14044b82deea282ccdc121420f": [
         "bundle-0d00566a"
       ],
-      "9b4bf16e21ad91c89cb757230a07f3ef21fc7567": [
-        "bundle-7ba3af93"
-      ],
       "f768e8e343f3c7110df8cb8d07081265514d8dec": [
         "request-1f64eecf"
       ],
@@ -213918,6 +213932,9 @@
       ],
       "7c443149b97a14f8cbb20a0d204de78d5d0bf006": [
         "request-fc2557ae"
+      ],
+      "9b4bf16e21ad91c89cb757230a07f3ef21fc7567": [
+        "bundle-7ba3af93"
       ]
     },
     "bundle_type": {
@@ -214504,7 +214521,6 @@
         "bug-ee954e95",
         "bug-f3c725f3",
         "bundle-0d00566a",
-        "bundle-7ba3af93",
         "epic-ce0874f2",
         "epic-e3db69b8",
         "request-37983f6e",
@@ -214512,7 +214528,8 @@
         "request-8a5f499e",
         "request-a2f3c272",
         "request-d648490d",
-        "todo-a9767ab0"
+        "todo-a9767ab0",
+        "bundle-7ba3af93"
       ],
       "high": [
         "bug-05898428",
@@ -226851,7 +226868,8 @@
         "story-e214a00d"
       ],
       "bundle-7ba3af93": [
-        "story-f2e5032c"
+        "story-f2e5032c",
+        "report-31e4ef4f"
       ]
     },
     "updated_by": {
@@ -245393,7 +245411,8 @@
         "report-ed4fd15a",
         "report-ef6e45e8",
         "report-fdde66c7",
-        "report-8d7e2401"
+        "report-8d7e2401",
+        "report-31e4ef4f"
       ],
       "reconcile-BUNDLE-42": [
         "report-1a4b40b0",
@@ -248362,7 +248381,8 @@
         "report-0f0f8020",
         "report-b7bb3537",
         "report-53bc4397",
-        "report-3402102d"
+        "report-3402102d",
+        "report-31e4ef4f"
       ],
       "regression": [
         "report-08ec8f69",
@@ -261204,7 +261224,6 @@
     "BUG-71": "bug-ee954e95",
     "BUG-70": "bug-f3c725f3",
     "BUNDLE-41": "bundle-0d00566a",
-    "BUNDLE-42": "bundle-7ba3af93",
     "COMMENT-8057": "comment-009bd3d8",
     "COMMENT-5838": "comment-02b19238",
     "COMMENT-8059": "comment-0633343a",
@@ -261408,7 +261427,9 @@
     "STORY-99": "story-e674c60a",
     "STORY-177": "story-f2e5032c",
     "TODO-23": "todo-a9767ab0",
-    "REPORT-11671": "report-8d7e2401"
+    "REPORT-11671": "report-8d7e2401",
+    "REPORT-11672": "report-31e4ef4f",
+    "BUNDLE-42": "bundle-7ba3af93"
   },
   "backlinks_index": {
     "chat-998e7ab3": {
@@ -261725,10 +261746,10 @@
         "bundle-7988e925",
         "comment-5d1e541f",
         "request-609054e3",
-        "bundle-7ba3af93",
         "epic-ce0874f2",
         "request-7d9f8b2e",
-        "request-cc75a2f2"
+        "request-cc75a2f2",
+        "bundle-7ba3af93"
       ]
     },
     "request-e7b562a1": {
@@ -261800,9 +261821,9 @@
         "request-e7b562a1",
         "bug-af5e6965",
         "bundle-0d00566a",
-        "bundle-7ba3af93",
         "request-37983f6e",
-        "request-7d9f8b2e"
+        "request-7d9f8b2e",
+        "bundle-7ba3af93"
       ]
     },
     "doc-92653384": {
@@ -261851,11 +261872,11 @@
         "bundle-7988e925",
         "request-e7b562a1",
         "bug-af5e6965",
-        "bundle-7ba3af93",
         "doc-6ea4a150",
         "doc-ae2500ae",
         "epic-ce0874f2",
-        "epic-e3db69b8"
+        "epic-e3db69b8",
+        "bundle-7ba3af93"
       ]
     },
     "request-13a5e206": {
@@ -261934,8 +261955,8 @@
         "acceptance_criterion-6897ba14",
         "acceptance_criterion-e2cece6c",
         "acceptance_criterion-f1115dda",
-        "bundle-7ba3af93",
-        "request-a2f3c272"
+        "request-a2f3c272",
+        "bundle-7ba3af93"
       ]
     },
     "bug-b1404be6": {
@@ -262149,8 +262170,8 @@
       "mentions": [
         "bug-26ffd91c",
         "comment-fc674685",
-        "bundle-7ba3af93",
-        "request-8a5f499e"
+        "request-8a5f499e",
+        "bundle-7ba3af93"
       ]
     },
     "bug-19a80a2c": {
@@ -262624,8 +262645,8 @@
         "bug-d763b461",
         "comment-5d1e541f",
         "comment-603db313",
-        "bundle-7ba3af93",
-        "request-7d9f8b2e"
+        "request-7d9f8b2e",
+        "bundle-7ba3af93"
       ]
     },
     "doc-8f1d018c": {
@@ -263245,9 +263266,9 @@
         "bug-9ca5a8fc",
         "bug-d763b461",
         "epic-95bc3b15",
-        "bundle-7ba3af93",
         "request-8a5f499e",
-        "request-a2f3c272"
+        "request-a2f3c272",
+        "bundle-7ba3af93"
       ]
     },
     "bug-349db72c": {
@@ -263340,17 +263361,17 @@
         "bundle-4164b433",
         "request-eba5ef7f",
         "bug-af5e6965",
-        "bundle-7ba3af93",
         "request-8a5f499e",
-        "request-cc75a2f2"
+        "request-cc75a2f2",
+        "bundle-7ba3af93"
       ]
     },
     "request-37983f6e": {
       "mentions": [
         "bug-af5e6965",
-        "bundle-7ba3af93",
         "request-8a5f499e",
-        "request-a2f3c272"
+        "request-a2f3c272",
+        "bundle-7ba3af93"
       ]
     },
     "request-a6dcbdef": {
@@ -263633,9 +263654,9 @@
         "request-692325d3",
         "request-e89cbbff",
         "bundle-0d00566a",
-        "bundle-7ba3af93",
         "request-37983f6e",
-        "request-7d9f8b2e"
+        "request-7d9f8b2e",
+        "bundle-7ba3af93"
       ]
     },
     "request-2ea36591": {
@@ -263885,8 +263906,8 @@
         "request-1b56fccd",
         "request-554ac441",
         "request-873e74dd",
-        "bundle-7ba3af93",
-        "request-7d9f8b2e"
+        "request-7d9f8b2e",
+        "bundle-7ba3af93"
       ]
     },
     "doc-5fb49239": {
@@ -263917,9 +263938,9 @@
         "epic-8146aecd",
         "epic-96d8aca6",
         "request-2ac77944",
-        "bundle-7ba3af93",
         "doc-92653384",
-        "request-7d9f8b2e"
+        "request-7d9f8b2e",
+        "bundle-7ba3af93"
       ]
     },
     "request-691681c1": {
@@ -264179,8 +264200,8 @@
         "request-7ff1bacd",
         "request-c0435b4c",
         "request-d41fd017",
-        "bundle-7ba3af93",
-        "request-8a5f499e"
+        "request-8a5f499e",
+        "bundle-7ba3af93"
       ]
     },
     "chat-8529c537": {
@@ -264688,8 +264709,8 @@
         "story-0cb7f25b",
         "bundle-c0301347",
         "request-0d4b67bf",
-        "bundle-7ba3af93",
-        "request-a2f3c272"
+        "request-a2f3c272",
+        "bundle-7ba3af93"
       ]
     },
     "request-51514090": {
@@ -267451,9 +267472,9 @@
       "mentions": [
         "request-d41fd017",
         "bundle-0d00566a",
-        "bundle-7ba3af93",
         "request-37983f6e",
-        "request-a2f3c272"
+        "request-a2f3c272",
+        "bundle-7ba3af93"
       ]
     },
     "request-a115da4d": {
@@ -267472,9 +267493,9 @@
     "request-70217652": {
       "mentions": [
         "bundle-0d00566a",
-        "bundle-7ba3af93",
         "request-37983f6e",
-        "request-a2f3c272"
+        "request-a2f3c272",
+        "bundle-7ba3af93"
       ]
     },
     "bug-f1eea393": {
@@ -267617,8 +267638,8 @@
     "chat-cbe0b821": {
       "mentions": [
         "request-7c513b4a",
-        "bundle-7ba3af93",
-        "request-7d9f8b2e"
+        "request-7d9f8b2e",
+        "bundle-7ba3af93"
       ]
     },
     "bug-406260eb": {
