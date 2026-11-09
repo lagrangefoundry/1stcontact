@@ -6,9 +6,9 @@ title: 'Publish a site to shared storage: one revision-minting publish, driven f
   the builder and the command line'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-11-04T16:03:07.011469+00:00'
+updated_at: '2026-11-09T06:19:12.872497+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -25,9 +25,10 @@ fields:
 
 **As a** site operator, **I want** publishing to freeze my draft as a numbered
 revision and put its rendered output into shared storage — from the builder's
-toolbar or from one command — **so that** someone other than me can see the
-site, pressing publish twice costs nothing, and nothing I published before is
-ever destroyed.
+toolbar or from one command — with every photograph also prepared at the widths
+a visitor's screen actually needs, **so that** someone other than me can see the
+site, pressing publish twice costs nothing, nothing I published before is ever
+destroyed, and visitors are not made to download pixels they cannot see.
 
 ## Description
 
@@ -46,7 +47,10 @@ In scope:
   operator's publish command produce the same store state from the same draft.
   There is exactly one implementation and no second handler behind the builder's
   route — the local transport used to answer publish itself, and that was the
-  one route where the two front doors disagreed about what a route does.
+  one route where the two front doors disagreed about what a route does. The one
+  stated divergence is the image width ladder below: only a deployment with the
+  image-transform binding supplies one, so the command line publishes exactly as
+  it did before the ladder existed (REQ-222).
 - **No filesystem on the cloud path.** Minting the revision, freezing the
   definition, rendering, and recording the entry all happen through storage
   verbs, so the whole publish runs inside the edge runtime.
@@ -79,10 +83,39 @@ In scope:
   not a reserved word: it is unique only within the business, so every account
   can publish its starter without colliding, and renaming it is an ordinary slug
   change.
+- **Publish builds the image width ladder (REQ-222).** On the platform publish,
+  every raster still in the revision's assets (JPEG, PNG, WebP, AVIF) is measured
+  and prepared at the conventional widths 320, 640, 960, 1280, 1600 and 1920
+  that lie *strictly below* its own width, through the Cloudflare Images binding,
+  during the publish — nothing is resized on request, ever. The original is the
+  top rung, so nothing is ever upscaled; a picture no wider than the smallest
+  rung, an SVG, a GIF, or anything the transform cannot measure gets no ladder
+  and is served exactly as it is. A rendition keeps its source's format.
+  Renditions are written into the revision's own rendered output, under a
+  derived-assets segment, and never into the frozen definition, so a checkout
+  never sees them. The ladder is found by walking the revision's assets, not the
+  document, so a picture placed as a background qualifies exactly as one placed
+  as an image.
+- **A republish of an unchanged picture transforms nothing.** Renditions are
+  content-addressed on the source picture's bytes and the width (and so on the
+  recipe, which promotion has already applied to those bytes), and a
+  tenant-scoped cache held outside anything a URL can reach is consulted before
+  any transform. A cache hit is copied into the new revision.
+- **The draft gets no ladder.** The builder's draft and edit channels never
+  receive renditions; they serve the working picture, and the request-time render
+  is unchanged.
+- **No binding, no ladder, and an otherwise unchanged publish.** Where the
+  deployment has no Images binding — and on the command line against the
+  operator's disk — the publish builds no renditions and is byte-for-byte the
+  publish it was before; it is never refused for want of one.
 
-Out of scope: what a URL serves — including where the live revision is read from
-and how the builder's published view reaches it — belongs to the serving story
-in the same capability. Per-account hostnames and custom domains remain deferred.
+Out of scope: what a URL serves — including where the live revision is read from,
+how the builder's published view reaches it, and how renditions are cached by the
+visitor — belongs to the serving story in the same capability. How the rendered
+page *names* the renditions (`srcset`, `sizes`, typed sources, background rules,
+intrinsic dimensions), the ladder's concurrency and budget, and the publish's
+progress reporting belong to the other stories REQ-222 touches. Per-account
+hostnames and custom domains remain deferred.
 
 ## Technical Context
 
@@ -116,6 +149,22 @@ in the same capability. Per-account hostnames and custom domains remain deferred
   deleted, so they could not remain while revisions moved without leaving exactly
   the half-migrated split the project forbids. The builder's own draft preview is
   unaffected; sharing a draft returns later as a builder control.
+- **The ladder is an optional argument to the one publish (REQ-222).** The
+  policy — which widths, what a rendition is called, when a transform is skipped
+  — lives once, above the store port, in worker-safe code; the platform supplies
+  only a decoder (the Images binding) and a bucket to cache in. The ladder is not
+  a verb on the store: a store holds bytes, and the filesystem adapter must not
+  need an image pipeline to be one. Code evidence: `tools/generate/src/publish/ladder.ts`,
+  `apps/control-app/src/image-ladder.ts`, the `/api/publish` route in
+  `apps/control-app/src/router.ts`.
+- **The cap is ours, not the transform's.** The rungs are capped from the
+  measured width before any transform is requested; the transform is also asked
+  never to enlarge. Local emulation and the real binding differ on whether they
+  will upscale, so making the cap ours is what makes them agree by construction.
+- **Renditions size the promoted bytes.** The ladder sizes whatever bytes
+  promotion left in the site's assets. Until REQ-229 makes promotion apply the
+  recipe, those are the uncropped original — every rung correct, of the bytes
+  that are there.
 
 ## Reconciliation Decisions
 
@@ -153,10 +202,43 @@ decisions taken now rather than open questions.
    here because its published-collision property is what REQ-190 changed.
    Provisioning itself and the BUG-51 guard stay STORY-121's.
 
+Recorded 2026-11-08 during reconciliation of BUNDLE-43 (REQ-222):
+
+6. **The ladder manifest is a render input, not a stored record** (settled at
+   ladder level 1). The reconciliation plan said the publish "records a ladder
+   manifest … through the store port". REQ-222's body says the opposite and the
+   code agrees: *"the manifest is a render input, and the document stays innocent
+   of delivery."* What crosses the store port is the rendition *bytes*, beside the
+   rendered output, on the cloud, filesystem and in-memory stores alike; the
+   manifest, with each picture's measured width and height, goes only into the
+   render. The criterion is written that way.
+7. **The command line builds no ladder, and that divergence is stated** (settled
+   at level 1). REQ-222: *"`1c publish` renders exactly as it does today, and the
+   ticket says so … acceptable **only** because it is stated: a divergence
+   discovered later reads as a bug in the port."* The one-publish criterion
+   (AC-1418) still holds for the same inputs; only the platform route supplies a
+   ladder.
+8. **A source exactly at a conventional width gets that width as its original,
+   not as a rendition** (level 1). REQ-222 says the ladder is every conventional
+   width *strictly below* the source's own, so a 320px picture gets no ladder.
+9. **A rung that fails to render is dropped; the rest of the ladder and the
+   publish stand** (decided now, 2026-11-08). REQ-222 covers a picture that
+   cannot be measured ("no ladder rather than a failed publish") and is silent
+   on a single rung failing after measurement. The code drops that rung only, and
+   the page never names a rendition the revision does not hold. The same
+   reasoning — one awkward picture costs its own ladder and nobody else's —
+   applies, so it is formalised.
+10. **A failed write to the rendition cache does not fail the publish**
+    (decided now, 2026-11-08). The intent is silent. The rendition is already in
+    hand and still lands in the revision; the cost is a slower next publish. It
+    is not separately observable to a client, so it is recorded here and not
+    given its own criterion.
+
 ## Dependencies
 
 The store port and its cloud adapter (the revision storage verbs are part of that
-port), and the builder origin that hosts the publish route. Pairs with the
+port), and the builder origin that hosts the publish route. The Images binding
+declared for the control app (REQ-219) for the width ladder. Pairs with the
 serving story, which reads what this one records.
 
 ## Story Points
