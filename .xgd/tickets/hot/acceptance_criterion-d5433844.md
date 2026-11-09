@@ -6,10 +6,10 @@ title: place_on_site refuses non-republishable material with NOT_REPUBLISHABLE a
   a missing site store with NO_SITE
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T23:18:49.986393+00:00'
-updated_at: '2026-11-09T23:18:49.986393+00:00'
+updated_at: '2026-11-09T23:29:51.314202+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a0b20525
   kind: behavior
