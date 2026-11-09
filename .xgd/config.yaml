@@ -37,6 +37,7 @@ reconcile:
   pin_lock_stale_seconds: 600
   story_generation_max_retries: 2
   linked_chat_dialogue_max_chars: 5000
+  max_scheduler_iterations: 100
 override_audit:
   trust_boundary_patterns:
   - (?<![a-z0-9])untrusted
@@ -131,6 +132,10 @@ dispatcher:
   regression:
     mode: auto
     scheduled_time: '23:00'
+  bundle_max_commits: 10
+  bundle_hard_cap_multiplier: 3
+  indivisible_bundle_max_commits: null
+  bundle_size_points: 20
 watchdog:
   max_fix_cycles: 20
 merge_back:
