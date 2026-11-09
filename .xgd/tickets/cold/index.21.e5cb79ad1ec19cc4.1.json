@@ -1,9 +1,9 @@
 {
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
-  "generated_at": "2026-11-08T20:31:16.486319+00:00",
-  "ticket_count": 1070,
-  "rebuild_epoch": 1794169876.471264,
+  "generated_at": "2026-11-09T02:50:49.216128+00:00",
+  "ticket_count": 1072,
+  "rebuild_epoch": 1794192649.200696,
   "tickets": {
     "report-9e9f839a": {
       "id": "REPORT-1071",
@@ -14433,6 +14433,31 @@
         "violations": 0,
         "needs_review_count": 0
       }
+    },
+    "report-a677403e": {
+      "id": "REPORT-1335",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-09T02:50:40.326379+00:00",
+      "created_at": "2026-11-09T02:50:40.326379+00:00",
+      "completed_at": null,
+      "title": "Revert audit: xgd-working \u2192 9da3633f",
+      "fields": {
+        "report_kind": "revert_audit"
+      }
+    },
+    "report-33638564": {
+      "id": "REPORT-1336",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-09T02:50:40.574877+00:00",
+      "created_at": "2026-11-09T02:50:40.574877+00:00",
+      "completed_at": null,
+      "title": "Resync remap: 59eef57d \u2192 5b18c4a9",
+      "fields": {
+        "report_kind": "resync_remap",
+        "cycle": "resync"
+      }
     }
   },
   "by_type": {
@@ -14972,7 +14997,9 @@
       "report-e2f6e2a7",
       "report-ec51a235",
       "report-f1b6cf2b",
-      "report-f2d8131e"
+      "report-f2d8131e",
+      "report-a677403e",
+      "report-33638564"
     ],
     "comment": [
       "comment-fe2ff8e0",
@@ -18057,7 +18084,8 @@
         "report-b17350a2",
         "report-df9b367c",
         "report-e1140593",
-        "report-e5f4cfb9"
+        "report-e5f4cfb9",
+        "report-a677403e"
       ],
       "fix_review_free_coded": [
         "report-110295f3",
@@ -18177,6 +18205,9 @@
         "report-e1ec21d2",
         "report-e7e80148",
         "report-fea0d724"
+      ],
+      "resync_remap": [
+        "report-33638564"
       ]
     },
     "kind": {
@@ -19309,6 +19340,9 @@
         "report-7f2ef327",
         "report-efa98044",
         "report-c9804ae8"
+      ],
+      "resync": [
+        "report-33638564"
       ]
     }
   },
@@ -20381,7 +20415,9 @@
     "REPORT-1285": "report-e2f6e2a7",
     "REPORT-1321": "report-ec51a235",
     "REPORT-1274": "report-f1b6cf2b",
-    "REPORT-1313": "report-f2d8131e"
+    "REPORT-1313": "report-f2d8131e",
+    "REPORT-1335": "report-a677403e",
+    "REPORT-1336": "report-33638564"
   },
   "backlinks_index": {
     "request-d05379d0": {
