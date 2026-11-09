@@ -6,9 +6,9 @@ title: The idle channel is primed once the visible one loads, so the first flip 
   in place; a merely stale frame is not primed
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T03:11:35.792503+00:00'
-updated_at: '2026-11-09T03:53:13.943706+00:00'
+updated_at: '2026-11-09T04:54:17.149462+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -37,5 +37,5 @@ Then switch to Edit and assert no load fires: the document was already there.
 Separately, after a write that leaves Edit stale while View is shown, assert
 Edit is not re-fetched until it is shown.
 
-Reference UAT: `tests/test_UAT_FC_BUG-79_flip_in_place.test.ts`
-(the_idle_channel_is_primed_so_the_first_flip_is_in_place_too).
+Reference UAT: `tests/test_reconciliation_builder_flip_in_place.test.ts`
+(`test_UAT_AC2519_the_idle_channel_is_primed_after_the_visible_load_and_a_stale_frame_is_not`).
