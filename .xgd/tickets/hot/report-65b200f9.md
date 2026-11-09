@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-44: BUG-80, REQ-217, BUG-83, BUG
   REQ-228, BUG-84, REQ-229)'
 created_by: xgd
 created_at: '2026-11-09T21:52:17.681797+00:00'
-updated_at: '2026-11-09T23:32:12.739222+00:00'
+updated_at: '2026-11-09T23:42:36.877892+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -242,7 +242,7 @@ fields:
         409 and is answerable by --force.
       modify: []
       remove: []
-    story_uid: null
+    story_uid: story-aacb7060
   - index: 7
     component: 'Image editing: the recipe reaches the published site (REQ-229)'
     item_type: upgrade
