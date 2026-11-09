@@ -6,10 +6,10 @@ title: A HEIC that cannot be converted (no converter, too large for it, or conve
   failed) is refused with a distinct sentence each, and nothing is created
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T17:46:02.715998+00:00'
-updated_at: '2026-11-09T17:47:22.565098+00:00'
+updated_at: '2026-11-09T18:22:54.114794+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-6ccaedd5
   kind: behavior
