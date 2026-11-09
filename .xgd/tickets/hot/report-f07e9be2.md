@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-43 (REQ-222, REQ-221, REQ-219, RE
   BUG-78)'
 created_by: xgd
 created_at: '2026-11-09T06:16:50.788808+00:00'
-updated_at: '2026-11-09T18:26:29.498578+00:00'
+updated_at: '2026-11-09T18:46:34.617477+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -214,7 +214,7 @@ fields:
       remove: []
     intent_delta_summary: The Library gains a picture modal (also reachable from chat)
       for renaming and recipe-based editing, writing through the item-4 recipe path.
-    story_uid: null
+    story_uid: story-1500b111
   - index: 6
     component: Public forms — the draft preview submits for real
     item_type: upgrade
