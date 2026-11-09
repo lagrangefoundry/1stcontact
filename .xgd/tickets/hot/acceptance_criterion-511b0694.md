@@ -6,9 +6,9 @@ title: Rendering with a delivery manifest emits srcset and a computed sizes on t
   <img>; without one the plain src is emitted as before
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T06:33:01.816736+00:00'
-updated_at: '2026-11-09T17:43:14.560031+00:00'
+updated_at: '2026-11-09T20:26:42.589092+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -19,9 +19,10 @@ fields:
 ## Criterion
 When a page is rendered with a delivery manifest that has an entry for an image
 leaf's site asset, the `<img>` keeps its authored `src`. It also carries a
-`srcset` listing every rendition as `<url> <width>w` in ascending order, with the
-original's own width last, and a `sizes` attribute derived from the node's
-L1-pinned width:
+`srcset` listing every rendition as `<url> <width>w`, in the order the manifest
+lists them (the renderer does not reorder; the publish's ladder writes them in
+ascending width with the original's own width last, AC-2523/AC-2524), and a
+`sizes` attribute derived from the node's L1-pinned width:
 - **Column-anchored:** one `(max-width: Wpx) Npx` condition per document ladder
   width, then the saturated width.
 - **Keyframed:** one condition per segment at that segment's upper bound, then
@@ -44,8 +45,8 @@ before, with no `srcset`, `sizes`, `width` or `height`.
 ## Verification
 Render one image leaf four times with a manifest entry: column-anchored,
 keyframed, fixed-width and uncapped fluid. Assert the `srcset` candidates and
-descriptors, each expected `sizes` string, and no `sizes` for the fluid case.
-Render the same page without a manifest and assert the `<img>` markup matches
-the pre-ladder output. Render with `src` spelled each of the three ways and
-assert the same `srcset`. Render with an absolute `src` and assert there is no
-`srcset`.
+descriptors in manifest order, each expected `sizes` string, and no `sizes` for
+the fluid case. Render the same page without a manifest and assert the `<img>`
+markup matches the pre-ladder output. Render with `src` spelled each of the
+three ways and assert the same `srcset`. Render with an absolute `src` and assert
+there is no `srcset`.
