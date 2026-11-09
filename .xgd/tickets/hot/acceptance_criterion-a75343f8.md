@@ -6,10 +6,10 @@ title: Searching for words deep inside a document still finds that material by i
   own uid, while the material's listed description is the digest
 created_by: xgd
 created_at: '2026-11-01T03:16:53.116105+00:00'
-updated_at: '2026-11-01T03:16:53.116105+00:00'
+updated_at: '2026-11-09T18:22:56.666279+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-6ccaedd5
   kind: behavior
