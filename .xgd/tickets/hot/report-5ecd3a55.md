@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T07:57:39.534979+00:00'
-updated_at: '2026-11-09T07:57:39.534979+00:00'
+updated_at: '2026-11-09T08:02:05.859095+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-d0a8cfad
@@ -40,6 +40,7 @@ fields:
   fell_through:
   - 'the `code_frozen` request cannot be declined: blocked_by_ruling.files must list
     every file the batch edits'
+  batches_pending: false
 ---
 
 {
