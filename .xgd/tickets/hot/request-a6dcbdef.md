@@ -17,11 +17,13 @@ fields:
   chat_comment: comment-cbce646b
   commits:
   - working_sha: d1b808f68af26807075940d99c991da6cdc3e878
-    reconcile_sha: null
+    reconcile_sha: 2f4dc785fc62373d6ef66ad6ecc69e66fe7881b8
     main_sha: null
+    working_sha_history: []
   - working_sha: 2bef88cf5d5f3888a7b7079dc56faa9614f0dc29
-    reconcile_sha: null
+    reconcile_sha: 2dd26d7bc28ea498a819699251a8557537420f74
     main_sha: null
+    working_sha_history: []
   version: 0.2.164
   story_points: 8
 ---
