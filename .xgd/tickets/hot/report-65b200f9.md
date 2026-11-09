@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-44: BUG-80, REQ-217, BUG-83, BUG
   REQ-228, BUG-84, REQ-229)'
 created_by: xgd
 created_at: '2026-11-09T21:52:17.681797+00:00'
-updated_at: '2026-11-09T22:52:52.287405+00:00'
+updated_at: '2026-11-09T23:19:18.280406+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -174,7 +174,7 @@ fields:
       and STORY-143 the promotion gate itself; both are reused (the gate is not re-implemented)
       but neither describes an assistant tool surface. New capability on the assistant's
       toolbox, so feature.
-    story_uid: null
+    story_uid: story-a0b20525
   - index: 5
     component: 'Assistant conversation: read access to the business''s tickets (REQ-228
       half A)'
