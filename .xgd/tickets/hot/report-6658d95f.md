@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T16:57:55.519184+00:00'
-updated_at: '2026-11-09T16:57:55.519184+00:00'
+updated_at: '2026-11-09T17:05:44.188948+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -39,6 +39,7 @@ fields:
         install webkit firefox outside the sandbox and an unsandboxed gate run for
         test_UAT_AC688_.
   fix_iteration: 56
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 56
