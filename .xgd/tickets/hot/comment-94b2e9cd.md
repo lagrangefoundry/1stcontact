@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-31
 created_by: xgd
 created_at: '2026-11-02T17:24:17.509637+00:00'
-updated_at: '2026-11-09T05:47:05.302568+00:00'
+updated_at: '2026-11-09T20:29:49.250289+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2160,5 +2160,482 @@ I've updated BUG-396 with the new layout and renamed it to match: "Checkout: one
 This replaces the Continue/Cancel button row from BUG-367 and BUG-368, and the ticket says so explicitly so the matrix updates rather than enforcing the old row.
 
 If you'd rather have Cancel somewhere else, for example as a small link under the payment form, tell me and I'll change it.
+
+<!-- xgd-turn id="75fb3414-6f26-4bb0-ac23-f72e9f43af58-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T16:08:54.297875+00:00" -->
+#### You
+I just did our first, successful live payment. A few issues:
+
+The Cancel link on Lauren's still reads "Cancel". Is that a site level thing now?
+
+We should talk about the customer emails I have a few concerns:
+ - When I clicked on the link in the browser that I had the builder open in, it opened the builder
+ - Now, clicking on "See your order status" I get taken through login to a Thank you page (Ah we said Thank you == order status, but maybe the site hasn't made that change"
+ - The login to see my order status only works once I think this is a product issue that we need to discuss, a customer could want to check on the order multiple times?
+
+<!-- xgd-turn id="75fb3414-6f26-4bb0-ac23-f72e9f43af58-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T16:11:08.019888+00:00" -->
+#### Claude
+Checking the order-email link and sign-in code now.
+
+The live payment worked. I traced each issue to the code. All three email problems seem to come from one cause, but I haven't checked them against your actual order record.
+
+**1. Cancel still reads "Cancel" on Lauren's**
+
+Yes, the wording is now set per site. BUG-396 only uses "← Back to <item>" when the checkout page has no wording of its own for Cancel (`cancelLabel`). Before BUG-396 the default was "Cancel", and that word may have been saved into Lauren's checkout page, which would override the new default. The other possibility is that the code serving that page doesn't include BUG-396 yet (c9401a7847, from last night).
+
+If it's the saved wording, I'd treat a saved "Cancel" as if no wording were set, so every existing site gets the back link without being republished. BUG-396 is already at `ready_to_reconcile`, so this has to go in a follow-up or with your OK to extend it.
+
+**2–4. The order emails: builder opening, sign-in, Thank you page, single use**
+
+The order-status link was designed to need no sign-in. The email holds a private token on the site's own `order-status` page, the token can be used any number of times, and every email gets a new one (`order-emails.ts:105`). So "checking on my order several times" is meant to work.
+
+What breaks it: the email links back to whatever site address the checkout was started from. A checkout started in the builder's preview records the preview's address (`router.ts:9072`, intentionally, for test orders: "an order settled from the preview mails links back here"). If your live payment was made in the preview frame:
+- **The builder opened:** the link points at the app, and that browser was signed in as you.
+- **The sign-in:** in another browser, the preview needs the owner to sign in.
+- **It only worked once:** the sign-in link is single-use. The order-status link itself isn't.
+- **The Thank you page:** you were shown the unpublished draft's version of the order page, so whatever heading it has.
+
+**The product question:** a real buyer must never be sent into the builder. My recommendation:
+- **Live orders always link to the business's published site**, wherever the checkout was started.
+- **Orders placed from the preview stay test-mode only**, so they can't take real money. Live payments happen only on the published site.
+
+If you want to keep live purchases from the preview possible, the first point alone fixes the emails.
+
+Can you confirm the payment was made in the preview? If so, shall I file this as a bug under EPIC-31, together with the "Cancel" wording fix, or would you rather add the wording fix to BUG-396?
+
+<!-- xgd-turn id="c8e5ab73-ea8c-4ce6-8560-1db63ab4e182-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T16:17:35.156805+00:00" -->
+#### You
+Well this site was built before a lot of those things changed. I am having the consultant update. I think most of my issues lie there.
+
+<!-- xgd-turn id="c8e5ab73-ea8c-4ce6-8560-1db63ab4e182-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T16:17:51.679633+00:00" -->
+#### Claude
+Updating the site should fix the parts that live in the site itself: the "Thank you" heading on the order page, and the "Cancel" wording if it's saved in the checkout page. For the wording, ask the consultant to remove Cancel's own wording rather than reword it, so the page picks up the new "← Back to <item>" default.
+
+Two things an update won't change:
+- **Where the email links point.** It depends on where the checkout was started, not on the site. A purchase from the published site sends the buyer to the published order page, with no sign-in, and the link works as often as they like. A purchase from the builder's preview sends them back into the preview. The live payment you made sends them there too, so you'll still go through sign-in to see that order.
+- **Older sites with "Cancel" saved.** Any other site built before BUG-396 keeps "Cancel" until it's updated too.
+
+The real test after the update is a purchase on the published site. If the email link then opens the order page directly, with no sign-in, the only open question is whether the preview should take live payments at all. Tell me if you want that filed.
+
+<!-- xgd-turn id="7ac0c26b-0dc9-4712-acb5-f66047ebeaaa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T16:19:29.453109+00:00" -->
+#### You
+I'm ok with being sent back to the preview it the correct page gets opened. I think I went to the home page.
+
+There is also the Open in a new tab view that would work fine without having to publish the site
+
+<!-- xgd-turn id="7ac0c26b-0dc9-4712-acb5-f66047ebeaaa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T16:20:23.255730+00:00" -->
+#### Claude
+I'll check what the preview's sign-in does with the address it was asked for.
+
+Taking the email back to the preview is fine. The problem is that it lands you on the wrong page.
+
+**"Open in new tab" is already what the email links to.** A checkout started in the preview mails a link to the same `/preview/<site>/draft/` address the builder's "Open in new tab" uses, pointing at the `order-status` page. So the view itself is right.
+
+**Why you ended up on the wrong page.** The link carries the order's private token after `#` (`…/order-status#t=…`). That keeps it out of server logs, but browsers never send that part to the server. When the preview made you sign in, it remembered the page you asked for (`sign-in-return.ts`) but couldn't remember the token, because the server never saw it. After signing in you reached the order page with no order to show. That's the "Thank you" or home page you saw.
+
+The sign-in only working once fits too. Each sign-in link is single-use. The order link itself can be used any number of times, and once you're signed in in a browser, it should keep working there.
+
+**The fix:** keep the token through the sign-in, so you land on your order. Two ways to do it:
+- **Keep the token out of the server (my preference):** the preview's sign-in page saves the token in the browser and puts it back after you sign in.
+- **Simpler:** preview orders put the token in the address itself. It would then appear in server logs, which matters less because the preview is only ever you.
+
+I couldn't explain from the code the first symptom, where the link opened the builder in the browser you had it open in. I'd include it in the ticket as something to reproduce.
+
+This needs code, so it should be its own bug under EPIC-31, worked in its own session. Shall I file it?
+
+<!-- xgd-turn id="6caa8ebe-0160-442f-a06c-7cd4263e2583-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T17:56:31.673484+00:00" -->
+#### You
+Lets hang fire on changes here - the site needs to update to the latest and I need to check the links carefully.
+
+Here is the new order detail page:
+
+1009
+
+Cancelled
+
+9ct Gold Bar Link Bracelet Antique Clasp LO
+
+€1.00
+
+€1.00
+
+€1.00
+
+€2.00
+
+Martin Westhead
+334 Santana Row
+Apt 339
+95128 San Jose
+CA
+US
+
+11/9/2026 — Order placed
+11/9/2026 — Refunded €2.00
+11/9/2026 — Cancelled
+
+You'll have an email receipt shortly, and Lauren will be in touch when your piece is on its way.
+
+A few issues and I don't know whether the problems are on the platform side or the site so lets work through them carefully:
+
+1. The amounts have no titles "Shipping" "Total" etc
+2. The text at the bottom "You'll have an email receipt shortly, and Lauren will be in touch when your piece is on its way." OK in general but this order was cancelled, it could have been shipped. That text needs to be state-specific, or removed
+
+<!-- xgd-turn id="6caa8ebe-0160-442f-a06c-7cd4263e2583-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T17:57:23.575713+00:00" -->
+#### Claude
+I'll look at how the order page draws its amounts and that closing sentence, to see which parts come from the platform and which from the site.
+
+Both issues come from the site's own order page. There's also one small platform issue in the same area. I haven't changed anything.
+
+**1. No "Shipping", "Total" labels: the site's page.**
+The platform's default order page labels every figure: Order, Status, Items, Subtotal, Shipping, Total, "Delivering to" and History (`l2/checkout.ts:304`). The platform only fills in the figures. The labels are ordinary text in the page, so a page built before this default existed, or rewritten by the consultant, can leave them out. That's what Lauren's page has done. The update should restore them. If it doesn't, the consultant's guidance needs to say "every figure on the order page keeps its label".
+
+**2. "You'll have an email receipt shortly…": the site's wording, but the platform gives the site no good place for it.**
+That sentence isn't in the platform anywhere, so the site wrote it. It's plain text, so it shows whatever state the order is in. The order page only has two pieces of wording that appear by state:
+- `confirmed`: "Thank you — your order is confirmed."
+- `requested`: "You have asked to cancel this order."
+
+A promise like "you'll get a receipt and we'll be in touch when it ships" belongs in `confirmed`. That's the site's fix: the consultant puts the sentence there, or drops it.
+
+**The platform issue:** `confirmed` isn't strictly state-specific either. It shows whenever the buyer arrives back from Stripe and the order is no longer pending (`client.js:377`), and that includes Cancelled, Refunded and Shipped. So a cancelled order reached that way would still say "your order is confirmed". It should show only while the order is Paid and not yet shipped.
+
+**What to look for after the update:**
+- Labels beside every figure.
+- No closing promise on a cancelled order, opened from the email link and from Stripe's return.
+
+If the closing promise still appears on a cancelled order through Stripe's return, that's the platform issue above. I'll file it when you're ready to make changes.
+
+<!-- xgd-turn id="d33e65ee-d193-440c-8f70-cbef92c3c66f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T18:54:56.937622+00:00" -->
+#### You
+I am finding this conversation confusing, let me explain why...there are a lot of moving parts here:
+
+1. Consultant instructions
+2. Default pages
+3. APIs and data
+4. Module behavior
+5. What the consultant for this site built first time around
+
+you own 1-4 but its unclear what the consultant will actually do with what its got - it needs to come up first pass with something that makes sense.
+
+I have asked the consultant to delete the existing pages and rebuild them from defaults and instructions. Lets work through the issues with what it has built (Lauren Test 1 on my account in production)
+
+Can you review the last few turns  - I laid out the things that need fixing - these need to be right first time without help
+
+<!-- xgd-turn id="d33e65ee-d193-440c-8f70-cbef92c3c66f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T18:55:44.483536+00:00" -->
+#### Claude
+Reviewing the last few turns: I fixed issues one at a time and kept splitting them into "platform" and "site". If it has to be right first time without help, that split is wrong. Anything a buyer depends on shouldn't rest on the consultant writing the page well. It should be guaranteed by the defaults, the module or the data, and the consultant's guidance should only cover choices of taste.
+
+Here's every issue raised so far, with the layer I think should own it. It's 1–4 throughout, so all of it is mine.
+
+| # | Issue | Owner | Fix |
+|---|---|---|---|
+| 1 | Checkout's Cancel reads "Cancel", not "← Back to <item>" | **4 Module** | The back link's wording belongs to the module, not the page. A site can't save "Cancel" over it, and wording saved by older pages is ignored. |
+| 2 | Order email link → sign-in → lands without the order | **3 APIs/data** | The order token survives the preview's sign-in, so you land on your order, every time. |
+| 3 | "Only works once" | follows from 2 | The order link itself can be used any number of times. Only the sign-in link is single-use, and fixing 2 removes it from the path. |
+| 4 | Link opened the builder in the builder's browser | **3**, cause unknown | I couldn't explain it from the code. It needs reproducing on the rebuilt site. |
+| 5 | Order page figures have no labels (Shipping, Total…) | **4 Module** | Each figure is drawn with its label, so a page can't show a bare amount. The default page has labels today, but nothing stops a rebuilt page dropping them. |
+| 6 | Closing promise ("receipt shortly… in touch when it ships") shows on a cancelled order | **4 Module + 2 Default** | The order page gets wording for each state (paid, shipped, cancelled, refunded), and the default page fills each in. The existing "confirmed" wording stops showing on cancelled, refunded and shipped orders, which it does today. Guidance (1) says a promise to the buyer goes in a state's wording, never in plain text. |
+| 7 | "Thank you" page vs order status | **2 Default** | There's one order page. Its heading changes with the state, so "Thank you" appears only while the order is paid. Same mechanism as 6. |
+
+**What's left for the consultant (1):** only things that would look wrong, not things that would break: the order page's tone and layout. The defaults and the module guarantee everything else in the table.
+
+**Next step:** I haven't looked at what the consultant has just rebuilt for Lauren Test 1. Before filing, I'd check each row against it, so the ticket records only what's still wrong after a rebuild from current defaults. That's the real "first time" test. Do you want to walk through it on your screen and tell me what you see, or shall I read the rebuilt pages from production myself?
+
+Once that's done, I'd file it all as one bug under EPIC-31, in line with keeping the ticket count down.
+
+<!-- xgd-turn id="7b05c8d3-2663-46a1-97ec-3f8fa5df01d5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T19:00:21.204670+00:00" -->
+#### You
+ok lets back up - please drop that list much of that is stale data and test mistakes. I'm going through from scratch with more rigor.  I asked the consultant to delete those and start from scratch. It did and then I listed my concerns at 10:45 PST - it is now making the fixes I asked for. The problem I want us to focus on is that none of my comments should have been needed the consultant should have got this all right first time without my help. 
+
+I want us to look at the defaults and instructions so that it can do so. Make sense?
+
+<!-- xgd-turn id="7b05c8d3-2663-46a1-97ec-3f8fa5df01d5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T19:02:56.660536+00:00" -->
+#### Claude
+Yes, that makes sense. I'll find your 10:45 PST comments to the consultant first, then work from those.
+
+I've found the consultant's transcript. Now reading your turns from the rebuild onward.
+
+Now reading your 10:45 comments (18:46 UTC) and what the consultant did next.
+
+Yes, that makes sense. I read the consultant's transcript for Lauren Test 1 in production: the rebuild, the builder's report on it, and your comments at 18:46 UTC (10:46 PST). Your points were:
+
+- **Order not completed:** needs a way back to shopping, and possibly back to the checkout.
+- **Your order:** photos come out at their original size; the money summary has no labels.
+- **Checkout:** the photo is missing; the price should sit close to the title; the region prompt should be centred, with space below for Stripe's form to load.
+
+## Why the first build missed them
+
+**1. The consultant never starts from the defaults.**
+- The platform has a sound default for each purchase page in `l2/checkout.ts:298`. The checkout default has the photo, the name, the price, and Shipping and Total with labels. The order default has 72px square line photos and labelled Subtotal, Shipping and Total.
+- But that default is only drawn when a site has no page of its own (`render.ts:696`). When the consultant adds the checkout component, it gets an empty component (`toolbox-core.ts:846`). The builder hit exactly this: "Module 'checkout' has no slot 'page'".
+- So it built each page from the field list in the guidance (DOC-47 §"The purchase pages"). That list gives field names, not labels, photo sizes, or what goes next to what.
+- **This one cause accounts for the missing labels, the full-size photos, and the missing photo on the checkout.**
+
+**2. The defaults themselves fall short of what you asked for.**
+- **Order not completed:** the "Back to the shop" link draws nothing, in the default as well as in the rebuild. There's no "Return to checkout" at all.
+- **Checkout:** the region prompt isn't centred, and no space is held for Stripe's form, so the page jumps when it loads.
+- **Checkout price and total:** these rendered empty in the preview. I haven't confirmed the cause yet.
+
+**3. The builder's report lists more gaps in the instructions and the checkout component that would trip any first build:**
+- The component reference still lists the old `complete` mode and the Continue settings.
+- The terms line is fixed at 16px, off the site's type scale, and can't be restyled.
+- The "Try again" and "Request cancellation" buttons can't be given the site's button style.
+- The component's slot (the area holding its content) sits off the page grid (96–1184px wide instead of 48–1232px).
+- Deleting a purchase page was refused because the consultant's scope didn't include the page's style file.
+
+## The fix
+
+**(a) Adding a checkout component, or a purchase page, starts from the default.** The page area comes filled with the default in the site's design, and the guidance tells the consultant to restyle it, not rebuild it. The labels, thumbnail size and photo then come with the page.
+
+**(b) The defaults cover all of your points:**
+- Order not completed: "Return to checkout" as the main button, and a "Back to the shop" link that works.
+- Checkout: price beside the title, a centred region prompt, and space held for the payment form.
+
+**(c) The instructions and the component are cleaned up:** the old modes and settings are removed from the reference; the terms line and buttons follow the site's type and button style; the slot sits on the grid.
+
+If that matches what you want, I'll file it as one bug under EPIC-31. Should the delete refusal go in it too, or stay separate since it's about the consultant's tools rather than the purchase pages?
+
+<!-- xgd-turn id="0e6c31ba-40bd-4922-aea0-79c84f7daae0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T19:06:27.274230+00:00" -->
+#### You
+That sounds right - lets model the defaults on the finished version on Laurens sites. I still have a couple of tweaks I would like to make...
+
+<!-- xgd-turn id="0e6c31ba-40bd-4922-aea0-79c84f7daae0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T19:07:11.596699+00:00" -->
+#### Claude
+I've filed **BUG-410**, "Purchase pages: consultant builds start from the defaults, and the defaults are complete enough to need no help". It's under EPIC-31, at `draft`, high severity, and covers everything in my last message. It says the defaults are to be modelled on your finished reference pages. Per the no-customer-specifics rule, it describes them by structure only and never names Lauren's shop or uses its wording.
+
+Go ahead with your tweaks. When you're done, tell me and I'll:
+1. Read the three finished pages from production for Lauren Test 1: their structure, sizes, labels and the order things appear in.
+2. Write that structure into BUG-410 as the defaults' specification, so whoever builds it has an exact target rather than a summary.
+
+The delete refusal (the consultant's scope lacked the page's style file) isn't in BUG-410. Tell me if you want it filed separately.
+
+<!-- xgd-turn id="50d43fbd-0c79-4138-be92-582d0fa740be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T19:25:53.134472+00:00" -->
+#### You
+ok please check out the last few changes to Lauren test 1. There are 2 checkout changes I want that do not seem to be available
+
+<!-- xgd-turn id="50d43fbd-0c79-4138-be92-582d0fa740be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T19:27:40.276608+00:00" -->
+#### Claude
+I'll pull the latest turns of the consultant's transcript for Lauren Test 1.
+
+Nearly there: checking how Lauren Test 1's checkout page is stored, to see why the price comes out blank.
+
+Neither of the two checkout changes can be made from the page. Both need code changes in the checkout itself, and I've added both to **BUG-410**.
+
+**1. Terms line under the payment form.** The checkout draws "By paying you agree…" itself and always puts it just above where Stripe loads (`component.ts:77`). It isn't part of the page, so the consultant can't move it. It's also why it shows in the browser's default typeface at 16px: it's added after the site's type styles have been applied, so it never gets them.
+- **Fix:** it goes directly under the payment form by default, as you preferred. A page can also place it itself, and it uses the site's own small type.
+
+**2. Price beside the title.** The consultant did put the price next to the title. The checkout leaves it blank.
+- **Likely cause, not yet confirmed:** with no piece chosen, the preview's checkout shows the first piece in the shop, and that may be a sold one. A sold piece shows no price, and its total can't be worked out, so the total stays blank too. That would also explain the "The shop gave no answer" message. The product page, by contrast, previews the first piece still for sale.
+- **Quick check:** press Buy on a piece that's for sale and look at the checkout page that opens. If the price shows there, that's the cause. The fix is for the preview to show the first piece still for sale.
+
+From the same round I also added:
+- "Return to checkout" on the cancelled page. The consultant couldn't build it because that page isn't told which piece was being bought.
+- The "Order" label in front of the order number, in the default.
+
+When you've finished your tweaks, tell me and I'll read the final pages and write their structure into BUG-410 as the defaults' specification.
+
+<!-- xgd-turn id="9d8bee27-0eee-4451-afb2-9fb3ab41d29d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T19:31:33.882744+00:00" -->
+#### You
+I see the price it is Under the region selector and it is left justified
+
+<!-- xgd-turn id="9d8bee27-0eee-4451-afb2-9fb3ab41d29d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T19:32:09.171838+00:00" -->
+#### Claude
+That figure is most likely the **Total**, not the price. Before a region is chosen there's no shipping to add yet, so the checkout puts the piece's price in the Total (`client.js:154`). It reads as the price, but it has no "Total" label, and the consultant placed it under the region selector, left-aligned.
+
+That means the spot beside the title is probably still empty, even on a checkout you opened with Buy on a piece that's for sale. My earlier guess (the preview showing a sold piece) doesn't explain that, so I've recorded the correction on BUG-410. To find the real cause I need to read how the checkout page is actually stored for Lauren Test 1. I couldn't find it in the production database tables I checked; I'll look further next.
+
+Can you confirm the spot right after the title is empty? If it is, BUG-410 gets three checkout fixes:
+- The price shows beside the title as soon as the page loads, before a region is chosen.
+- The Total always carries its "Total" label.
+- The terms line sits under the payment form.
+
+<!-- xgd-turn id="557fe35d-b3e9-44c7-be5e-006617651d44-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:05:45.041015+00:00" -->
+#### You
+Well there is only one item to Price == Total. The point is it is in the wrong place and unlabeld. 
+
+It needs to appear, with a label "Total" above the region selector underneath the product description.
+
+I actually think the right model for the top part of this page is the Your Order page - a summary of what you are going to buy with the price..yes?
+
+<!-- xgd-turn id="557fe35d-b3e9-44c7-be5e-006617651d44-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T20:06:16.515955+00:00" -->
+#### Claude
+Yes. The top of the checkout should be the same summary as the "Your order" page: what you're buying and what it costs, with the total labelled. Using one block for both pages means they can't drift apart, and a cart with several items later needs no new layout.
+
+I've added this to BUG-410, replacing the "price beside the title" idea. The checkout page, top to bottom:
+
+1. **"← Back to <item>"** link.
+2. **Order summary**, the same block as on "Your order":
+   - one row per item: small square thumbnail, name, and amount on the right;
+   - then **Shipping** and **Total**, amounts in the same right-hand column, Total emphasised;
+   - before a region is chosen, Total shows the items' sum and Shipping shows as not yet chosen. Choosing a region fills Shipping and updates Total;
+   - it sits under the description and above the region selector.
+3. **Region selector**, centred.
+4. **Payment form**, with its space held so the page doesn't jump.
+5. **Terms line** underneath.
+
+Two details to settle:
+- **Shipping before a region is chosen:** show "Shipping — choose a region below", or leave the row out until a region is picked. I'd show it, so the buyer knows the total will change.
+- **"Shipping" or "Delivery":** your finished order page says "Delivery". Which should the default use?
+
+<!-- xgd-turn id="4d45a2be-be78-422b-9a03-2c61de7319c4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:08:51.396821+00:00" -->
+#### You
+Shipping is more american, Delivery is more British/Irish. Lets default to Shipping on both but make it changable by the consultant.
+
+<!-- xgd-turn id="4d45a2be-be78-422b-9a03-2c61de7319c4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T20:09:18.336237+00:00" -->
+#### Claude
+Done. BUG-410 now says:
+- **The default label is "Shipping"**, on both the checkout and the order page.
+- **The consultant can change every label in the summary**, for example to "Delivery" for a British or Irish business. The checkout and order page use the same wording.
+- **The consultant's guidance (DOC-47) says** the labels are the site's own wording to change, and the figures beside them are filled in by the checkout.
+
+One question from last time is still open: before a region is chosen, should Shipping show something like "choose a region below", or be left out until a region is picked? I'd show it, so the buyer can see the total will change.
+
+<!-- xgd-turn id="1c3a1173-235b-4f18-b444-76aca4cbdf5a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:10:28.069343+00:00" -->
+#### You
+ok I am reviewing the emails now
+
+<!-- xgd-turn id="3ebfc7e1-db5a-48de-a030-bc29025eac46-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:16:49.535605+00:00" -->
+#### You
+ok I am reviewing the emails now:
+
+Cancellation declined
+ - Sample Business says: “Your order has already left.” <-- is this message entered by the user when they decline the cancelation?
+
+Work is ready
+The work on Sample Business that you were waiting for is finished and ready for you to see. [Open it in 1st Contact] <-- is there an owner flow corresponding to this? Are we sure that the owner understands? Posting a photo and description is a very natural thing to do but do they knoe wto do it - also how does the message get the right line? Owner flow?
+
+Order confirmation
+In the mailbox is broken for this email. I see: "the email text must keep {{terms_of_sale}} (the terms of sale this order was placed under, at the address that version keeps for good)"
+
+<!-- xgd-turn id="3ebfc7e1-db5a-48de-a030-bc29025eac46-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T20:17:44.595095+00:00" -->
+#### Claude
+I'll look up each of the three in the message templates.
+
+Here's what each of the three emails is.
+
+**1. Cancellation declined: yes, that line is the owner's own note.** When the owner declines a cancellation in Orders, there's an optional box, "Note to the buyer (optional), for example 'It's already in the post'" (`builder/orders.js:358`). The mailbox shows a sample note in its place. In a real email, the "{{business}} says: …" paragraph carries what the owner typed. If they type nothing, the email just says the business couldn't cancel the order.
+
+**2. Work is ready: this isn't a shop or commission email.** It's 1st Contact writing to a site owner when the consultant finishes a long piece of work on their site while they're away. The link opens the builder.
+- **The opening line** is a short note the consultant writes when it finishes; "Your first draft is ready to look at." is the mailbox's sample.
+- **Who sees it:** only the 1st Contact business's own mailbox lists it, because it's the platform's email to its customers. You saw it because your account is 1st Contact.
+
+Reading it the way you did ("posting a photo and description…") suggests the wording invites that misreading. "The work on {{business}} that you were waiting for" could mean anything. I'd say what the work was, e.g. subject "Your {{business}} site is ready to look at" and body "The changes you asked for on your {{business}} site are finished." Does that fit what you had in mind?
+
+**3. Order confirmation: this one is a real bug, and worse than the mailbox shows.**
+- On 7 November the confirmation gained two required paragraphs (REQ-666): the link to the Terms of sale the order was placed under, and, for UK and EU buyers, a summary of their right to cancel.
+- The business's saved copy of this email was most likely made before that, so it lacks them. The mailbox checks saved copies and refuses to show this one; that's the message you see.
+- **Sending doesn't check** (`message-send.ts:105`). So confirmations are probably going out from the old text, without the Terms link or the cancellation summary, which the law requires in an order confirmation. I haven't yet confirmed which text your live order's confirmation used.
+- **Fix:** when a saved email lacks a paragraph that's now required, the platform adds it automatically, at load and before every send, so a later addition can't silently go missing again.
+
+This isn't about the purchase pages, so it doesn't belong in BUG-410. Shall I file it as its own bug under EPIC-31, high severity? The "Work is ready" wording is a one-line copy change I can add to it, unless you'd rather keep it separate.
+
+<!-- xgd-turn id="f406b922-30f9-496d-90bb-5d3c12a0d564-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:26:17.806547+00:00" -->
+#### You
+please create that bug.
+
+Can you update 409 with the latest please?
+
+<!-- xgd-turn id="64282ae9-8a50-4e9f-8d57-ad7c8b1dc786-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:26:39.034264+00:00" -->
+#### You
+please create that bug.
+
+Can you update 410 (not 409) with the latest please?
+
+<!-- xgd-turn id="64282ae9-8a50-4e9f-8d57-ad7c8b1dc786-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T20:27:43.081153+00:00" -->
+#### Claude
+Rewriting BUG-410 as one consistent spec, with the superseded parts removed.
+
+I've filed the email bug and rewritten BUG-410.
+
+**BUG-414**, "Order emails: a saved copy missing a now-required paragraph breaks the Mailbox and sends without the Terms of sale link". It's under EPIC-31, at `draft`, high severity:
+- A saved email that's missing a now-required paragraph gets it added automatically, using the standard wording, both in the Mailbox and before every send. The owner's other wording is kept.
+- An email that would still be refused is never sent; the standard version goes instead.
+- It also carries the "Work is ready" rewording: "Your {{business}} site is ready to look at".
+
+**BUG-410** was a stack of add-ons with superseded parts in it. It's now one consistent specification that drops the abandoned "price beside the title" idea and my unconfirmed blank-price guess. It covers:
+- **The consultant starts from the platform's default pages.**
+- **One order-summary block shared by the checkout and the order page:** a 72px square thumbnail per item, Shipping and Total labelled (Subtotal only with more than one item), and amounts lined up in one column on the right.
+- **The checkout, top to bottom:** back link, description, the summary with the total labelled, centred region selector, held space for the payment form, then the terms line underneath it in the site's own type.
+- **The order page** labels the order number: "Order 1009".
+- **Order cancelled:** a "Return to checkout" button for the same piece, and a "Back to the shop" link that works.
+- **"Shipping" is the default label**, and the consultant can change it to "Delivery".
+- **The "Try again" and "Request cancellation" buttons** take the site's button style; the old modes and the Continue setting are removed from the reference.
+
+The ticket says the default pages are modelled on your finished test-shop pages, but it describes them by structure only, since I haven't read the stored pages yet. When your tweaks are done, I'll check BUG-410's specification against them.
+
+I wrote one point you haven't confirmed: before a region is chosen, the Shipping row reads "choose a region below". Tell me if you'd rather hide the row until a region is picked.
+
+<!-- xgd-turn id="b74e2a93-6105-4a09-a3bd-03d66fefce04-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:28:31.615569+00:00" -->
+#### You
+Is 412 a dupe of 410? If so can you mark it wontfix with an explanation please?
+
+<!-- xgd-turn id="b74e2a93-6105-4a09-a3bd-03d66fefce04-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T20:29:42.363682+00:00" -->
+#### Claude
+BUG-412 is closed. I'm adding the explanation as a comment, since a closed ticket's body can't be edited.
+
+Yes, BUG-412 was a duplicate of BUG-410. The consultant had filed it from its own report of the same review. I've set it to `wont_fix`. A closed ticket's description can't be edited, so the explanation is a comment on it (COMMENT-8151). The comment maps each of BUG-412's nine problems to the BUG-410 section that covers it.
+
+While checking, I found BUG-408 (already coded, at `free_coded`) overlaps BUG-410 too. It gives the "Try again" and "Request cancellation" buttons the site's button style, and gives the cancelled page's back link height so it shows. I've noted on BUG-410 that those parts belong to BUG-408 and shouldn't be redone.
+
+BUG-412 was under a different epic, `epic-95bc3b15`, not EPIC-31. Nothing needed changing because of that, now that it's closed.
 
 <!-- xgd-chat-end -->

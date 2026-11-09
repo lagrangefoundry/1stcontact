@@ -5,8 +5,8 @@ type: bug
 title: Homepage beta form posts to a route that does not exist
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:42:09.866810+00:00'
-updated_at: '2026-11-09T20:39:12.825591+00:00'
-completed_at: '2026-11-09T20:39:09.485290+00:00'
+updated_at: '2026-11-09T20:50:18.612975+00:00'
+completed_at: '2026-11-09T20:50:18.612975+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,12 +19,12 @@ fields:
   - REQ-223
   commits:
   - working_sha: 1bcc94e51f28d81dbb016662dc0a77df2b13331c
-    reconcile_sha: 556cd05dcbcf7f56a15c6197db8208af8b69eb7d
-    main_sha: null
+    reconcile_sha: f97918611c714c33d66729cfc0832c014b45c8fc
+    main_sha: f97918611c714c33d66729cfc0832c014b45c8fc
     working_sha_history: []
   - working_sha: 9a10d34f659fdf3fbb69cd9fd63dadf715964337
-    reconcile_sha: d7661e84149d61da7398129e24c32a254251a877
-    main_sha: null
+    reconcile_sha: 2da741667b349dc0789985e984d53e818ea99d10
+    main_sha: 2da741667b349dc0789985e984d53e818ea99d10
     working_sha_history: []
   version: 0.2.167
   bundled_in: bundle-0881342c

@@ -5,8 +5,8 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-11-09T20:39:13.972935+00:00'
-completed_at: '2026-11-09T20:39:12.172544+00:00'
+updated_at: '2026-11-09T20:49:55.061693+00:00'
+completed_at: '2026-11-09T20:49:55.061693+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,33 +18,21 @@ fields:
   - REQ-219
   chat_comment: comment-f3ebfc8a
   commits:
-  - working_sha: c2d79f8ca1f16c1b2c8a71f75f83fb0e4f752327
-    reconcile_sha: 7b4e5503ff37a4075051ae19faf856392589c751
-    main_sha: null
+  - working_sha: 923fa442e1aba24efd69c71dff50c98e93a7706d
+    reconcile_sha: 8d78b383f9062aaaba2fe2a1a993ea99e88230bb
+    main_sha: 8d78b383f9062aaaba2fe2a1a993ea99e88230bb
     working_sha_history: []
-  - working_sha: 9110d75b515a4c89f1627421aa717b6625a0c5f6
-    reconcile_sha: 9c9c6c91630244b8fe1d6ade6aade7123501a82e
-    main_sha: null
+  - working_sha: 12ffdb235833320a58f3b4367bb32895cc2c0bfe
+    reconcile_sha: 4d69c9f142c7e28cf41fceb6f7392ff10a5eb766
+    main_sha: 4d69c9f142c7e28cf41fceb6f7392ff10a5eb766
     working_sha_history: []
-  - working_sha: b58546d4dc00b73519ad58975d4d22bfc3eef6cf
-    reconcile_sha: 748df979a6d12c9efddd18ec412347e378778c9f
-    main_sha: null
+  - working_sha: 809d4ac2a5ba765fb202951c7ddc42b9395ad00c
+    reconcile_sha: 816f1ff4a38428385ea0795106b960a85f42066c
+    main_sha: 816f1ff4a38428385ea0795106b960a85f42066c
     working_sha_history: []
   - working_sha: e00f79c441e6383dbd46b9283ab8a74ad24799bb
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: c58ad7396bfa89a28092e6fdbbcce5df3f47bd82
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 3fb77e4aa254348d37d0db20de49b89e7f580963
-    reconcile_sha: 54972ffe2b3c4d41b69a2a2e3d5d4613ffb54de7
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 9db539fbb584055240161600381765e15b47c51e
-    reconcile_sha: null
-    main_sha: null
+    reconcile_sha: cdb5ac1b6930eed1a3554904716e1a49a6c09e2d
+    main_sha: cdb5ac1b6930eed1a3554904716e1a49a6c09e2d
     working_sha_history: []
   version: 0.2.183
   story_points: 13

@@ -5,8 +5,8 @@ type: request
 title: HEIC converts at the door, so an iPhone photograph is an ordinary image
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:10.281072+00:00'
-updated_at: '2026-11-09T20:39:13.695457+00:00'
-completed_at: '2026-11-09T20:39:11.505226+00:00'
+updated_at: '2026-11-09T20:50:00.622736+00:00'
+completed_at: '2026-11-09T20:50:00.622736+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,12 +18,12 @@ fields:
   chat_comment: comment-590859ba
   commits:
   - working_sha: f87c58e2a1dabdfdc5618858b32ce0f19c6fc18f
-    reconcile_sha: 820e6b35dfebe51b89b9220670ac595af7c3279e
-    main_sha: null
+    reconcile_sha: be35acafefa1d6a386262962d2a2aed8f2986a6a
+    main_sha: be35acafefa1d6a386262962d2a2aed8f2986a6a
     working_sha_history: []
   - working_sha: 0191ac5e0665ce211cc3151b3f99f7ef8a8f8e6e
-    reconcile_sha: 4022d6ff1877f2f8a3ba2d9ef225b4ade4872cf4
-    main_sha: null
+    reconcile_sha: 97f97a70a8a2bc4ecddb129b601d29263b23163e
+    main_sha: 97f97a70a8a2bc4ecddb129b601d29263b23163e
     working_sha_history: []
   version: 0.2.161
   bundled_in: bundle-0881342c

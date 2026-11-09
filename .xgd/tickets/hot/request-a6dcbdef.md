@@ -5,8 +5,8 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-11-09T20:39:13.396387+00:00'
-completed_at: '2026-11-09T20:39:10.853467+00:00'
+updated_at: '2026-11-09T20:50:08.435514+00:00'
+completed_at: '2026-11-09T20:50:08.435514+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -18,11 +18,11 @@ fields:
   commits:
   - working_sha: d1b808f68af26807075940d99c991da6cdc3e878
     reconcile_sha: 2f4dc785fc62373d6ef66ad6ecc69e66fe7881b8
-    main_sha: null
+    main_sha: 4b50c0f4c34cc477534aa30a433932ee95d60c0b
     working_sha_history: []
   - working_sha: 2bef88cf5d5f3888a7b7079dc56faa9614f0dc29
-    reconcile_sha: 2dd26d7bc28ea498a819699251a8557537420f74
-    main_sha: null
+    reconcile_sha: 4ec09540abdc3c0f85757c17019ee79cc51b8f69
+    main_sha: 4ec09540abdc3c0f85757c17019ee79cc51b8f69
     working_sha_history: []
   version: 0.2.164
   story_points: 8

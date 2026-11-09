@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-11-08T17:05:22.593722+00:00'
+updated_at: '2026-11-09T06:19:57.622212+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -349,5 +349,81 @@ I've filed **BUG-382**, "Sign-in: sessions for unrelated businesses replace each
 **On REQ-668:** I couldn't correct decision 2 in its body. It's queued for reconcile, and the body is frozen at that point. I added a note (COMMENT-8014) saying decision 2 is overruled, pointing to BUG-382, and asking reconcile not to pin "signing in replaces the other session" as an acceptance criterion. Comments rank below the body for reconcile, so the old decision could still end up pinned. If it does, BUG-382 supersedes it when it lands.
 
 BUG-382 is ready to build in its own session.
+
+<!-- xgd-turn id="d852e78a-6c0a-498e-8a55-d2ae5abd7715-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T06:10:33.495456+00:00" -->
+#### You
+I am FREQUENTLY getting yellow pop up that asks me to "Sign in again" whe I click the CTA I do not have to prove any credentials but the whoole builder has to reload which takes 30 sec +
+
+<!-- xgd-turn id="d852e78a-6c0a-498e-8a55-d2ae5abd7715-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T06:13:17.464986+00:00" -->
+#### Claude
+Looking into it: the notice comes from the builder's one fetch wrapper, which treats *any* failed request as "session ended". Checking what could be failing.
+
+Promising lead: sessions use token rotation. Reading that.
+
+Pulling the last few hours of production 401s and failed requests from Workers Logs to see what the builder actually got.
+
+Very few 401s. Instead, the builder's own calls are failing a lot: 500s on `await-turn`, 503s on many reads, and many "canceled" requests. Checking what those errors are.
+
+I found the cause. Your session isn't ending at all. The builder raises "Sign in again" whenever any request fails to reach the server, even for a moment, and one background request is now always open.
+
+**What the logs show.** I pulled production Workers Logs for the last few hours:
+- Before your reloads at 21:36 and 22:09 there was no 401, no 500, and no refusal of any kind.
+- The only events at those moments are the builder's open requests being cut off by the reload itself.
+- In 12 hours there were only 8 real 401s.
+
+So the banner came from a request that failed inside the browser and never reached the server.
+
+**Why it happens.**
+- Every builder request goes through one helper, `send` in `apps/control-app/src/builder/api.js:125`. If a request fails outright, with no response at all, `send` immediately shows "The builder could not reach the server — your session may have ended. Sign in again". It treats that as the most likely sign of an expired sign-in.
+- Since BUG-348 (landed 4 Nov), the chat panel keeps a request to `/api/ai/await-turn` open around the clock, so it can follow turns it didn't start. That loop is built to retry on failure (`chat.js:1448`).
+- By the time the loop retries, `send` has already put the banner up. Any small network hiccup triggers it: the laptop waking from sleep, a Wi-Fi change, a dropped connection.
+- That matches what you see. The reload asks for no credentials because the session was fine all along.
+
+Your tab-change reporting already avoids the banner for exactly this reason, but the new background loop doesn't.
+
+**The fix I'd scope:** a failed request on its own should never claim the session ended. Before showing the banner, `send` should check the session with one quick call:
+- If that call gets a 401, show the banner as now.
+- If it doesn't, treat the failure as a passing network problem. The calling code handles it itself, and the background loop just retries quietly.
+
+**The 30-second reload is a second problem.** Right after your 22:09 reload, the preview requests took about 8 seconds each and returned 500s. Several settings reads also got 503 "store busy". That's what makes the reload so slow. I'd put it in the same ticket as a second part, since it's the other half of what you're hitting. A separate ticket is fine too.
+
+Do you want me to file this as a new bug under EPIC-23? This session only files tickets when you say so. It would be built in its own session.
+
+<!-- xgd-turn id="512f4947-10e4-4dd4-a016-15142d78f875-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T06:19:11.421542+00:00" -->
+#### You
+yes please
+
+<!-- xgd-turn id="512f4947-10e4-4dd4-a016-15142d78f875-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T06:19:54.898582+00:00" -->
+#### Claude
+I've filed **BUG-399**, "Builder: a dropped request shows 'Sign in again' though the session is fine". It's under EPIC-23 at `draft`, high severity.
+
+**What's in it:**
+- **Evidence:** production logs show no 401 or server error before your reloads at 21:36 and 22:09. The failure happened in the browser and never reached the server.
+- **Cause:**
+  - The builder shows the sign-in notice whenever any request fails outright. That made sense when Cloudflare Access guarded the builder, but REQ-475 made the builder public at the edge.
+  - Since BUG-348 (4 Nov), the chat panel keeps a request open all the time to follow turns it didn't start. Any network hiccup now turns into "Sign in again".
+- **Part A of the fix:** when a request fails, the builder first checks the session with one quick call.
+  - Only a 401 shows the notice.
+  - If the session is fine, the failure goes back to the code that made the request, and the background loop retries quietly.
+  - If the network is down altogether, there's still no sign-in notice. A small "Connection lost, retrying" strip is optional.
+  - Real 401s and the operator console behave as they do now.
+- **Part B of the fix:** the slow reload. After your 22:09 reload, the draft previews took about 8 seconds each and returned 500s, and several settings reads got 503 "store busy". Part B is to find and fix why a fresh builder load does that.
+- **Test plan:** six tests:
+  - a failed request with a live session shows no notice;
+  - a failed request with an ended session shows it;
+  - a failed request with the network down shows no notice;
+  - the background loop rides out a failure;
+  - a plain 401 still shows the notice at once;
+  - one test pinning the slow-reload cause.
+
+BUG-399 is ready to build in its own session. Until it lands, the notice will keep appearing, and reloading is safe: no sign-in is needed.
 
 <!-- xgd-chat-end -->

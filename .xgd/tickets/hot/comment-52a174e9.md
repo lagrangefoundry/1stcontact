@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-32
 created_by: xgd
 created_at: '2026-11-04T18:56:20.615072+00:00'
-updated_at: '2026-11-08T21:51:15.366214+00:00'
+updated_at: '2026-11-09T20:53:16.435835+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1173,5 +1173,162 @@ I hadn't filed it yet: I'd asked in my last message and was waiting for your ans
   - A test that the network line is logged once.
   - The local container test rig still completes a turn.
   - Your production check: "hello" gets a reply, and the logs show `platform_api_request` lines.
+
+<!-- xgd-turn id="1e436ea9-94e6-4fcb-b5c5-189888508b60-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T18:54:06.369089+00:00" -->
+#### You
+The preview loading in production feels very slow - will the production site be as slow as that - particular slowness is in loading photos from the intentory.
+
+<!-- xgd-turn id="1e436ea9-94e6-4fcb-b5c5-189888508b60-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T18:55:44.209712+00:00" -->
+#### Claude
+I'll look at how the preview serves inventory photos versus how a published site serves them, then check production timings.
+
+Still tracing: I'm comparing how the preview fetches each inventory photo with how a published site serves it.
+
+Nearly there: I'm confirming the cache headers the preview puts on photos.
+
+No, the published site shouldn't be anywhere near that slow. The preview and the live site load inventory photos in completely different ways, and the preview's way is the slow one. I worked this out from the code; I haven't timed either one in production.
+
+**How the preview loads each photo** (`tools/generate/src/cli/preview.ts:180`, `apps/control-app/src/router.ts:3296`). Every photo request goes through the control app and does all of this, every time:
+- a D1 query to find the item's photo,
+- opening the business's ticket store and reading the Library material and its attachment list,
+- reading the **full-size original** from R2, which may be a multi-megabyte phone photo, with no smaller version,
+- sending it back as `no-store` (`router.ts:3648`), so the browser re-fetches it on every reload.
+
+A grid of 24 items means 24 of these trips, all through the same Worker.
+
+**How the published site loads them** (REQ-647, `apps/control-app/src/catalog-photos.ts`):
+- When you publish or rebuild, each photo is prepared once: resized to a set of widths and stored in R2 under a name made from its contents.
+- The public site serves them as static files with a permanent cache, and the browser chooses the size it needs. Visitors' requests never reach the control app (architecture policy item 34).
+
+REQ-647 is on xgd-working, which is what production deploys from, so the live site should already work this way. One cost to know about: the first publish or rebuild after adding photos prepares all of them once. After that, only new photos need preparing.
+
+**Making the preview fast too:** the preview could use the same prepared photos when they exist, and fall back to the original only for a photo that hasn't been prepared yet. Even just giving the photos a private cache would stop the reload re-fetching. Do you want me to file that as a bug under EPIC-32? I'd also add a timing check against a live shop page to confirm what I've described here.
+
+<!-- xgd-turn id="e830c8e3-7e6f-4fba-9c99-969135469b11-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T19:03:03.599227+00:00" -->
+#### You
+Even for photos in the inventory?
+
+<!-- xgd-turn id="e830c8e3-7e6f-4fba-9c99-969135469b11-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T19:03:35.590155+00:00" -->
+#### Claude
+Yes, especially those. REQ-647 was written for the shop's inventory photos.
+
+- **When the site is published** (`publishedCatalogFor`, `apps/control-app/src/catalog.ts:225`), every photo of every live inventory item is prepared once. It gets several resized versions, is stored in R2 under a name made from its contents, and the published page links to those files.
+- **On the live site**, visitors get those files straight from R2 through the public site, cached permanently (`public, max-age=31536000, immutable`, `apps/public-site/src/index.ts:158`). The browser picks the size it needs, so a small grid card downloads a small image. No visitor request reaches the control app, D1 or the Library for a photo.
+- **When you save an item in the Shop tab**, the business's sites are rebuilt as a background job (`catalogItemChanged`). Only photos that haven't been prepared yet are processed; the rest are reused.
+
+The preview is slow because it skips all of that. It fetches each inventory photo live through the control app, sends the full-size original, and forbids caching. The slowness you're seeing comes from the preview, and the published site doesn't load photos that way.
+
+Two caveats:
+- **I've confirmed this from the code, not by timing production.** I haven't loaded a live shop page to measure it.
+- **A newly added photo appears on the live site only once its background rebuild finishes.** That's usually seconds, and longer the first time a large catalog is prepared.
+
+Do you want me to file the bug to make the preview use the prepared photos? I'd include the production timing check.
+
+<!-- xgd-turn id="7f40b67e-dfde-4640-bbd4-3e4d33d75657-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:45:07.259309+00:00" -->
+#### You
+When I hit the Publish button on Lauren Owens Jewelry Test 1 it is going to resize 2000 images each to 3 sizes IIRC - is this going to happen in a container? Will it happen in parallel?
+
+<!-- xgd-turn id="7f40b67e-dfde-4640-bbd4-3e4d33d75657-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T20:46:40.760999+00:00" -->
+#### Claude
+Checking what REQ-647 actually built against what it planned for the background rebuild.
+
+No to both. Publish will try to do all of this inside the Publish request on the Worker, and at 2,000 photos it will almost certainly not finish.
+
+**What happens when you press Publish**
+- **It runs in the Worker, not a container.** The photo preparation (`publishedCatalogFor` → `prepareCatalogPhotos`) runs inside the Publish request itself (`apps/control-app/src/router.ts:6890`). Moving it into a container is REQ-647 item 2, which the ticket records as **not started**. It was waiting on REQ-646's container runtime, which has now landed, so nothing blocks it any more.
+- **Photos are done one at a time.** The loop in `catalog-photos.ts` reads, writes and resizes a photo, then moves on to the next. Within a single photo, up to 6 resizes run at once (`LADDER_CONCURRENCY`).
+- **It's more than 3 sizes.** Each photo gets every width from 320 to 1920 that is smaller than the original (up to 6), each in its own format and in WebP, plus a 3000 px zoom version. That's up to **13 resized copies per photo, so roughly 26,000 for 2,000 photos.**
+
+**Why it will most likely fail**
+- **Request limit.** A Worker request may make 10,000 calls to R2, D1 and Images. Each photo needs several dozen (Library read, original write, and a cache read, transform and write for each copy), so a single request runs out after a few hundred photos.
+- **The publish-size guard doesn't help.** Its 1,200-copy cap counts each photo separately here, so a catalog this size never triggers the clear "too big" message.
+- **Progress is lost on failure.** The record of which photos are done is saved only once the whole loop finishes. When the request dies partway through, the copies already written stay in R2, but the next attempt doesn't know about them and starts again from photo one. It would fail the same way every time.
+- **Saving an item probably isn't working either.** Saving or importing items runs the same loop in the background after the response, with even less time allowed. If the catalog was imported, it likely never finished preparing. I haven't checked production logs to confirm.
+
+**What it needs**
+1. **Build REQ-647 item 2 now that REQ-646 has landed:** catalog rebuilds and the photo work run as a Workflow job in a container (architecture item 31).
+2. **Save progress as it goes:** write the record of finished photos every so often, so a retried step carries on from where it stopped.
+3. **Prepare several photos at once**, within a total limit on resizes in flight.
+4. **Prepare photos when they're added to the Library or inventory**, not at Publish. Then Publish only links to files that already exist.
+
+My suggestion is not to press Publish on that site until this is in. Do you want me to file it as a bug under EPIC-32, linked to REQ-647 item 2, for its own session to build?
+
+<!-- xgd-turn id="5534d6bf-d715-4a2c-a1e2-0a523c210b1d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T20:52:13.030872+00:00" -->
+#### You
+Lets talk about what makes sense - when we designed this we did not have this use-case in mind. Most sites will have only 10s of photos.
+
+1. Do we really need all those sizes? Overkill?
+2. Can you estimate storage requirement and its associated CF costs for this (assuming all sizes)?
+3. Should we consider skipping ones that are not live? Ones that are sold? That would change the story bigtime.
+4. This is ecom rapid serving of high quality images is key so we need to be careful with our solution
+
+<!-- xgd-turn id="5534d6bf-d715-4a2c-a1e2-0a523c210b1d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T20:53:15.829180+00:00" -->
+#### Claude
+Here's my view on each, with the numbers worked out. One fact first that affects point 3: **only live items are prepared today.** `liveItems` selects `live = 1`, so hidden items are already skipped. Sold one-offs are still live, though (they show "Sold"), so they are prepared.
+
+## 1. Do we need all those sizes? Mostly no
+
+Today each photo gets up to 13 resized copies: six widths (320–1920) in the photo's own format, the same widths plus the full original width again in WebP, and a 3000 px zoom copy. On top of that, the full original is copied into the site.
+
+What a shop page actually uses:
+
+| Where the photo appears | Display width | Pixels needed on a high-resolution screen |
+|---|---|---|
+| Grid card | about 250–400 px | about 500–800 |
+| Product page main image | about 600–800 px | about 1200–1600 |
+| Zoom viewer | full screen | about 2400–3000 |
+
+**Suggestion:** three WebP widths (about 480, 960 and 1600), one WebP zoom copy (about 2400), and a single JPEG at about 1200 for the roughly 3% of browsers without WebP. That's **5 copies instead of 13** and almost no visible quality loss.
+
+**A speed problem in the current design:** the original (up to 4096 px, often 3–5 MB) is listed as the largest size in the original-format list. A large high-resolution screen, or a browser without WebP, can end up downloading a multi-megabyte photo for the product image. The largest display size should stop at about 1600–2000 px, with the zoom copy kept separate.
+
+## 2. Storage and Cloudflare cost (2,000 photos, all 13 sizes)
+
+These are rough estimates. The pricing is from memory and should be checked against Cloudflare's current price list. I assumed phone-camera jewellery photos at about 4 MB each.
+
+| | Per photo | 2,000 photos |
+|---|---|---|
+| Stored: original copy + 13 resized copies | about 9–10 MB | **about 19 GB**, ≈ $0.15–0.30/month on R2 (10 GB free) |
+| R2 writes | 14 | 28k writes ≈ **$0.13**, once |
+| Image resizes (Images binding: 5k/month free, then about $0.50 per 1,000) | 13 | about 26k ≈ **$10–13**, once per site |
+| Serving to visitors | — | R2 charges nothing for downloads; the edge cache handles repeats |
+
+**Cost isn't the problem. Time and Worker limits are.** At about 0.5–1 s per resize and 6 at a time, 26k resizes take roughly **1–1.5 hours**, far beyond what one request can do. With the 5-copy ladder: about 10k resizes, $2–3 and about 8 GB. One more detail: photos are prepared separately for each site, so a business with two sites pays twice. Keying them by photo for the whole business would avoid that.
+
+## 3. Skip items that aren't live or are sold?
+
+- **Not live:** already skipped.
+- **Sold:** this is a product decision. For one-off jewellery, sold pieces often stay up as a portfolio ("Sold"), and those pages drive enquiries and search traffic. Options:
+  - drop sold items from the catalog after a set time, or
+  - give sold items only the grid-card size and their main photo, not every gallery photo.
+- **The bigger saving, whatever the answer on sold items:** only the **first photo** of each item appears on the grid. The other photos appear only on that item's page. With about 4 photos per item, preparing gallery photos only when needed (or after the main photos) cuts the work that blocks Publish by about 75%.
+
+I don't know how this catalog divides into items, photos per item and sold items. Getting those counts takes one aggregate query on the production database. Do you want me to run it?
+
+## 4. What I'd recommend for fast, high-quality ecommerce photos
+
+1. **Prepare photos when they're added to the Library or inventory, not at Publish.** A background job in a container does the work, several photos at a time, recording progress as it goes. Publish then only links to files that already exist, and a 2,000-photo import fills in over the following minutes instead of failing a request.
+2. **The smaller ladder from point 1**, ending at about 1600 for display, with a separate zoom copy and WebP first.
+3. **Key prepared photos by photo for the whole business, not per site.**
+4. **A safety net for anything not yet prepared:** the page lists the normal file addresses. If a requested size doesn't exist yet, the public site creates it once and saves it to R2, so later visitors get the stored file. This is the one place a visitor's request does some processing. It runs on the public site and never touches the control app, so I think it's acceptable under architecture item 34. It's your call, though.
+5. **Keep the immutable cache headers and the correct `sizes` values.** Those are what make repeat views instant.
+
+Two decisions shape the ticket: the sold-item policy, and whether the safety net in item 4 is acceptable. Once you've made those, I'd write this up as a bug under EPIC-32 that replaces REQ-647 item 2, for its own session to build.
 
 <!-- xgd-chat-end -->

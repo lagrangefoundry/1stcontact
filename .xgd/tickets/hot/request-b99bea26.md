@@ -5,8 +5,8 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-11-09T20:39:13.097709+00:00'
-completed_at: '2026-11-09T20:39:10.193166+00:00'
+updated_at: '2026-11-09T20:50:13.208801+00:00'
+completed_at: '2026-11-09T20:50:13.208801+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -19,12 +19,12 @@ fields:
   chat_comment: comment-8f31e389
   commits:
   - working_sha: d3db4a59464180acebfc45b4acc21c34a2dec6e7
-    reconcile_sha: 5fceec3cad3658d5c9d6fe224a2711845e398826
-    main_sha: null
+    reconcile_sha: 96c056c7bb4b80728c78eef7da0ec50d11bd3a7e
+    main_sha: 96c056c7bb4b80728c78eef7da0ec50d11bd3a7e
     working_sha_history: []
   - working_sha: a700cabeac4d9523155aff7b996195e41613b129
-    reconcile_sha: acaf285f425d8b0511783bfd393e7d35f4f9b8d2
-    main_sha: null
+    reconcile_sha: a6cee09bccc864083a06d59a62720a5408366536
+    main_sha: a6cee09bccc864083a06d59a62720a5408366536
     working_sha_history: []
   version: 0.2.166
   story_points: 8
