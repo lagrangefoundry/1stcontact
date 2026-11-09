@@ -322,10 +322,11 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-1718 — the description, and on an upload
     const blank = await open(panel, 'undescribed')
     expect(blank.querySelector('.builder-library__status')!.textContent).toMatch(/Nothing has read this yet/i)
 
-    // EDITABLE FIELDS: upload → description and role; fetched/captured → description only.
-    expect(editableFields(blank).sort()).toEqual(['body', 'role'])
+    // EDITABLE FIELDS: upload → name, description and role; fetched/captured →
+    // name and description only (the Library name is on every material, REQ-220).
+    expect(editableFields(blank).sort()).toEqual(['body', 'role', 'title'])
     for (const uid of ['fetched', 'captured']) {
-      expect(editableFields(await open(panel, uid)), uid).toEqual(['body'])
+      expect(editableFields(await open(panel, uid)).sort(), uid).toEqual(['body', 'title'])
     }
 
     // SHOWN RENDERED, not as markers.

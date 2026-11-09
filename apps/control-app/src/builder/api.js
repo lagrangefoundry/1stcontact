@@ -697,7 +697,11 @@ export function materialUidFromUrl(src) {
   } catch {
     return null
   }
-  if (url.pathname !== '/api/material/file') return null
+  // WITH OR WITHOUT THE BUSINESS SCOPE ([[REQ-220]]). `materialFileUrl` forms its
+  // address through `scoped()`, which prefixes `/b/<business>` whenever a business
+  // is selected — every real session — so a parser that knew only the bare route
+  // would refuse the very addresses the builder itself writes into the chat.
+  if (!/^(?:\/b\/[^/]+)?\/api\/material\/file$/.test(url.pathname)) return null
   // A MEMBER NAMES ONE FILE INSIDE A CAPTURE ([[REQ-166]]), and a capture is not
   // a picture the editor opens — so a URL that addresses one is declined here
   // rather than resolved to a uid the editor would then have to refuse.

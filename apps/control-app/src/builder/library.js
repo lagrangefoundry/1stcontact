@@ -626,16 +626,14 @@ export function createLibraryPanel(options = {}) {
         // rename in the dialog has to reach the pane's own box and the row in
         // the list, or the client closes the modal onto the old name.
         onSaved: (saved) => adoptSaved(saved),
+        // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
+        // exit — the Close button, Escape, the backdrop — through one `close`
+        // whose `onClose` the editor forwards here, so the pane learns the editor
+        // is gone however the client left it, and the picture can be reopened.
+        onClose: () => {
+          editor = null
+        },
       })
-      // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
-      // exit — the button, Escape, the backdrop — through one `close`, and this
-      // is how the pane learns the editor is gone rather than holding a handle
-      // to a dialog that has left the document.
-      const closed = editor.close
-      editor.close = () => {
-        editor = null
-        closed()
-      }
     }
 
     // DESTROYED WITH THE DETAIL, because it owns an in-flight fetch and possibly
@@ -764,6 +762,23 @@ export function createLibraryPanel(options = {}) {
      * component expresses edit mode by replacing its read cell with a control
      * cell, which is where the fact actually lives.
      */
+    /**
+     * A name that changed elsewhere, arriving on the change feed ([[REQ-220]]).
+     *
+     * THE TITLE TRAVELS ON THE EVENT'S ROW, so unlike the description it needs no
+     * read: it is pushed into the pane's field, the picture's alt text and an open
+     * modal. EXCEPT WHILE THE CLIENT IS TYPING A NAME — the cell, not `isDirty()`,
+     * for the reason `reload` gives — when what they type wins.
+     */
+    function renamed(title) {
+      if (nameHost.querySelector('.fields-control-cell')) return
+      const next = title ?? ''
+      nameField?.setName(next)
+      editor?.setName(next)
+      const shownImg = view.querySelector('.builder-library__image')
+      if (shownImg) shownImg.alt = next || row.filename || ''
+    }
+
     async function reload() {
       // AND THE NAME BOX COUNTS ([[REQ-220]]). `setValues` rebuilds a read cell,
       // so a background re-describe landing while somebody is half-way through
@@ -852,7 +867,7 @@ export function createLibraryPanel(options = {}) {
       // it. Before this line the pane is still fetching its first copy, and a
       // body event arriving in that window needs no help: the fetch already in
       // flight will bring the new text.
-      openItem = { uid: row.uid, reload }
+      openItem = { uid: row.uid, reload, renamed }
     })()
 
     return {
@@ -1102,6 +1117,12 @@ export function createLibraryPanel(options = {}) {
     }
     if (!change.row) return
 
+    // THE NAME, WHICH THE EVENT DOES CARRY ([[REQ-220]]). Read before the patch
+    // below, because the row object is shared with the open detail and would
+    // already hold the new title by the time anything compared it.
+    const previousTitle = at === -1 ? undefined : all[at].title
+    const titleMoved = at !== -1 && 'title' in change.row && change.row.title !== previousTitle
+
     if (at === -1) {
       // NEWEST FIRST, which is `listMaterial`'s own order — so a material that
       // arrives by event lands where the same material would have landed had the
@@ -1116,6 +1137,8 @@ export function createLibraryPanel(options = {}) {
       Object.assign(all[at], change.row)
     }
     apply()
+
+    if (titleMoved && openItem?.uid === change.uid) openItem.renamed?.(change.row.title)
 
     // THE DESCRIPTION, WHICH THE EVENT COULD NOT CARRY. See `reload`: the log
     // records that a body moved and never what it now says, so the one open

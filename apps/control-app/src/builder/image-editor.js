@@ -121,6 +121,7 @@ export function mountImageEditor(spec) {
     host = null,
     transport,
     onSaved = () => {},
+    onClose = () => {},
     measure = null,
   } = spec
 
@@ -146,7 +147,13 @@ export function mountImageEditor(spec) {
   const shell = createModalShell({
     host,
     title: name || 'Picture',
-    onClose: () => detachDragListeners(),
+    // EVERY ROUTE OUT IS REPORTED — the Close button, Escape and the backdrop all
+    // end in the shell's one `close`, so the caller learns the dialog is gone
+    // however the client left it, and can open the picture again.
+    onClose: () => {
+      detachDragListeners()
+      onClose()
+    },
   })
 
   // THE BOX IS WHAT WIDENS THE PANEL. `builder.css` keys the wide panel on the

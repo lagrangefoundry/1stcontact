@@ -42,7 +42,10 @@ import { mountFields } from '@lagrangefoundry/webui-fields'
 export const MATERIAL_NAME_FIELD = Object.freeze({
   name: 'title',
   label: 'Name in your Library',
-  required: true,
+  // NOT `required: true`, deliberately. The component's own required check refuses
+  // an empty box in ITS word before `onCommit` runs, so the client would never see
+  // NAME_REQUIRED below — the one sentence that says why a name matters. The
+  // refusal is this module's, in `onCommit`, and the origin's.
 })
 
 /** Said when the box is emptied — the origin refuses it, and so does the copy. */
