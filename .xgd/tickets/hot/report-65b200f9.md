@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-44: BUG-80, REQ-217, BUG-83, BUG
   REQ-228, BUG-84, REQ-229)'
 created_by: xgd
 created_at: '2026-11-09T21:52:17.681797+00:00'
-updated_at: '2026-11-09T22:41:29.832001+00:00'
+updated_at: '2026-11-09T22:52:52.287405+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -150,7 +150,7 @@ fields:
         shown in its place; a network failure shows the `error` slot and leaves the
         form standing for retry; the no-script POST form behaviour is unchanged.'
       remove: []
-    story_uid: null
+    story_uid: story-179b8c06
   - index: 4
     component: 'Assistant library surface: one picture catalogue and place-on-site
       (REQ-228 halves B and C)'
