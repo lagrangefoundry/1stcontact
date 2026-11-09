@@ -242,26 +242,45 @@ async function readFields(
 ): Promise<{ fields: Record<string, string> } | { error: string; status: number }> {
   // THE DECLARED LENGTH IS CHECKED FIRST, so the common oversized case is
   // refused without the bytes ever being read. It is a CLAIM and not a
-  // guarantee, which is why the read below is bounded as well.
+  // guarantee — a chunked body declares nothing — which is why the read below
+  // counts bytes as they arrive and stops at the cap.
   const declared = Number(request.headers.get('content-length') ?? '')
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
     return { error: 'That submission is too large.', status: 413 }
   }
 
-  // READ AS BYTES AND DECODED HERE, not `request.text()`. The size limit is a
-  // limit on BYTES, and re-encoding a decoded string to measure it is a second
+  // READ AS BYTES, CAPPED WHILE READING, AND DECODED HERE — not
+  // `request.arrayBuffer()` or `request.text()`, both of which buffer the whole
+  // body before anything can measure it, so a body that never ends is never
+  // refused. The stream is cancelled the moment the running count passes the
+  // cap, so at most one chunk beyond it is ever pulled. The limit is a limit on
+  // BYTES, and re-encoding a decoded string to measure it would be a second
   // answer to how big the body was — one that disagrees with the first for any
-  // input that is not valid UTF-8. (It also spares the runtime's warning about
-  // calling `.text()` on a form encoding, which is a real signal worth not
-  // drowning.)
-  let raw: ArrayBuffer
-  try {
-    raw = await request.arrayBuffer()
-  } catch {
-    return { error: 'That submission could not be read.', status: 400 }
+  // input that is not valid UTF-8.
+  const chunks: Uint8Array[] = []
+  let total = 0
+  if (request.body) {
+    const reader = request.body.getReader()
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        total += value.byteLength
+        if (total > MAX_BODY_BYTES) {
+          await reader.cancel().catch(() => undefined)
+          return { error: 'That submission is too large.', status: 413 }
+        }
+        chunks.push(value)
+      }
+    } catch {
+      return { error: 'That submission could not be read.', status: 400 }
+    }
   }
-  if (raw.byteLength > MAX_BODY_BYTES) {
-    return { error: 'That submission is too large.', status: 413 }
+  const raw = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    raw.set(chunk, offset)
+    offset += chunk.byteLength
   }
   const body = new TextDecoder().decode(raw)
 

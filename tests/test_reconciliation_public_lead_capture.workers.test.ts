@@ -844,6 +844,33 @@ describe('story-f2e5032c — public lead capture', () => {
       expect([label, await response.text()]).not.toEqual([label, ACK])
     }
     expect(pulled).toBe(false)
+
+    // A body with no declared length that never ends: the read is capped while
+    // it happens (REQ-223 §6, "a large body must be rejected rather than read"),
+    // so the stream is cancelled once the cap is passed rather than buffered.
+    const CHUNK = 1024
+    let pulledBytes = 0
+    let cancelled = false
+    const endless = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulledBytes += CHUNK
+          controller.enqueue(new Uint8Array(CHUNK).fill(0x20))
+        },
+        cancel() {
+          cancelled = true
+        },
+      },
+      { highWaterMark: 0 },
+    )
+    const unending = await send(
+      new Request(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: endless }),
+    )
+    expect(unending.status).toBe(413)
+    expect(await unending.text()).not.toEqual(ACK)
+    expect(cancelled).toBe(true)
+    expect(pulledBytes).toBeLessThanOrEqual(MAX_BODY_BYTES + CHUNK)
+
     expect(limited).toHaveLength(0)
     expect(verifications).toHaveLength(0)
     expect(await anyAddress('mal@example.com')).toBe(0)

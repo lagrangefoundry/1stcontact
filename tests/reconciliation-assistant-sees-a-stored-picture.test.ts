@@ -557,6 +557,9 @@ describe('a drawing says how it was photographed, and a stored picture cannot be
     expect(caption.text).toContain('site image wordmark.svg')
     expect(caption.text).toContain("photographed outside the site's own page")
     expect(caption.text).toContain("browser's default face")
+    // EPIC-1 2026-09-11: the caption says what is wrong, not only that something is.
+    expect(caption.text).toContain('letter widths and line breaks')
+    expect(caption.text).toContain('not evidence')
     expect(caption.text).toContain('measure_drawing')
     expect(documentOf(eyes.log.navigated[0])).toContain('src="data:image/svg+xml;base64,')
 

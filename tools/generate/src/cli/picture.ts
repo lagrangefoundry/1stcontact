@@ -322,14 +322,17 @@ function drivableSteps(source: PictureSource): PageStep[] {
  * page, so the `@font-face` rules the site serves are not in scope and its text
  * resolves in the browser's default face. On a wordmark that is a visible
  * difference and exactly the kind of thing a model would otherwise report as a
- * finding about the drawing. Written here for the same reason
+ * finding about the drawing — so the caption says what is wrong (letter widths
+ * and line breaks are not evidence), not only that something is (EPIC-1,
+ * 2026-09-11). Written here for the same reason
  * {@link EDIT_CHANNEL_NOTE} is: it is a fact about how the picture was made, not
  * about any one operation on it.
  */
 export const DRAWING_RASTER_NOTE =
   'This is a drawing, photographed outside the site\'s own page, so its text is ' +
-  'in the browser\'s default face rather than the one the site serves. Use ' +
-  '`measure_drawing` to read where anything in it actually is.'
+  'in the browser\'s default face rather than the one the site serves — so the ' +
+  'letter widths and line breaks you see here are not evidence of how it looks ' +
+  'on the site. Use `measure_drawing` to read where anything in it actually is.'
 
 /**
  * Which stored picture `image` names, refusing by name when it is not one.
