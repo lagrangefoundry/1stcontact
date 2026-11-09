@@ -521,4 +521,41 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     expect(navsOf(editFrame())).toEqual([previewUrl('other', 'edit')])
     expect(seen).toEqual([])
   })
+
+  it('test_UAT_AC2522_after_a_change_of_site_the_idle_channel_is_primed_behind_the_loaded_frame', async () => {
+    const { edit } = await mountBothLoaded()
+    expect(shown()).toBe(viewFrame())
+
+    // A change of site while View is shown: View navigates to the new site,
+    // and Edit is not touched yet — the page in front of the operator first.
+    app.panel.setSite('other')
+    expect(navsOf(viewFrame())).toEqual([previewUrl('other', 'draft')])
+    expect(navsOf(editFrame())).toEqual([])
+    clearNavs()
+
+    // View's new-site document arrives. Before any flip, the idle Edit frame —
+    // still holding acme's edit page, a different address — is primed at
+    // other's edit page behind it.
+    await arrive(viewFrame(), 'draft', 'other', '', 'View of other')
+    expect(shown()).toBe(viewFrame())
+    expect(navsOf(editFrame())).toEqual([previewUrl('other', 'edit')])
+    expect(navsOf(viewFrame())).toEqual([])
+
+    // The primed document arrives while hidden; the flip then reveals it in
+    // place, holding other's edit document and never acme's.
+    const otherEdit = await arrive(editFrame(), 'edit', 'other', '', 'Edit of other')
+    await tick()
+    clearNavs()
+    const seen: unknown[] = []
+    app.panel.on('document', (d) => seen.push(d))
+    modeButton('edit').click()
+    expect(navsOf(editFrame())).toEqual([])
+    await tick()
+    expect(shown()).toBe(editFrame())
+    expect(envLoads.get(editFrame()) ?? 0).toBe(0)
+    expect(editFrame().contentDocument).toBe(otherEdit.doc)
+    expect(editFrame().contentDocument).not.toBe(edit.doc)
+    expect(seen).toEqual([otherEdit.doc])
+    expect(app.panel.getSrc()).toBe(previewUrl('other', 'edit'))
+  })
 })
