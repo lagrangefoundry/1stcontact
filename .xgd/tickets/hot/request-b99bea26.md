@@ -5,10 +5,10 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-11-09T05:46:40.245214+00:00'
-completed_at: null
+updated_at: '2026-11-09T20:39:10.193166+00:00'
+completed_at: '2026-11-09T20:39:10.193166+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   epic_parent: epic-34760bf1
