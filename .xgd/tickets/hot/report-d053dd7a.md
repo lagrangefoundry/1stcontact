@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T11:28:37.052140+00:00'
-updated_at: '2026-11-09T11:28:37.052140+00:00'
+updated_at: '2026-11-09T11:35:52.185524+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -38,6 +38,7 @@ fields:
         and keeps the AC-688 test unchanged, so it does not decide against the test.
       rung3: 'Decided at rung 3: the test stands and needs no code change. It is blocked
         only by missing webkit-2311/firefox-1532 builds and XGD tooling defect BUG-1695.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 29
