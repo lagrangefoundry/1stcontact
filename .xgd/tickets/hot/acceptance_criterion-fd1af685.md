@@ -6,9 +6,9 @@ title: Published responses carry a short lifetime and are never immutable except
   renditions, and never ask a crawler to stay away
 created_by: xgd
 created_at: '2026-08-06T18:49:31.162888+00:00'
-updated_at: '2026-11-09T06:20:11.447172+00:00'
+updated_at: '2026-11-09T20:19:28.523691+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d34eccd8
@@ -31,7 +31,7 @@ content depends on the visitor's session, is declared private and not storable
 instead (pinned in the session cache-policy criterion), and is likewise never
 immutable. A delivery rendition under the site's derived-assets path, whose name
 is its content, is declared immutable (pinned in the rendition cache criterion,
-REQ-222). Nothing else is.
+AC-2528, REQ-222). Nothing else is.
 
 No response asks a crawler to stay away. A published site is meant to be
 indexed; the ask-not-to-index directive belonged to the draft-preview channel,
@@ -40,7 +40,10 @@ published site.
 
 ## Verification
 
-Publish a site whose pages carry no account chrome, request its entry page and one
-of its assets outside the derived-assets path, and assert both carry the short
-publicly-cacheable lifetime and that neither declares itself immutable. Assert no
-crawler-directive header is present on either, nor on a chrome-bearing page.
+Publish a site whose pages carry no account chrome, request its entry page, its
+stylesheet and an ORIGINAL picture under `assets/` (outside the derived-assets
+path), and assert each carries the short publicly-cacheable lifetime and that
+none declares itself immutable — so a policy that marked all of `assets/`
+immutable fails here. Request a page carrying the account chrome and assert it is
+private, not storable and not immutable. Assert no crawler-directive header is
+present on any of them, the chrome-bearing page included.
