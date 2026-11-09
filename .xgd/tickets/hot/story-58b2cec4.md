@@ -5,9 +5,9 @@ type: story
 title: 'The Assistant Can See: A Read-Only Looking Surface With One Picture Vocabulary'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:41:11.984108+00:00'
-updated_at: '2026-11-09T01:26:00.906600+00:00'
+updated_at: '2026-11-09T02:13:55.292447+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-5607a08d
@@ -73,10 +73,11 @@ Before REQ-157 the assistant's whole tool surface was site-editing operations; n
   - The text around the recovered array is carried onto the blocks: the text before the array prefixes the first text block (or becomes a new leading text block when the first block is an image), and the text after it suffixes the last text block (or becomes a new trailing text block). The image itself lies strictly inside the frame (AC-2067). Unframed payloads come back unchanged; refusals come back as `null` and stay text.
   - History: the frame was dropped by the batch-0 code_frozen grant report-be7d1be4 (13aa65737c); an ungranted fixer edit (0a0f97f216) restoring it was reverted (review report-84f2f9bc F1); review report-b5be9c7c F1 directed restoring it under a new rung-1 code_frozen grant (REQ-157, Grant and safety) scoped to `tools/generate/src/cli/ai/fidelity-core.ts` only. That grant landed as report-d58b23f8 (trust-boundary audit fields computed, conformance pass), and the AC-2067 UATs now pass against it.
 
-### Code issue flagged — the drawing caption does not say letter widths are not evidence (REQ-218 / EPIC-1) — OPEN
+### Code issue flagged — the drawing caption does not say letter widths are not evidence (REQ-218 / EPIC-1) — RESOLVED
+- **Resolved** under code_frozen override report-0fca9951: `DRAWING_RASTER_NOTE` (`tools/generate/src/cli/picture.ts:331-335`) now says letter widths and line breaks in the drawing are not evidence of how it looks on the site, and the surface prose (`tools/generate/src/cli/ai/fidelity-surface.json:200`) says the same. The AC-2486 UAT (`tests/reconciliation-assistant-sees-a-stored-picture.test.ts:560-562`) asserts it and fails if the warning is dropped. Original finding kept below for history.
 - EPIC-1's 2026-09-11 answer on REQ-218: photographing drawings in the site's draft preview is "wanted, not merely open", and *"Until it is done, the caption is load-bearing and should say what is actually wrong … a drawing shown here may not be in the site's typeface, so letter widths and line breaks are not evidence."*
-- The code always rasterises a drawing in a bare `data:` document (`tools/generate/src/cli/capture/screenshot.ts` `rasterizeImage`), and `DRAWING_RASTER_NOTE` (`tools/generate/src/cli/picture.ts:329-332`, mirrored in `fidelity-surface.json`) names the default face and `measure_drawing` but does not carry the letter-widths/line-breaks warning. AC-2486 now states the intent. For a scoped code_frozen exception: append to the caption that letter widths and line breaks in the drawing are not evidence, and add that assertion to the AC-2486 UAT.
-- Photographing the drawing inside the site's draft preview (so the site's fonts apply) is the epic's wanted refinement. It is recorded as a divergence (see Reconciliation Decisions), not formalized as settled behaviour.
+- (History) Before that override, `DRAWING_RASTER_NOTE` named the default face and `measure_drawing` but did not carry the letter-widths/line-breaks warning.
+- **Still a divergence (unchanged):** the code always rasterises a drawing in a bare `data:` document (`tools/generate/src/cli/capture/screenshot.ts` `rasterizeImage`), not inside the site's draft preview. Photographing the drawing there (so the site's fonts apply) is the epic's wanted refinement. It is recorded as a divergence (see Reconciliation Decisions), not formalized as settled behaviour; the caption is what makes the current behaviour honest.
 
 ### Code issue flagged — a field can be named by its `name` attribute or `id` (REQ-216) — RESOLVED
 - **Resolved** under code_frozen override report-b31905da: `fillNames` no longer adds `name`/`id` (`interact.ts:197-204`), and a menu matches option label before value (`:280-283`). The AC-2479 UAT fails on both regressions. Original finding kept below for history.
@@ -127,9 +128,9 @@ Before REQ-157 the assistant's whole tool surface was site-editing operations; n
   - An empty store's not-found refusal says the deployment holds none yet, instead of pointing at listings that would be empty.
   - `viewport` on an `image` picture is accepted and ignored rather than refused; the size reported is the picture's own (laid out within the raster box, then reduced).
   - A deployment wired with no image store refuses as `ENVIRONMENT` with the "no image store" sentence, which the declared `ENVIRONMENT` message now names alongside "no browser".
-- **DIVERGENCE: drawings are photographed outside the site's page, and the caption is weaker than intent** (corrected at reconciliation review, 2026-11-08; replaces the earlier decision that formalized the caption "as it stands"). EPIC-1's 2026-09-11 answer on REQ-218 says photographing a drawing in the site's draft preview "is wanted, not merely open", and that until then *"the caption is load-bearing and should say what is actually wrong … a drawing shown here may not be in the site's typeface, so letter widths and line breaks are not evidence."* Two divergences follow:
+- **DIVERGENCE: drawings are photographed outside the site's page** (corrected at reconciliation review, 2026-11-08; the caption half was resolved by code_frozen override report-0fca9951). EPIC-1's 2026-09-11 answer on REQ-218 says photographing a drawing in the site's draft preview "is wanted, not merely open", and that until then *"the caption is load-bearing and should say what is actually wrong … a drawing shown here may not be in the site's typeface, so letter widths and line breaks are not evidence."* What follows:
   - **Rasterisation context.** The code always rasterises a drawing in a bare `data:` document, never in the draft preview. This is the epic's wanted refinement and is recorded as a divergence, not as settled behaviour. Moving the drawn path onto the draft preview is a production change outside this reconciliation.
-  - **Caption content.** The shipped caption names the default face and `measure_drawing` but omits "letter widths and line breaks are not evidence". AC-2486 now requires that warning, and the one-line caption change is flagged as an open code issue above. The earlier claim that the caption "already says what is wrong" understated the intent.
+  - **Caption content — RESOLVED.** The caption (`picture.ts:331-335`, `fidelity-surface.json:200`) now names the default face, says letter widths and line breaks are not evidence, and points to `measure_drawing`, as AC-2486 requires; the AC-2486 UAT asserts all three (report-0fca9951). No longer a divergence.
 
 ## Dependencies
 None (plan item 4). Plan items 5 and 6 depend on this story.
