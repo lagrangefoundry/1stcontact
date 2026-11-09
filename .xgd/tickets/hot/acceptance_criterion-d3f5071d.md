@@ -6,10 +6,10 @@ title: The tenant comes only from the URL; a body field naming another tenant wr
   nothing there
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T00:30:17.577690+00:00'
-updated_at: '2026-11-09T00:30:17.577690+00:00'
+updated_at: '2026-11-09T00:54:15.945620+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f2e5032c
   kind: behavior
