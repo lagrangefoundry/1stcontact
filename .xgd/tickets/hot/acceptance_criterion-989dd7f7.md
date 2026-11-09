@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A published form carries its instance id; the edit render still cannot post
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T00:30:39.249919+00:00'
-updated_at: '2026-11-09T00:30:39.249919+00:00'
+updated_at: '2026-11-09T00:54:13.117582+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f2e5032c
   kind: behavior
