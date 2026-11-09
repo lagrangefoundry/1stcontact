@@ -440,8 +440,19 @@ describe('story-f2e5032c — public lead capture', () => {
     )
     expect(viaJson.status).toBe(200)
 
+    // The published form is a plain `<form method="post">` with no `enctype`, so a
+    // browser without JavaScript submits it URL-encoded: that is the ordinary
+    // form POST REQ-223 asks to land the same row.
+    const publishedForm = contactForm({
+      instanceId: site.instanceId,
+      config: { action: '/api/lead', fields: [{ name: 'email', label: 'E', type: 'email' }] },
+      slots: { form: { kind: 'container', layout: 'stack', children: [] } },
+    })
+    expect(publishedForm).toMatch(/<form[^>]*method="post"/)
+    expect(publishedForm).not.toMatch(/enctype=/i)
+
     const results: Array<{ address: string; response: Response }> = []
-    for (const shape of ['form', 'multipart'] as const) {
+    for (const shape of ['form'] as const) {
       const address = `nojs-${shape}@example.com`
       results.push({
         address,
