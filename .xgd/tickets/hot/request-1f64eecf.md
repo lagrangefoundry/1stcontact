@@ -5,7 +5,7 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-11-09T02:43:30.862936+00:00'
+updated_at: '2026-11-09T02:43:34.494770+00:00'
 completed_at: '2026-11-09T02:43:30.862936+00:00'
 last_field_updated: status
 status: free_and_reconciled
