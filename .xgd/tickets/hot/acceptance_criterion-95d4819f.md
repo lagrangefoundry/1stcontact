@@ -6,10 +6,10 @@ title: Hosted consultant offers library tools in separate ReadLibrary and PlaceO
   groups; 1c CLI consultant offers none
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T23:18:51.508811+00:00'
-updated_at: '2026-11-09T23:18:51.508811+00:00'
+updated_at: '2026-11-09T23:29:51.055679+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a0b20525
   kind: behavior
