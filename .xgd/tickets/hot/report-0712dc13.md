@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-1500b111'
 created_by: xgd
 created_at: '2026-11-09T19:09:41.069624+00:00'
-updated_at: '2026-11-09T19:29:11.571709+00:00'
+updated_at: '2026-11-09T19:37:00.038101+00:00'
 completed_at: null
-last_field_updated: conformance_verdict
+last_field_updated: files_touched
 fields:
   report_kind: mode_override
   subject_uid: story-1500b111
@@ -58,12 +58,6 @@ fields:
   unnamed_files_touched: []
   trust_boundary_touched: true
   trust_boundary_matches:
-  - 'apps/control-app/src/builder/app.js: +      // EVERY EXIT — Close, Escape, the
-    backdrop — reports here through the shell''s'
-  - 'apps/control-app/src/builder/image-editor.js: +    // EVERY ROUTE OUT IS REPORTED
-    — the Close button, Escape and the backdrop all'
-  - 'apps/control-app/src/builder/library.js: +        // exit — the Close button,
-    Escape, the backdrop — through one `close`'
   - 'apps/control-app/src/builder/library.js: -      // exit — the button, Escape,
     the backdrop — through one `close`, and this'
   trust_boundary_notes:
@@ -127,15 +121,15 @@ index afc907068b..b54cec8a7f 100644
    // a picture the editor opens — so a URL that addresses one is declined here
    // rather than resolved to a uid the editor would then have to refuse.
 diff --git a/apps/control-app/src/builder/app.js b/apps/control-app/src/builder/app.js
-index aa99d0ed1f..11302c1fe5 100644
+index aa99d0ed1f..21489a8c51 100644
 --- a/apps/control-app/src/builder/app.js
 +++ b/apps/control-app/src/builder/app.js
 @@ -548,12 +548,12 @@ export function mountBuilder(root, options = {}) {
        recipe: item.edits ?? [],
        host: shell.element,
        transport: { saveName: saveMaterialName, saveRecipe: saveMaterialRecipe },
-+      // EVERY EXIT — Close, Escape, the backdrop — reports here through the shell's
-+      // one `close`, so the picture can be opened from the chat again.
++      // EVERY WAY OUT reports here through the shell's one `close`, so the
++      // picture can be opened from the chat again.
 +      onClose: () => {
 +        chatPicture = null
 +      },
@@ -149,7 +143,7 @@ index aa99d0ed1f..11302c1fe5 100644
  
    const chat = createChatPanel({
 diff --git a/apps/control-app/src/builder/image-editor.js b/apps/control-app/src/builder/image-editor.js
-index 9716ed716d..5a8ba36be7 100644
+index 9716ed716d..a33cf5c253 100644
 --- a/apps/control-app/src/builder/image-editor.js
 +++ b/apps/control-app/src/builder/image-editor.js
 @@ -121,6 +121,7 @@ export function mountImageEditor(spec) {
@@ -160,14 +154,13 @@ index 9716ed716d..5a8ba36be7 100644
      measure = null,
    } = spec
  
-@@ -146,7 +147,13 @@ export function mountImageEditor(spec) {
+@@ -146,7 +147,12 @@ export function mountImageEditor(spec) {
    const shell = createModalShell({
      host,
      title: name || 'Picture',
 -    onClose: () => detachDragListeners(),
-+    // EVERY ROUTE OUT IS REPORTED — the Close button, Escape and the backdrop all
-+    // end in the shell's one `close`, so the caller learns the dialog is gone
-+    // however the client left it, and can open the picture again.
++    // EVERY ROUTE OUT IS REPORTED — each one ends in the shell's one `close`, so
++    // the caller learns the dialog is gone and can open the picture again.
 +    onClose: () => {
 +      detachDragListeners()
 +      onClose()
@@ -176,17 +169,16 @@ index 9716ed716d..5a8ba36be7 100644
  
    // THE BOX IS WHAT WIDENS THE PANEL. `builder.css` keys the wide panel on the
 diff --git a/apps/control-app/src/builder/library.js b/apps/control-app/src/builder/library.js
-index f3ffa9c0aa..bd7eb67548 100644
+index f3ffa9c0aa..520d356e00 100644
 --- a/apps/control-app/src/builder/library.js
 +++ b/apps/control-app/src/builder/library.js
-@@ -626,16 +626,14 @@ export function createLibraryPanel(options = {}) {
+@@ -626,16 +626,13 @@ export function createLibraryPanel(options = {}) {
          // rename in the dialog has to reach the pane's own box and the row in
          // the list, or the client closes the modal onto the old name.
          onSaved: (saved) => adoptSaved(saved),
 +        // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
-+        // exit — the Close button, Escape, the backdrop — through one `close`
-+        // whose `onClose` the editor forwards here, so the pane learns the editor
-+        // is gone however the client left it, and the picture can be reopened.
++        // way out through one `close` whose `onClose` the editor forwards here,
++        // so the pane learns the editor is gone and the picture can be reopened.
 +        onClose: () => {
 +          editor = null
 +        },
@@ -203,7 +195,7 @@ index f3ffa9c0aa..bd7eb67548 100644
      }
  
      // DESTROYED WITH THE DETAIL, because it owns an in-flight fetch and possibly
-@@ -764,6 +762,23 @@ export function createLibraryPanel(options = {}) {
+@@ -764,6 +761,20 @@ export function createLibraryPanel(options = {}) {
       * component expresses edit mode by replacing its read cell with a control
       * cell, which is where the fact actually lives.
       */
@@ -211,23 +203,20 @@ index f3ffa9c0aa..bd7eb67548 100644
 +     * A name that changed elsewhere, arriving on the change feed ([[REQ-220]]).
 +     *
 +     * THE TITLE TRAVELS ON THE EVENT'S ROW, so unlike the description it needs no
-+     * read: it is pushed into the pane's field, the picture's alt text and an open
-+     * modal. EXCEPT WHILE THE CLIENT IS TYPING A NAME — the cell, not `isDirty()`,
-+     * for the reason `reload` gives — when what they type wins.
++     * read: it goes through `adoptSaved`, the one place a stored name reaches the
++     * pane's field, the picture and an open modal. EXCEPT WHILE THE CLIENT IS
++     * TYPING A NAME — the cell, not `isDirty()`, for the reason `reload` gives —
++     * when what they type wins.
 +     */
 +    function renamed(title) {
 +      if (nameHost.querySelector('.fields-control-cell')) return
-+      const next = title ?? ''
-+      nameField?.setName(next)
-+      editor?.setName(next)
-+      const shownImg = view.querySelector('.builder-library__image')
-+      if (shownImg) shownImg.alt = next || row.filename || ''
++      adoptSaved({ title: title ?? '', filename: row.filename })
 +    }
 +
      async function reload() {
        // AND THE NAME BOX COUNTS ([[REQ-220]]). `setValues` rebuilds a read cell,
        // so a background re-describe landing while somebody is half-way through
-@@ -852,7 +867,7 @@ export function createLibraryPanel(options = {}) {
+@@ -852,7 +863,7 @@ export function createLibraryPanel(options = {}) {
        // it. Before this line the pane is still fetching its first copy, and a
        // body event arriving in that window needs no help: the fetch already in
        // flight will bring the new text.
@@ -236,7 +225,7 @@ index f3ffa9c0aa..bd7eb67548 100644
      })()
  
      return {
-@@ -1102,6 +1117,12 @@ export function createLibraryPanel(options = {}) {
+@@ -1102,6 +1113,12 @@ export function createLibraryPanel(options = {}) {
      }
      if (!change.row) return
  
@@ -249,7 +238,7 @@ index f3ffa9c0aa..bd7eb67548 100644
      if (at === -1) {
        // NEWEST FIRST, which is `listMaterial`'s own order — so a material that
        // arrives by event lands where the same material would have landed had the
-@@ -1117,6 +1138,8 @@ export function createLibraryPanel(options = {}) {
+@@ -1117,6 +1134,8 @@ export function createLibraryPanel(options = {}) {
      }
      apply()
  
