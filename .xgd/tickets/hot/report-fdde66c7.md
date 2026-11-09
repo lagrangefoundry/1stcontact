@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-42: BUG-73, BUG-75, REQ-216, REQ
   REQ-223, REQ-218)'
 created_by: xgd
 created_at: '2026-11-08T21:02:09.509063+00:00'
-updated_at: '2026-11-08T23:49:31.175035+00:00'
+updated_at: '2026-11-09T00:12:37.886269+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -260,7 +260,7 @@ fields:
     intent_delta_summary: 'View and Edit behave as one page with a toggle: location,
       scroll and open panel survive the switch, and Edit can choose which panel it
       shows.'
-    story_uid: null
+    story_uid: story-e674c60a
   - index: 7
     component: Public Lead Capture — public forms accept a submission (REQ-223)
     item_type: feature
