@@ -6,10 +6,10 @@ title: Where there is no ticket store (the 1c command line) no ticket surface is
   and the session works normally
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T23:31:44.653250+00:00'
-updated_at: '2026-11-09T23:31:44.653250+00:00'
+updated_at: '2026-11-09T23:39:41.128207+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
