@@ -19,15 +19,15 @@ fields:
   chat_comment: comment-f3ebfc8a
   commits:
   - working_sha: c2d79f8ca1f16c1b2c8a71f75f83fb0e4f752327
-    reconcile_sha: null
+    reconcile_sha: 7b4e5503ff37a4075051ae19faf856392589c751
     main_sha: null
     working_sha_history: []
   - working_sha: 9110d75b515a4c89f1627421aa717b6625a0c5f6
-    reconcile_sha: null
+    reconcile_sha: 9c9c6c91630244b8fe1d6ade6aade7123501a82e
     main_sha: null
     working_sha_history: []
   - working_sha: b58546d4dc00b73519ad58975d4d22bfc3eef6cf
-    reconcile_sha: null
+    reconcile_sha: 748df979a6d12c9efddd18ec412347e378778c9f
     main_sha: null
     working_sha_history: []
   - working_sha: 12fabc0ed0dd312ee5ba28b6b112735bf65496e1
@@ -39,12 +39,13 @@ fields:
     main_sha: null
     working_sha_history: []
   - working_sha: 3fb77e4aa254348d37d0db20de49b89e7f580963
-    reconcile_sha: null
+    reconcile_sha: 54972ffe2b3c4d41b69a2a2e3d5d4613ffb54de7
     main_sha: null
     working_sha_history: []
   - working_sha: 9db539fbb584055240161600381765e15b47c51e
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   version: 0.2.183
   story_points: 13
 ---
