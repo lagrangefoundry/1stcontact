@@ -414,7 +414,8 @@ describe('story-179b8c06 — account-chrome v2 sign-in baseline and confirmation
       const email = form.querySelector('input[name="email"]') as HTMLInputElement
       expect(email.getAttribute('type')).toBe('email')
       expect(email.hasAttribute('required')).toBe(true)
-      expect(form.querySelector(`label[for="${email.id}"]`)).not.toBeNull()
+      // Labelled with the default emailLabel wording when config gives none.
+      expect(form.querySelector(`label[for="${email.id}"]`)!.textContent).toContain('Email address')
       expect(form.querySelector('button[type="submit"]')).not.toBeNull()
       expect(form.querySelector('[data-account-chrome-close]')!.getAttribute('type')).toBe('button')
 
@@ -467,6 +468,7 @@ describe('story-179b8c06 — account-chrome v2 sign-in baseline and confirmation
         calls.push({ url, init })
         return { ok: true, status: 202 } as Response
       })
+      expect(p.section.hasAttribute('data-account-chrome-enhanced')).toBe(true)
       expect(p.form.hidden).toBe(true)
       expect(p.open.getAttribute('aria-expanded')).toBe('false')
       p.open.click()
@@ -519,6 +521,8 @@ describe('story-179b8c06 — account-chrome v2 sign-in baseline and confirmation
       })
       await submit(p)
       expect(p.error.hidden).toBe(false)
+      // The shown text is the authored `error` card (the preset's), not module copy.
+      expect(p.error.textContent).toMatch(/could not reach the server/i)
       expect(p.sent.hidden).toBe(true)
       expect(p.formPart.hidden).toBe(false)
       expect(p.email.disabled).toBe(false)
