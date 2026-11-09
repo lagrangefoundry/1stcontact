@@ -6,9 +6,9 @@ title: A write reloads the page on screen in place and marks every other channel
   of date, re-rendering none of them
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T03:11:39.106488+00:00'
-updated_at: '2026-11-09T03:53:13.484402+00:00'
+updated_at: '2026-11-09T04:54:19.432785+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -35,5 +35,5 @@ Switch to Edit and assert it now fetches (a load fires) rather than revealing
 its pre-write document. Separately, follow a link inside the shown frame, then
 trigger a write, and assert the reloaded document is the linked page.
 
-Reference UAT: `tests/test_UAT_FC_BUG-79_flip_in_place.test.ts`
-(a_write_reloads_the_shown_page_and_stales_the_others).
+Reference UAT: `tests/test_reconciliation_builder_flip_in_place.test.ts`
+(`test_UAT_AC2521_a_write_reloads_the_shown_page_in_place_and_stales_the_others`).
