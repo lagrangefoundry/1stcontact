@@ -6,10 +6,10 @@ title: With no usable renderer, or when rendering fails, the material file route
   the stored bytes with 200
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T18:26:00.878034+00:00'
-updated_at: '2026-11-09T18:26:00.878034+00:00'
+updated_at: '2026-11-09T18:39:12.367915+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ed976856
   kind: behavior
