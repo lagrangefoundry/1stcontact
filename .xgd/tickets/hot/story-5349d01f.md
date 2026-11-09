@@ -6,9 +6,9 @@ title: 'Publish a site to shared storage: one revision-minting publish, driven f
   the builder and the command line'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-11-09T06:30:47.271218+00:00'
+updated_at: '2026-11-09T20:18:03.732905+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -110,10 +110,15 @@ In scope:
 Out of scope: what a URL serves — including where the live revision is read from,
 how the builder's published view reaches it, and how renditions are cached by the
 visitor — belongs to the serving story in the same capability. How the rendered
-page *names* the renditions (`srcset`, `sizes`, typed sources, background rules,
-intrinsic dimensions), the ladder's concurrency and budget, and the publish's
-progress reporting belong to the other stories REQ-222 touches. Per-account
-hostnames and custom domains remain deferred.
+page *names* the renditions (`srcset`, `sizes`, background rules, intrinsic
+dimensions) belongs to the L1 renderer story. Per-account hostnames and custom
+domains remain deferred.
+
+**Not built, and owned by no story yet:** the ladder's bounded concurrency and
+rendition budget, the builder's publish lock and its message, and the publish's
+progress stream. REQ-222 decides all of them (see Reconciliation Decision 11),
+but no code in this bundle implements them, and no other story covers them. They
+are outstanding intent, not out of scope.
 
 ## Technical Context
 
@@ -231,6 +236,37 @@ Recorded 2026-11-08 during reconciliation of BUNDLE-43 (REQ-222):
     hand and still lands in the revision; the cost is a slower next publish. It
     is not separately observable to a client, so it is recorded here and not
     given its own criterion.
+
+Recorded 2026-11-09 at the reconciliation review of BUNDLE-43 (REQ-222):
+
+11. **Code-issue, flagged and not formalised: the publish that says what it is
+    doing is decided intent, and it is not built.** REQ-222's sections
+    *"Operator decision, 2026-09-11: what a publish looks like while it runs"*
+    and *"Built, 2026-09-12: typed sources and the publish that says what it is
+    doing"* make these deliverables (the operator called progress reporting "a
+    deliverable rather than a nicety"):
+    - the builder locks while a publish runs (the shell made `inert`, the
+      message in a `role="status"` region outside it, nothing dimmed);
+    - the message *"First-time publication of images requires resizing…"* is
+      shown only when renditions must actually be built;
+    - `POST /api/publish` streams determinate progress when asked with
+      `Accept: text/event-stream`, a terminal frame is required, and a stream
+      that ends without one is a failure;
+    - a failure is reported in a way that outlives the lock;
+    - renditions are built with bounded concurrency (six at a time);
+    - a publish needing more than 1,200 renditions is refused before
+      `writeRevision`, leaving no revision and no history entry.
+
+    None of this exists in this bundle's commits or on main:
+    `publishAction` in `builder/toolbar.js` still disables the button and awaits
+    the publish; `buildImageLadder` in `tools/generate/src/publish/ladder.ts`
+    walks assets and widths sequentially with no ceiling and no budget; the
+    message string appears nowhere in the code. The REQ-222 "Built, 2026-09-12"
+    section describes code that is not on this branch.
+
+    No AC in this story covers these behaviours, because there is no code to
+    evidence one. They remain outstanding REQ-222 intent for follow-up, as the
+    typed `<picture>` sources do in the renderer story (STORY-83). Nothing here retracts them, and no other story owns them.
 
 ## Dependencies
 
