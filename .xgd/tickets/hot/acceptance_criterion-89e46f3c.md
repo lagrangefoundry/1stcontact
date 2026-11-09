@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Narrowing a placed material's role is refused 409 and changes nothing
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:55:15.548611+00:00'
-updated_at: '2026-11-08T13:55:15.548611+00:00'
+updated_at: '2026-11-09T19:53:54.502524+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
