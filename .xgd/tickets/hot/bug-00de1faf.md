@@ -5,9 +5,9 @@ type: bug
 title: 'Builder: View/Edit flips in place instead of reloading the pane'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T01:55:00.746671+00:00'
-updated_at: '2026-11-09T04:24:40.136003+00:00'
+updated_at: '2026-11-09T04:35:10.824031+00:00'
 completed_at: null
-last_field_updated: session_builder
+last_field_updated: session_assessor
 status: reconciling
 fields:
   auto_merge_back: true
@@ -31,6 +31,8 @@ fields:
   session_planner_started_at: '2026-11-09T04:19:59.901191+00:00'
   session_builder: df1bb308-c57e-48e4-89ad-5f0fd4efe3f5
   session_builder_started_at: '2026-11-09T04:24:40.130279+00:00'
+  session_assessor: b4af1ae2-8410-415b-9bac-788e7ee31ca7
+  session_assessor_started_at: '2026-11-09T04:35:10.809120+00:00'
 ---
 
 ## Symptom
