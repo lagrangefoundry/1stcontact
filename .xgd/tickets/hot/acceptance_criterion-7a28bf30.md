@@ -6,10 +6,10 @@ title: compare accepts an image picture on either side, e.g. a stored picture ag
   a captured reference
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T23:03:41.088896+00:00'
-updated_at: '2026-11-08T23:03:41.088896+00:00'
+updated_at: '2026-11-09T01:26:10.975187+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-47fb84e6
   kind: behavior
