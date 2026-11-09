@@ -5,16 +5,18 @@ type: story
 title: 'The Assistant Can See: A Read-Only Looking Surface With One Picture Vocabulary'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:41:11.984108+00:00'
-updated_at: '2026-11-09T21:57:02.993805+00:00'
+updated_at: '2026-11-09T21:57:03.240541+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-5607a08d
   capability_uid: capability-00e77e55
   story_kind: upgrade
   story_points: 3
-  updated_by: bundle-7ba3af93
+  updated_by:
+  - bundle-7ba3af93
+  - bundle-374f88d6
 ---
 
 ## Story
