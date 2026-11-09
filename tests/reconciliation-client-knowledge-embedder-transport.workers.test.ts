@@ -503,6 +503,32 @@ describe('story-5281f009 — what the embedder is, and what its failure says', (
     expect(BINDING_ADVICE).toContain('preview session')
     expect(BINDING_ADVICE).toContain('CLOUDFLARE_ACCOUNT_ID')
     expect(BINDING_ADVICE).toContain('CLOUDFLARE_API_TOKEN')
+    // THE ADVICE SAYS WHAT RESTORES THE SESSION: a worker reload, which touching
+    // a source file triggers. Asserted on the message the operator reads, in the
+    // advice's own words, so dropping the reload clause fails here.
+    expect(bindingError.message).toMatch(/refreshes it\s+on worker reload/)
+    expect(bindingError.message).toContain('touching a source file restores it')
+
+    // ON THE BINDING, FOR THE SYSTEM KNOWLEDGE BASE: the embedder the real
+    // `systemKnowledge` opener hands its runtime, over a failing binding. The
+    // failure names the system KB — not the project KB — with the same advice.
+    const viaSystem = (await systemKnowledge(
+      deployment(freshScope('ac2472-system'), { AI: failingBinding(reference) }),
+      { bundle: await shippedBundle() },
+    )) as Untyped
+    expect(viaSystem, 'a binding-configured deployment opens the system KB').not.toBeNull()
+    const systemError = (await viaSystem.embedder
+      .embed(['how pages are stored'])
+      .catch((e: unknown) => e)) as EmbeddingFailedError
+    expect(systemError).toBeInstanceOf(EmbeddingFailedError)
+    expect(systemError.transport).toBe('binding')
+    expect(systemError.kb).toBe(SYSTEM_KB)
+    expect(systemError.kb).not.toBe(PROJECT_KB)
+    expect(systemError.message).toContain(`${SYSTEM_KB} knowledge base`)
+    expect(systemError.message).toContain('binding transport')
+    expect(systemError.message).toContain(`reference = ${reference}`)
+    expect(systemError.message).toMatch(/refreshes it\s+on worker reload/)
+    expect(systemError.message).toContain('touching a source file restores it')
 
     // ON REST: the network call itself fails.
     const restScope = freshScope('ac2472-rest')

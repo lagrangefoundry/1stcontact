@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { env } from 'cloudflare:test'
+import { createExecutionContext, env } from 'cloudflare:test'
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import publicSite from '../apps/public-site/src/index'
 import type { Env as PublicEnv } from '../apps/public-site/src/index'
@@ -108,6 +108,30 @@ function controlEnv(): ControlEnv {
     BLOBS: env.BLOBS as R2Bucket,
     MAIL_FROM,
   } as ControlEnv
+}
+
+/**
+ * A D1 binding whose database is unreachable: every statement is accepted and
+ * every execution rejects, the way a D1 outage presents to a Worker. D1 is an
+ * external boundary, so this is the one place a failing double is allowed.
+ */
+function unavailableD1(): D1Database {
+  const down = async (): Promise<never> => {
+    throw new Error('D1_ERROR: database unavailable')
+  }
+  const statement = {
+    bind: () => statement,
+    first: down,
+    all: down,
+    run: down,
+    raw: down,
+  }
+  return {
+    prepare: () => statement,
+    batch: down,
+    exec: down,
+    dump: down,
+  } as unknown as D1Database
 }
 
 /** The whole public-site environment, fully configured unless overridden. */
@@ -863,12 +887,15 @@ describe('story-f2e5032c — public lead capture', () => {
         },
       ],
       [
+        // The REAL captureLead, against a database binding that is down: the write
+        // throws from inside control-app's own code, not from a stub of it.
         'write throws',
         {
           LEAD_INTAKE: {
-            captureLead: async () => {
-              throw new Error('D1 unavailable')
-            },
+            captureLead: (spec) =>
+              captureLead({ ...controlEnv(), DB: unavailableD1() } as ControlEnv, spec, {
+                send: mailer.send,
+              }),
           },
         },
       ],
@@ -884,9 +911,15 @@ describe('story-f2e5032c — public lead capture', () => {
         expect(body).toContain(CANNOT)
         expect([label, await anyAddress(address)]).toEqual([label, 0])
       }
+      // The real write's failure was logged where the operator is, not swallowed.
+      expect(
+        errors.mock.calls.some((args) => String(args[0]).includes('lead_capture_failed')),
+      ).toBe(true)
     } finally {
       errors.mockRestore()
     }
+    expect(await eventCount(tenant)).toBe(0)
+    expect(mailer.sent).toHaveLength(0)
   })
 
   it('test_UAT_AC2511_an_asset_is_delivered_at_most_once_per_address_with_authored_content_only', async () => {
@@ -955,6 +988,39 @@ describe('story-f2e5032c — public lead capture', () => {
       expect([label, (await messagesOf(tenant, contact)).length]).toEqual([label, 0])
     }
     expect(mailer.sent).toHaveLength(1)
+
+    // The email field is the ONE visitor-typed value that reaches a To header. A
+    // value carrying CRLF (a header-injection attempt) or whitespace inside the
+    // address is not an address: it is refused as one — nothing is added, nothing
+    // is sent — while the caller still gets the frozen acknowledgement.
+    const ackRef = await snapshot(
+      await send(post(path, submission(site.instanceId, { email: 'asset-ack-ref@example.com' }))),
+    )
+    const sentBefore = mailer.sent.length
+    const contactsBefore = await contactCount(tenant)
+    const eventsBefore = await eventCount(tenant)
+    for (const [label, email] of [
+      ['crlf header injection', 'crlf-inject@example.com\r\nBcc: victim@example.com'],
+      ['bare lf', 'lf-inject@example.com\nCc: victim@example.com'],
+      ['space in local part', 'space inside@example.com'],
+      ['tab in domain', 'tab-inside@exam\tple.com'],
+    ] as const) {
+      const response = await snapshot(await send(post(path, submission(site.instanceId, { email }))))
+      expect([label, response]).toEqual([label, ackRef])
+    }
+    expect(mailer.sent.length).toBe(sentBefore)
+    expect(mailer.sent.map((m) => m.to)).not.toContain('victim@example.com')
+    expect(await contactCount(tenant)).toBe(contactsBefore)
+    expect(await eventCount(tenant)).toBe(eventsBefore)
+    for (const address of [
+      'crlf-inject@example.com',
+      'lf-inject@example.com',
+      'victim@example.com',
+      'inside@example.com',
+      'tab-inside@example.com',
+    ]) {
+      expect([address, await anyAddress(address)]).toEqual([address, 0])
+    }
   })
 
   it('test_UAT_AC2512_an_address_with_a_bounced_or_complained_message_is_never_sent_an_asset', async () => {
@@ -1022,6 +1088,53 @@ describe('story-f2e5032c — public lead capture', () => {
       expect([name, /TURNSTILE_SECRET\s*=/.test(toml)]).toEqual([name, false])
     }
     expect(publicToml).toMatch(/^TURNSTILE_SITEKEY = /m)
+
+    // THE SHIPPED ENTRYPOINT ITSELF CARRIES A SUBMISSION. Every other case binds the
+    // function `LeadIntake` wraps; here the binding IS a `LeadIntake` instance,
+    // constructed the way the runtime constructs it (an execution context and the
+    // control app's own env), so a broken wrapper — the wrong `this.env`, a lost
+    // argument — fails here. It is given no mail port: it must pick its own.
+    const intakeTenant = aTenant()
+    const intakeSite = await seedFormSite({ tenantId: intakeTenant, asset: ASSET })
+    const intakeEnv = { ...controlEnv(), TENANT_ID: intakeTenant } as ControlAppEnv
+    const intake = new LeadIntake(createExecutionContext(), intakeEnv)
+    const sentBeforeIntake = mailer.sent.length
+    const logs = vi.spyOn(console, 'log').mockImplementation(() => {})
+    let viaEntrypoint: Response
+    try {
+      viaEntrypoint = await send(
+        post(
+          leadPath(intakeSite.siteKey),
+          submission(intakeSite.instanceId, { email: 'Via-Entrypoint@Example.com', note: 'through the seam' }),
+        ),
+        { LEAD_INTAKE: intake },
+      )
+    } finally {
+      logs.mockRestore()
+    }
+    expect(viaEntrypoint.status).toBe(200)
+    expect(await viaEntrypoint.text()).toBe(ACK)
+    const intakeIds = await contactsFor(intakeTenant, 'via-entrypoint@example.com')
+    expect(intakeIds).toHaveLength(1)
+    const intakeEvent = (await eventsFor(intakeTenant, intakeIds[0])).find((e) => e.kind === FORM_SUBMITTED)
+    expect(intakeEvent?.detail.site).toBe(intakeSite.siteKey)
+    expect(intakeEvent?.detail.form).toBe(intakeSite.instanceId)
+    expect(intakeEvent?.detail.fields).toEqual({ note: 'through the seam' })
+    // The asset went out through the entrypoint's OWN mailer (no credential here,
+    // so the recording adapter), recorded on the contact — not through this
+    // file's port, which the entrypoint was never handed.
+    const intakeMessages = await messagesOf(intakeTenant, intakeIds[0])
+    expect(intakeMessages.filter((m) => m.asset === ASSET.key)).toHaveLength(1)
+    expect(mailer.sent.length).toBe(sentBeforeIntake)
+
+    // Called directly, it reports the outcome to its caller.
+    const direct = await intake.captureLead({
+      siteKey: intakeSite.siteKey,
+      instanceId: intakeSite.instanceId,
+      fields: { email: 'via-entrypoint@example.com' },
+    })
+    expect(direct).toMatchObject({ accepted: true, businessId: intakeTenant, contactId: intakeIds[0], created: false })
+    expect(await contactsFor(intakeTenant, 'via-entrypoint@example.com')).toHaveLength(1)
 
     // Probe the control app's HTTP surface: nothing on it captures a contact,
     // with Access configured or in the loopback dev-open mode.

@@ -60,11 +60,25 @@ describe('story-5281f009 — one place decides how to reach the model', () => {
     // NO OTHER FILE READS THE AI BINDING TO DECIDE ANYTHING. Declaring it in an
     // env interface (`AI?: …`) is a type, not a decision, and is allowed; reading
     // `env.AI` — as a gate, a truthiness test, or a constructor argument — is not.
+    // Nor is DESTRUCTURING it out of an env (`const { AI } = env`,
+    // `const { AI: binding, … } = this.env`), which reads the same binding
+    // without ever spelling `env.AI`.
+    const destructuresAi = /\{[^{}]*\bAI\b[^{}]*\}\s*=\s*(?:[\w$]+\.)*env\b/
     const reading = sources.filter((f) => {
       if (path.basename(f) === 'embedder.ts') return false
-      return /\benv\.AI\b/.test(code(f)) || /\bbinding\s*:\s*\w+\.AI\b/.test(code(f))
+      const text = code(f)
+      return (
+        /\benv\.AI\b/.test(text) ||
+        /\bbinding\s*:\s*\w+\.AI\b/.test(text) ||
+        destructuresAi.test(text)
+      )
     })
     expect(reading.map(rel)).toEqual([])
+    // The destructuring check is live: it catches both spellings it exists for,
+    // and leaves a type declaration of the binding alone.
+    expect(destructuresAi.test('const { AI } = env')).toBe(true)
+    expect(destructuresAi.test('const { DB, AI: binding } = this.env')).toBe(true)
+    expect(destructuresAi.test('interface Env { AI?: Ai }')).toBe(false)
 
     // AND THE FOUR CALLERS GET THEIR ANSWER FROM IT: both knowledge bases, the
     // session gate and the upload indexer all import the resolver.

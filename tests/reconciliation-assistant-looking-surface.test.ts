@@ -533,7 +533,9 @@ describe('every picture is named one way, and resolves to what it names', () => 
     expect(browser.launches()).toBe(0)
   })
 
-  it('test_UAT_AC2027_all_five_kinds_resolve_to_what_they_name_with_the_defaults', async () => {
+  // The sixth kind, `image`, is a stored picture rather than a page; it is
+  // resolved in reconciliation-assistant-sees-a-stored-picture.test.ts (AC-2027).
+  it('test_UAT_AC2027_the_five_page_kinds_resolve_to_what_they_name_with_the_defaults', async () => {
     const slug = 'studio'
     const store = storeWith([{ slug }])
     await publishSite(store, slug, { message: 'first' })

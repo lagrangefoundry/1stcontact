@@ -41,7 +41,8 @@ import type {
 /**
  * **The assistant can see a stored picture** (story-58b2cec4, REQ-218) — the
  * sixth picture kind, `image`, and the REQ-218 sharpening of the picture
- * vocabulary's own criteria (AC-2026, AC-2027, AC-2028).
+ * vocabulary's own criteria (AC-2026, AC-2027, AC-2028) — and `compare` taking
+ * a stored picture on either side (story-47fb84e6, AC-2490).
  *
  * ENTRY POINT. Every criterion is driven through the consultant's composed
  * Toolbox (`createL1Toolbox` with the looking surface as an extra surface) —
@@ -659,6 +660,86 @@ describe('check_fidelity needs a live page', () => {
     expect(result).toContain('nothing behind it to measure')
     expect(result).toContain('Use compare for a stored picture')
     expect(result).not.toContain('verdict')
+  })
+})
+
+// ── AC-2490 (story-47fb84e6) — compare takes a stored picture on either side ──
+
+const OPEN = '<<<untrusted>>>\n'
+const CLOSE = '\n<<</untrusted>>>'
+
+/** A successful operation's result object, read out of the untrusted frame. */
+function resultOf(rendered: string): Record<string, unknown> {
+  expect(rendered.startsWith(OPEN), rendered.slice(0, 400)).toBe(true)
+  expect(rendered.endsWith(CLOSE)).toBe(true)
+  return JSON.parse(rendered.slice(OPEN.length, rendered.length - CLOSE.length)) as Record<string, unknown>
+}
+
+describe('compare accepts a stored picture on either side', () => {
+  it('test_UAT_AC2490_stored_jpeg_against_a_reference_either_way_crops_to_the_common_top_left_rectangle_and_a_png_against_itself_is_identical', async () => {
+    const stored = await png(solid(24, 18, [70, 140, 210]))
+    const fixture = site({ 'photo.jpg': jpegBytes(5), 'hero.png': stored })
+    // The JPEG is rasterised at 30×120; the seeded reference is 40×40. Their
+    // common top-left rectangle is the narrower width and the shorter height,
+    // taken from different sides — 30×40 — which neither picture is on its own.
+    const { deps, eyes } = await workerLooking(fixture, { layout: { width: 30, height: 120 } })
+    const box = await consultantBox(fixture, deps)
+    const compare = async (a: Record<string, unknown>, b: Record<string, unknown>) =>
+      String(await box.run('compare', { a, b }))
+
+    const reference = { kind: 'reference', bundle: BUNDLE }
+    const photo = { kind: 'image', image: 'photo.jpg' }
+
+    const forward = resultOf(await compare(photo, reference))
+    const swapped = resultOf(await compare(reference, photo))
+
+    // Each side is labelled by which picture it was, in the order asked.
+    expect(String(forward.a)).toContain('site image photo.jpg')
+    expect(String(forward.b)).toContain(`reference ${BUNDLE}`)
+    expect(String(swapped.a)).toContain(`reference ${BUNDLE}`)
+    expect(String(swapped.b)).toContain('site image photo.jpg')
+
+    for (const [name, result] of [
+      ['forward', forward],
+      ['swapped', swapped],
+    ] as const) {
+      expect(result.size, name).toEqual({ width: 30, height: 40 })
+      expect(typeof result.meanDifference, name).toBe('number')
+      expect(typeof result.percentDifferent, name).toBe('number')
+      // The two are different colours throughout, so the numbers are not zero.
+      expect(result.meanDifference as number, name).toBeGreaterThan(0)
+      expect(Array.isArray(result.bands), name).toBe(true)
+      expect(Array.isArray(result.regions), name).toBe(true)
+    }
+    // Swapping the sides changes the labels, not the measurement.
+    expect(swapped.meanDifference).toBe(forward.meanDifference)
+    expect(swapped.percentDifferent).toBe(forward.percentDifferent)
+
+    // The non-PNG side was rasterised the way `screenshot` rasterises it: a
+    // data: document carrying the JPEG's own bytes inline.
+    expect(eyes.log.navigated.length).toBeGreaterThan(0)
+    const inline = btoa(String.fromCharCode(...jpegBytes(5)))
+    for (const url of eyes.log.navigated) {
+      expect(documentOf(url)).toContain(`src="data:image/jpeg;base64,${inline}"`)
+    }
+
+    // A Library picture is labelled as one when it is a side.
+    const library = resultOf(await compare(reference, { kind: 'image', image: 'Spring banner' }))
+    expect(String(library.b)).toContain('library image material-banner')
+    expect(library.size).toEqual({ width: 30, height: 40 })
+
+    // Two stored pictures: a PNG against itself is identical, at its own size.
+    const leasesBefore = eyes.log.leases
+    const self = resultOf(
+      await compare({ kind: 'image', image: 'hero.png' }, { kind: 'image', image: 'hero.png' }),
+    )
+    expect(String(self.a)).toContain('site image hero.png')
+    expect(String(self.b)).toContain('site image hero.png')
+    expect(self.size).toEqual({ width: 24, height: 18 })
+    expect(self.meanDifference).toBe(0)
+    expect(self.percentDifferent).toBe(0)
+    // A PNG passes straight through: no browser was leased for it.
+    expect(eyes.log.leases).toBe(leasesBefore)
   })
 })
 

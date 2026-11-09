@@ -80,7 +80,7 @@ interface BucketLike {
 /** Drive the Worker's real entry point for one request. */
 async function call(
   pathAndQuery: string,
-  opts: { method?: string; bucket?: BucketLike } = {},
+  opts: { method?: string; bucket?: BucketLike; apexSiteKey?: string } = {},
 ): Promise<Response> {
   const bucket = opts.bucket ?? published.bucket
   const waits: Promise<unknown>[] = []
@@ -94,6 +94,7 @@ async function call(
     {
       SITES: bucket as unknown as R2Bucket,
       DB: published.db as unknown as D1Database,
+      ...(opts.apexSiteKey !== undefined ? { APEX_SITE_KEY: opts.apexSiteKey } : {}),
     } as Env,
     executionCtx as unknown as ExecutionContext,
   )
@@ -573,5 +574,55 @@ describe('story-d34eccd8 — serving a published site', () => {
     }
     expect(published.bucket.reads).toBe(readsBefore)
     expect(published.db.queries).toBe(queriesBefore)
+
+    // REQ-223 opened exactly ONE doorway: POST on the lead path. Every other
+    // writing method on every path — the lead path included — is still refused,
+    // with an apex site configured so the apex grammar is live.
+    const apex = { apexSiteKey: SLUG }
+    const page = `/site/${SLUG}/home`
+    const siteRoot = `/site/${SLUG}/`
+    const apexLead = '/api/lead'
+    const siteLead = `/site/${SLUG}/api/lead`
+    for (const path of [page, siteRoot, '/', apexLead, siteLead]) {
+      for (const method of ['PUT', 'PATCH', 'DELETE', 'OPTIONS']) {
+        const res = await call(path, { method, ...apex })
+        expect(res.status, `${method} ${path}`).toBe(405)
+        expect(res.headers.get('allow'), `${method} ${path}`).toBe('GET, HEAD')
+      }
+    }
+
+    // POST is refused everywhere except the exact lead path — a page, a root and
+    // the near-misses a prefix or substring match would wrongly admit.
+    for (const path of [
+      page,
+      siteRoot,
+      '/',
+      '/api/leads',
+      '/api/lead/x',
+      `/site/${SLUG}/api/leads`,
+      `/site/${SLUG}/api/lead/x`,
+    ]) {
+      const res = await call(path, { method: 'POST', ...apex })
+      expect(res.status, `POST ${path}`).toBe(405)
+      expect(res.headers.get('allow'), `POST ${path}`).toBe('GET, HEAD')
+    }
+
+    // The doorway itself is open: the lead endpoint answers (this bare POST has no
+    // form body, so it is refused for its shape — but not as a method).
+    for (const path of [apexLead, siteLead]) {
+      const res = await call(path, { method: 'POST', ...apex })
+      expect(res.status, `POST ${path}`).not.toBe(405)
+      expect(res.headers.get('allow'), `POST ${path}`).toBeNull()
+    }
+    // The site-scoped lead path needs no apex at all.
+    expect((await call(siteLead, { method: 'POST' })).status).not.toBe(405)
+
+    // An apex submission needs an apex site: with none configured (empty or
+    // absent), apex `POST /api/lead` is the ordinary 405.
+    for (const apexSiteKey of ['', undefined]) {
+      const res = await call(apexLead, { method: 'POST', apexSiteKey })
+      expect(res.status, `apex key ${JSON.stringify(apexSiteKey)}`).toBe(405)
+      expect(res.headers.get('allow')).toBe('GET, HEAD')
+    }
   })
 })

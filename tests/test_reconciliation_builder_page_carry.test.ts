@@ -108,6 +108,21 @@ const twoPanelPage = (): L1Node => ({
 const HEADING_PANEL =
   '<div data-l1-dialog="faq-panel"><div><h2>Frequently asked</h2><p>Answers to the questions customers ask most.</p></div></div>'
 
+/**
+ * A panel whose first written words come BEFORE its heading. The heading still
+ * names it: the rule is "a heading, else the first words", not "whatever is
+ * written first". A selector that dropped the heading rule would name this one
+ * by its paragraph.
+ */
+const HEADING_AFTER_TEXT_PANEL =
+  '<div data-l1-dialog="returns-panel"><div><p>We accept returns within thirty days of purchase.</p><h2>Returns</h2></div></div>'
+
+/** A panel with no name and nothing written in it: only then is its id the label. */
+const EMPTY_PANEL = '<div data-l1-dialog="blank-panel"><div></div></div>'
+
+/** Every panel the selector test adds after the L1 panels, in document order. */
+const EXTRA_PANELS = HEADING_PANEL + HEADING_AFTER_TEXT_PANEL + EMPTY_PANEL
+
 function memoryStorage(): Storage {
   const map = new Map<string, string>()
   return {
@@ -366,24 +381,30 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the page carried across a 
 
   it('test_UAT_AC2499_edit_alone_offers_a_panel_selector_named_by_text_applied_without_reload', async () => {
     // View: no selector in the strip at all.
-    await arrive('draft', 'acme', '', twoPanelPage(), HEADING_PANEL)
+    await arrive('draft', 'acme', '', twoPanelPage(), EXTRA_PANELS)
     expect(selector()).toBeNull()
 
     modeButton('edit').click()
-    const edit = await arrive('edit', 'acme', '', twoPanelPage(), HEADING_PANEL)
+    const edit = await arrive('edit', 'acme', '', twoPanelPage(), EXTRA_PANELS)
     expect(selector()).not.toBeNull()
     expect((selector() as HTMLElement).hidden).toBe(false)
 
-    // "No panel" first, then each panel named by what is written in it: its
-    // accessible name, its first text cut to 40 characters, or its heading.
-    // Never by its id.
+    // "No panel" first, then each panel named by what is written in it, in this
+    // order of preference: its accessible name, else its heading (even when a
+    // paragraph comes before the heading), else its first text cut to 40
+    // characters. Its id only when nothing is written in it at all.
     expect([...select().options].map((o) => [o.value, o.text])).toEqual([
       ['', 'No panel'],
       ['newsletter-panel', 'Join our newsletter'],
       ['hours-panel', `${HOURS.slice(0, 40)}…`],
       ['faq-panel', 'Frequently asked'],
+      ['returns-panel', 'Returns'],
+      ['blank-panel', 'blank-panel'],
     ])
-    for (const o of select().options) if (o.value) expect(o.text).not.toContain(o.value)
+    // A panel that has any text is never named by its id.
+    for (const o of select().options) {
+      if (o.value && o.value !== 'blank-panel') expect(o.text).not.toContain(o.value)
+    }
     // On arrival the selector shows what is open: nothing.
     expect(select().value).toBe('')
 
@@ -399,7 +420,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the page carried across a 
 
     // The pick is carried: it survives the post-save reload, and the selector
     // shows it there.
-    const reloaded = await arrive('edit', 'acme', '', twoPanelPage(), HEADING_PANEL)
+    const reloaded = await arrive('edit', 'acme', '', twoPanelPage(), EXTRA_PANELS)
     expect(openPanels(reloaded)).toEqual(['newsletter-panel'])
     expect(select().value).toBe('newsletter-panel')
 
@@ -413,7 +434,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the page carried across a 
     pick('hours-panel')
     await arrive('edit', 'acme', '', signInPage())
     expect(select().value).toBe('')
-    const back = await arrive('edit', 'acme', '', twoPanelPage(), HEADING_PANEL)
+    const back = await arrive('edit', 'acme', '', twoPanelPage(), EXTRA_PANELS)
     expect(openPanels(back)).toEqual([])
 
     // A page that declares no panel: no control is shown, not an empty one.

@@ -107,6 +107,17 @@ const FORM = `<!doctype html><html><body>
   <button type="button">Send</button>
 </form></body></html>`
 
+/**
+ * Fields named only by aria-label, aria-labelledby or placeholder — no
+ * `<label>`, and ids that are not the names used to reach them.
+ */
+const NAMED = `<!doctype html><html><body>
+<form>
+  <input id="f_aria" aria-label="Phone number" type="text">
+  <span id="pc_caption">Postcode</span><input id="f_labelledby" aria-labelledby="pc_caption" type="text">
+  <textarea id="f_placeholder" placeholder="Your message"></textarea>
+</form></body></html>`
+
 /** Pages each built to make one step fail in one way. */
 const STUBBORN = `<!doctype html><html><body>
 <label for="s">Postcode</label><input id="s" type="text">
@@ -429,6 +440,30 @@ describe('controls are matched by accessible name, never by selector', () => {
       expect(seen.fieldsAtShutter[0].email_input).toBe('a@b.c')
     }
 
+    // …and by each of the other names a field can carry: its aria-label, the
+    // text of the element its aria-labelledby points at, and its placeholder.
+    // Each field below carries exactly one of them, so a name source that is
+    // dropped leaves its field unreachable.
+    {
+      const { run, seen } = await consultant(NAMED)
+      picture(
+        await run(
+          'screenshot',
+          shoot({
+            kind: 'draft',
+            after: [
+              'fill "Phone number" with "0117 000"',
+              'fill "Postcode" with "BS1 4DJ"',
+              'fill "Your message" with "Hello there"',
+            ],
+          }),
+        ),
+      )
+      expect(seen.fieldsAtShutter[0].f_aria, 'aria-label').toBe('0117 000')
+      expect(seen.fieldsAtShutter[0].f_labelledby, 'aria-labelledby').toBe('BS1 4DJ')
+      expect(seen.fieldsAtShutter[0].f_placeholder, 'placeholder').toBe('Hello there')
+    }
+
     // …and a menu by the words on its option, before its value.
     {
       const { run, seen } = await consultant(FORM)
@@ -606,6 +641,9 @@ describe('a picture says which channel it is of', () => {
 
     const mixed = resultOf(await run('compare', { a: { kind: 'edit' }, b: { kind: 'draft' } }))
     expect(mixed.notes).toEqual([EDIT_CHANNEL_NOTE])
+    // The caveat travels whichever side the edit picture is on.
+    const swapped = resultOf(await run('compare', { a: { kind: 'draft' }, b: { kind: 'edit' } }))
+    expect(swapped.notes).toEqual([EDIT_CHANNEL_NOTE])
     const plain = resultOf(await run('compare', { a: { kind: 'draft' }, b: { kind: 'draft' } }))
     expect('notes' in plain).toBe(false)
 
