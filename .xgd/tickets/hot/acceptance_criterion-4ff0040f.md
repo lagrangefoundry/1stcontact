@@ -6,10 +6,10 @@ title: 'A multi-MB stored photograph (far past the old data: URL limit) is scree
   the navigated address is a constant-length shell independent of picture size'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T21:56:30.083564+00:00'
-updated_at: '2026-11-09T21:56:30.083564+00:00'
+updated_at: '2026-11-09T22:37:38.982142+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
