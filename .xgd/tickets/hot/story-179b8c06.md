@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-11-09T01:27:26.723694+00:00'
+updated_at: '2026-11-09T22:51:41.934001+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -92,8 +92,9 @@ contract had no vocabulary for "this element's look belongs to L1".
 The contract now carries the inverse direction as well. A behavior **declares**
 its leaf elements (which must exist, which are required, whether there is one per
 config-list item or one per repeated-slot subtree, and which tag each is: a form
-affordance such as `input` / `textarea` / `button` / `select`, the invariant
-`span`, or a **link** `a`, because not every control is part of a form, REQ-200); an L1 `control` node inside a
+affordance such as `input` / `textarea` / `button` / `select`, a `label`, the
+invariant `span`, or a **link** `a`, because not every control is part of a form,
+REQ-200); an L1 `control` node inside a
 slot subtree **names** one, and the published page emits that element carrying
 L1's class, geometry and every paint axis while the module contributes only the
 attribute bundle that makes it work — `type` / `name` / `required`, the
@@ -109,6 +110,30 @@ closes both directions — a bound name the behavior does not declare is a
 violation, and a required declared element with no L1 node bound to it is a
 violation. The whole-instance check reports the union of config, slot and control
 violations.
+
+**The contract is closed at the write boundary (BUG-76).** Config and slots are
+checked against the *declared* names in both directions, exactly as controls
+are: a config key or a slot name the behavior does not declare is a violation
+that names the key and the declared set (`config key 'account' is not declared
+(declared: signIn, portal, …)`), so a typo or a key belonging to another module
+is refused instead of being stored, echoed back as applied, and ignored. The
+refusal lands where an instance is *written* (every edit verb that sets a
+behavior instance), not in the render path: an instance already stored with a
+stray key still paints, because isolation says a malformed instance costs its
+own corner of the page and not the page.
+
+**A schema error inside a slot is as precise as the same error in the page
+tree (BUG-76).** A slot value is either one L1 node or an array of them, which
+wraps the node union in a second union. Error localisation applies one general
+rule to every union: a branch that failed at the union's own root is the wrong
+shape; a branch that failed deeper is the right shape with bad content, and when
+exactly one branch is the right shape that branch is reported. So a bad axis key
+inside a behavior slot reports the offending path and key — the same path tail
+and key the identical node reports in the page's own `l1` tree — instead of
+"Invalid input" at the slot root. When no branch survives but every branch was
+rejected on the same tag, the message names the tag and its valid values
+(`kind is not one of: …`). A refused write reports **every** error it found
+(up to a cap, stating how many more were cut), not only the first.
 
 ### Where a behaviour sits on a page: it must name the seam it mounts into
 Instance validation proves a module is internally well-formed. **REQ-93 adds the
@@ -162,6 +187,15 @@ its own, and a carousel must be able to signal which slide is current — a
 behavioural state no static L1 subtree can express. An invariant element is
 declared as such, is never bound to an L1 node, and is marked in the emitted DOM
 so downstream consumers can tell repro-only chrome from reference content.
+
+**An invariant control states what its pinned presentation is (BUG-76).** The
+declaration carries one sentence, `invariantPresentation`, saying what the
+pinned presentation actually *is* (for example "visually hidden — clipped to
+1×1px …"). Every reference surface that describes the control projects that
+sentence rather than writing its own words, and states that an invariant
+control **cannot be bound from L1** — which is why the edit catalogue omits it.
+One source, many surfaces: a hand-written description that contradicts the
+stylesheet is the failure this closes.
 
 That invariant presentation is a **real stylesheet beside the component** — an
 ordinary CSS file, not a block embedded in a template. It is read once at build
@@ -222,7 +256,7 @@ dropped, so a submit cannot leave the page the editor is working on.
   authored presentation has no visible controls at all, and failing that loudly at
   validation beats rendering an empty box.
 
-### A third module on the same contract: `account-chrome` (REQ-200)
+### A third module on the same contract: `account-chrome` (REQ-200, v2 by BUG-76)
 Sign In and the account portal are **not platform chrome**. They are a feature
 of *any* site that has accounts, and the platform's own front page is simply the
 first such site. They therefore ship as a behavior module beside `contact-form`,
@@ -253,15 +287,30 @@ control in its header.
   `<form method="post">` against the configured sign-in endpoint, rendered
   **open**. Script folds it behind the Sign In control, makes it a modal and
   upgrades the submit to `fetch`, so script only ever subtracts.
-- **"Check your email" never reads the response.** The sent message appears when
-  the request completes, at any status, so a known and an unknown address are
-  indistinguishable by construction. Only a request that never reached the server
-  reports differently.
+- **The address field's prompt has a visible route (BUG-76).** The field's
+  programmatic `<label>` is an invariant element, clipped to 1×1px under every
+  setting; it carries the configured `emailLabel` to assistive technology and
+  never paints. Where a visitor *reads* the prompt is `config.labelMode`, with
+  the same two answers `contact-form` gives the name: `placeholder` puts the
+  words inside the address box as the field's `placeholder`; `visible` (the
+  default) leaves them to be authored as an L1 text run beside the control. A
+  panel authored purely from config therefore shows a visible prompt.
+- **The panel becomes the confirmation (BUG-76).** The overlay form holds three
+  parts and shows one: the authored `dialog` subtree (with the clipped label),
+  the authored `sent` subtree, and the authored `error` subtree. When the request
+  **completes, at any status**, the dialog part is hidden and the `sent` part
+  shown, so the field, the submit and the close are no longer presented. The
+  response is never read, so a known and an unknown address are
+  indistinguishable by construction. Only a request that never reached the
+  server (a thrown `fetch`) shows the `error` part, and it leaves the form
+  standing for a retry. There is no module-painted message anywhere: both texts
+  are the author's L1 subtrees, styled and placed like the panel.
 - **The portal and builder controls are links**, which is why `a` joined the
   control tags. Their `href` is the module's attribute and passes the module's
   URL safety check.
 - It **ships an L2 slot preset** registered by behavior id: one L1 subtree for
-  each of its four required slots, so a site can mount it without authoring L1.
+  each of its six required slots (including a default sent card and a default
+  error card), so a site can mount it without authoring L1.
 
 **All three modules convert through the one mechanism, with no per-module
 machinery.** `contact-form` is the module three real sites actually mount;
@@ -280,10 +329,11 @@ instead of a *ceiling*, which is the same move the pivot already made for layout
 modules.
 
 An instance is validated against its behavior's contract before render: config
-values are checked against their typed field specs; every slot subtree must parse
-as a valid L1 node (the **security line** — slot content can never smuggle raw
-HTML/CSS/JS past the L1 envelope); and every control binding is checked in both
-directions.
+values are checked against their typed field specs and config keys against the
+declared set; every slot subtree must parse as a valid L1 node (the **security
+line** — slot content can never smuggle raw HTML/CSS/JS past the L1 envelope)
+and slot names are checked against the declared set; and every control binding
+is checked in both directions.
 
 The contract is published under the `Behavior*` names: a behavior's contract type,
 its **component type** (the props-to-markup function), its props, its
@@ -304,19 +354,24 @@ island scripts).
 **In scope**: the behavior contract (config / slots / controls / conformance) and
 its published `Behavior*` naming, the plain-function component artifact and the
 portable catalog that follows from it, the module's own escaping boundary,
-instance validation incl. the slot-as-L1 security line and the two-directional
-control check, **the page-level binding rule and its rejections (REQ-93)** and
-**`mountInL1` as the shape a behaviour inherits its obligations in**, the
-zero-CSS obligation and its two declared carve-outs (invariant
-elements as a real stylesheet, and the edit-channel settled state), the two
-reframed survivor behavior modules and their observable behaviour in both the
-filesystem and the edge runtime, **the `account-chrome` module (REQ-200)**: its
-site-capability gate, its three-state snapshot, its no-JS baseline and
-status-blind sent message, its link controls and its slot preset, together with
-the capabilities prop every module receives and the `a` control tag. Also in
-scope are the L2 default-look presets, the shipped-client-JS
-asset, and the isolation conformance dimension — including its client-side half,
-that an enhancement never cancels a baseline it cannot itself complete.
+instance validation incl. the slot-as-L1 security line, the two-directional
+control check and **the closed config and slot key sets refused at the write
+boundary (BUG-76)**, **the localisation of schema errors inside behavior slots and
+the complete error report on a refused write (BUG-76)**, **the page-level binding
+rule and its rejections (REQ-93)** and **`mountInL1` as the shape a behaviour
+inherits its obligations in**, the zero-CSS obligation and its two declared
+carve-outs (invariant elements as a real stylesheet, with their declared
+`invariantPresentation` projected to every reference surface, and the
+edit-channel settled state), the two reframed survivor behavior modules and their
+observable behaviour in both the filesystem and the edge runtime, **the
+`account-chrome` module (REQ-200, contract v2 by BUG-76)**: its site-capability
+gate, its three-state snapshot, its no-JS baseline, its `labelMode`, its
+one-of-three overlay with authored `sent` and `error` slots and the status-blind
+confirmation, its link controls and its slot preset, together with the
+capabilities prop every module receives and the `a` and `label` control tags.
+Also in scope are the L2 default-look presets, the shipped-client-JS asset, and
+the isolation conformance dimension — including its client-side half, that an
+enhancement never cancels a baseline it cannot itself complete.
 
 **Out of scope**: the L1 substrate itself (STORY-83 / CAP-70) — including the
 `control` node kind, its emitter and the emitter's own safety properties, and the
@@ -348,7 +403,9 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   and replacing the `intro`/`submit` slots with a required `form` slot are
   breaking contract changes. (REQ-87's rename was mechanical and bumped no version.
   REQ-148's conversion bumped no version either: it changes the artifact a module
-  *ships*, not the contract an instance is written against.)
+  *ships*, not the contract an instance is written against.) BUG-76 bumped
+  account-chrome v1→v2: removing `sentMessage` and requiring two new slots is
+  breaking by the same definition.
 - **The mechanism is removal, not precompilation (REQ-148).** The ticket opened
   framed as "precompile the templates and bundle the compiled render function";
   investigation settled the opposite. Neither survivor used a single feature of
@@ -457,25 +514,76 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   end that collision. The operator confirmed the slot-attachment seam as Option A
   (a module *instance* carries L1 subtrees on named slots; the module wraps L1);
   REQ-96 adds the inverse seam for leaves rather than replacing it.
-- **account-chrome (REQ-200).** `account-chrome@1` (`modules/account-chrome/`)
-  joins `contact-form`, `carousel` and `account-portal` in the catalog.
+- **account-chrome (REQ-200).** `account-chrome@2` (`modules/account-chrome/`)
+  sits beside `contact-form`, `carousel` and `account-portal` in the catalog.
   `BehaviorProps` gains an optional `capabilities` (the site's
   `SiteCapabilities`), which the generator passes to every module instance from
   `site.config.capabilities ?? {}`. The marker the serving Worker rewrites
   (`data-account-chrome="signed-out"` / `"signed-in"`, plus
   `data-account-chrome-businesses`) is declared in the module's `session.ts` and
   exported from the framework's worker entry, so producer and consumer are one
-  file. `L1ControlTag` gains `'a'`. The `control` node and its emitter remain
-  STORY-83's. What this story owns is that a module may *declare* a link control.
-  The preset lives in `l2/account-chrome.ts` and is registered in `l2/presets.ts`
-  under the behavior id. The sign-in POST sends `{ email }` as JSON with
-  `credentials: 'same-origin'`.
+  file. `L1ControlTag` gains `'a'` (REQ-200) and `'label'` (BUG-76). The `control`
+  node and its emitter remain STORY-83's. What this story owns is that a module
+  may *declare* a link control. The preset lives in `l2/account-chrome.ts` and is
+  registered in `l2/presets.ts` under the behavior id. The sign-in POST sends
+  `{ email }` as JSON with `credentials: 'same-origin'`.
+- **account-chrome v2 (BUG-76).** Config gains `labelMode: 'visible' |
+  'placeholder'` (default `visible`; any other value reads as the default) and
+  loses `sentMessage`. Slots become `signedOut, signedIn, businesses, dialog,
+  sent, error`, all required. Inside the `<form>` the component emits three
+  wrappers (`data-account-chrome-form`, `-sent`, `-error`); the latter two start
+  `hidden`, and `client.js` toggles `hidden` on them. The two invariant `<p>`
+  message elements and their stylesheet rules are deleted; there is no fallback
+  message text in the module. The `emailLabel` control's declared `element` is
+  `label`, and `contact-form`'s label control carries the same correction.
+  `BehaviorControlSpec.invariantPresentation` is the one sentence the KB
+  projection (REF-behaviors) appends for an invariant control, after "cannot be
+  bound from L1, and is absent from the catalogue for that reason". The committed
+  `1stcontact` draft instance was migrated to v2 in the same change.
+- **account-chrome endpoint doc (BUG-76 D6).** `meta.ts`'s `signIn` doc names
+  `POST /sign-in` on the control app (REQ-202) as a 1c-hosted site's endpoint.
+  This is doc-only with no runtime surface; per the operator's decision it
+  carries no AC or UAT.
+- **Strict behavior keys and slot-error localisation (BUG-76).**
+  `validateBehaviorConfig` and `validateBehaviorSlots` prepend one error per
+  undeclared key (`field: config.<k>` / `slots.<k>`, message naming the key and
+  `(declared: …)`). The render path does not call them, which is what lets a
+  stored instance with a stray key still paint. `chooseBranch` in
+  `site-schema/src/issues.ts` picks the single branch whose failures are not a
+  root-level type mismatch; `tagVocabulary` names the tag and its values when
+  every branch was rejected on it. `validateOrThrow` (`cli/edit.ts`) joins up to
+  10 errors and appends "…and N more" when it cuts; `path` still names the first.
 - **Resolved: the capability record is closed (REQ-200).** `siteCapabilitiesSchema`
   was a plain `z.object({ accounts })`, so zod stripped an unknown key such as
   `acounts` instead of rejecting it. It is now `.strict()` (report-078b06e6,
   BUNDLE-38), so a misspelt capability key fails site validation, as AC-2329 states.
 
 ### Reconciliation Decisions
+
+**2026-11-09 (BUNDLE-44 / BUG-76): account-chrome v2 supersedes parts of
+AC-2331 and AC-2330, which are modified rather than retired.** BUG-76's
+operator decision (2026-09-11, "change the contract") explicitly removes
+`sentMessage` and the hardcoded error string, adds required `sent` and `error`
+slots, and replaces "message shown, field and submit disabled" with a swap that
+hides the form. Most of each criterion (catalog membership, URL config, preset,
+conformance, no-JS baseline, status-blindness) still holds, so each is rewritten
+in place to the v2 contract. The resolution ladder stopped at level 1: the
+ticket's own Decision section states every point.
+
+**2026-11-09 (BUG-76): the cap on reported errors is formalised.** BUG-76 D5
+says a refused write reports "every error it was given". The code reports up
+to 10 and states how many more were cut. Intent is silent on a cap; the code's
+reasoning (a single bad node can produce a long tail of consequent issues) is
+sound and the stated count keeps a truncated report from passing as complete.
+The AC therefore says "every error, up to a stated cap, with the remainder
+counted". This is a reconciliation decision, not a contradiction.
+
+**2026-11-09 (BUG-76): slot-error localisation is recorded here, not on
+STORY-83.** The fix lives in the site-schema error projector, which STORY-83's
+substrate also uses. The observable failure BUG-76 names is specific to behavior
+slots, and the criterion is stated as "an error inside a behavior slot reports
+what the same node reports in the page tree", so it sits with the behavior
+contract. STORY-83's own error-reporting criteria are left untouched.
 
 **2026-11-05: account-chrome is recorded on this story, not on a new one.**
 REQ-200 calls it "the second such module" beside `contact-form` and builds it
@@ -487,12 +595,14 @@ site) is a serving concern and stays with the public-site serving story.
 
 **2026-11-05: the error path and the edit-channel endpoint are formalised.**
 REQ-200 says only that a known and an unknown address are indistinguishable. The
-code also shows a distinct *could not reach the server* message when `fetch`
+code also shows a distinct *could not reach the server* outcome when `fetch`
 throws, and leaves the form usable. In the edit render it omits the form's
 `action`. Both are formalised in AC-2330. The first is the only exception to
 status-blindness, and the ticket's own "What was built" justifies it as a fact
 about the network rather than the address. The second matches the edit-channel
-rule this story already holds for module-mounting pages (AC-1413).
+rule this story already holds for module-mounting pages (AC-1413). (Since
+BUG-76 the network-failure outcome is the author's `error` slot rather than a
+module-painted string.)
 
 **2026-11-05: account-chrome's CSS fits the zero-paint line without a new
 carve-out.** Its stylesheet holds wrapper zeroing, state-visibility rules, the
@@ -545,6 +655,10 @@ This story's reconciliation UATs (AC-697…AC-704) live in
 repaired in the same reconciliation as the contract rename itself: imports
 resolve `modules/behavior`, identifiers use the `Behavior*` names, and fixtures
 declare `kind: 'behavior'`. The repair was test-only — no runtime code changed.
+BUG-76's free-coded UATs are `test_UAT_FC_BUG-76_{account_chrome_contract,
+undeclared_keys,slot_error_localisation,sign_in_confirmation}`; the REQ-200
+account-chrome UAT was updated to the v2 shape, carrying its REQ-134 property
+(one outcome at every status) across.
 
 ### Composing the client asset (BUG-75, BUNDLE-42)
 
