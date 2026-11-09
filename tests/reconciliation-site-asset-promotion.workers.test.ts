@@ -12,6 +12,7 @@ import { REDACTED } from '../apps/control-app/src/redact'
 import { applySchema, makeD1Site, tenantStore } from './support/d1-site-factory'
 import { stubEmbedder } from './support/stub-embedder'
 import type { TenantSiteStore } from '../tools/generate/src/store/d1r2-store'
+import type { Scope } from '../apps/control-app/src/scope'
 
 /**
  * Reconciliation UATs for story-aacb7060 — **site-asset promotion: only material
@@ -66,11 +67,17 @@ function routerEnv(over: Partial<RouterEnv> = {}): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: TENANT,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
 }
+
+/**
+ * The business every case here operates on ([[REQ-168]]). The business comes
+ * from the caller's identity, so it is handed to the route and the stores the
+ * way a resolved request hands it, not read off the env.
+ */
+const SCOPE: Scope = { businessId: TENANT }
 
 /** Whatever the caller says, as bytes. */
 function bytesOf(text: string): Uint8Array {
@@ -111,6 +118,7 @@ async function handOver(
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(opts.env ?? {}),
+    SCOPE,
     opts.deps ?? deps(),
   )
 }
@@ -138,6 +146,7 @@ async function readBack(uid: string): Promise<Response> {
   return route(
     new Request(`https://app.test/api/material/item?uid=${encodeURIComponent(uid)}`),
     routerEnv(),
+    SCOPE,
     deps(),
   )
 }
@@ -268,7 +277,7 @@ describe('story-aacb7060 — only material the client may publish reaches their 
 
     // REFUSED BY THE PROMOTION PATH ITSELF, not merely un-routed: no caller can
     // assert its way past the record.
-    const tickets = await ticketStoreFor(routerEnv())
+    const tickets = await ticketStoreFor(routerEnv(), SCOPE)
     const refusal = await promoteToSiteAsset(tickets, sites, {
       uid: String(referenceBody.uid),
       slug: site.slug,
@@ -337,7 +346,7 @@ describe('story-aacb7060 — only material the client may publish reaches their 
     // the time placement runs the material is already stored, described and
     // findable, so a placement failure is reported ON a successful hand-over.
     const embedder = stubEmbedder()
-    const knowledge = await projectKnowledgeFor(routerEnv(), { embedder, defer: () => {} })
+    const knowledge = await projectKnowledgeFor(routerEnv(), SCOPE, { embedder, defer: () => {} })
     const indexing = deps({ index: async () => async () => void (await knowledge.onMaterialWritten()) })
 
     // FIRST: THE NAMED SITE IS NOT AVAILABLE. A real store, a slug that is
@@ -433,7 +442,7 @@ describe('story-aacb7060 — only material the client may publish reaches their 
       assets: { 'existing.png': bytesOf('an asset that was already live') },
     })
     const known = await sites.listAssets(site.slug)
-    const tickets = await ticketStoreFor(routerEnv())
+    const tickets = await ticketStoreFor(routerEnv(), SCOPE)
 
     // A RECORD THAT PERMITS REPUBLISHING BUT HAS NO FILE ATTACHED TO IT.
     const { ticket } = await tickets.create({

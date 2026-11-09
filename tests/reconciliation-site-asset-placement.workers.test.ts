@@ -6,6 +6,7 @@ import { NotRepublishableError, promoteToSiteAsset } from '../apps/control-app/s
 import { applySchema, makeD1Site, tenantStore } from './support/d1-site-factory'
 import { bytesOf } from './support/material-fixtures'
 import type { TenantSiteStore } from '../tools/generate/src/store/d1r2-store'
+import type { Scope } from '../apps/control-app/src/scope'
 
 /**
  * Reconciliation UATs for story-aacb7060 — the BUNDLE-32 half: **placement is a
@@ -26,8 +27,9 @@ import type { TenantSiteStore } from '../tools/generate/src/store/d1r2-store'
  * `changesSince`, the slice the assistant's next turn is built from. All of it
  * runs against real D1 and real R2 from `@cloudflare/vitest-pool-workers`.
  *
- * THE DOUBLES, AND WHY EACH IS AT A BOUNDARY WE DO NOT OWN. No describer is wired
- * (no criterion here is about a description) and the index hook only counts. The
+ * THE DOUBLES, AND WHY EACH IS AT A BOUNDARY WE DO NOT OWN. The describers are
+ * model seams, stubbed because the route refuses uploads on a deployment with
+ * none (no criterion here is about a description), and the index hook only counts. The
  * fetch seam stands in for the open internet. The one internal stand-in is the
  * site store in AC-2017's soft-failure half: `RouterDeps.store`, the route
  * table's declared host seam, wrapped so it delegates everything to the real
@@ -37,18 +39,36 @@ import type { TenantSiteStore } from '../tools/generate/src/store/d1r2-store'
 
 const APPLIED = applySchema()
 
-function routerEnv(tenantId: string): RouterEnv {
+function routerEnv(): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
 
+/**
+ * The business a case operates on ([[REQ-168]]): it comes from the caller's
+ * identity, so it is handed to the route and the stores as a resolved request
+ * hands it, not read off the env.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
+
+/**
+ * Deps with the model seams stubbed and the index hook counting nothing.
+ *
+ * The describers are wired because the material route refuses an upload, 503,
+ * on a deployment that can describe nothing (REQ-173). The refusal is about the
+ * deployment, not about placement. No criterion here reads what they say.
+ */
 function deps(over: Partial<RouterDeps> = {}): RouterDeps {
-  return { index: async () => async () => {}, ...over }
+  return {
+    index: async () => async () => {},
+    describeImage: async () => ({ text: 'A picture\n\nSomething depicted.', model: 'stub/vision-1' }),
+    describeText: async () => ({ text: 'A note the client kept.', model: 'stub/digest-1' }),
+    ...over,
+  }
 }
 
 /**
@@ -66,7 +86,8 @@ async function handOver(
   if (file.slug !== undefined) form.append('slug', file.slug)
   const response = await route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     deps(over),
   )
   expect(response.status).toBe(200)
@@ -77,7 +98,8 @@ async function handOver(
 async function listed(tenant: string, uid: string): Promise<Record<string, unknown>> {
   const response = await route(
     new Request('https://app.test/api/material'),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     deps(),
   )
   expect(response.status).toBe(200)
@@ -91,7 +113,8 @@ async function listed(tenant: string, uid: string): Promise<Record<string, unkno
 async function retrieved(tenant: string, uid: string): Promise<Record<string, unknown>> {
   const response = await route(
     new Request(`https://app.test/api/material/item?uid=${encodeURIComponent(uid)}`),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     deps(),
   )
   expect(response.status).toBe(200)
@@ -144,15 +167,21 @@ describe('story-aacb7060 — placement is recorded only when it is true', () => 
     expect(await first.store.listAssets(first.slug)).toContain('wordmark.png')
     expect((await listed(tenant, uid)).placed_on).toEqual([first.slug])
 
-    // THE SAME SITE AGAIN: a second asset lands (promotion never replaces), but
-    // the site is still listed once — the list is a set.
-    const tickets = await ticketStoreFor(routerEnv(tenant))
+    // THE SAME SITE AGAIN: the site is still listed once, because the list is a
+    // set. The material already records a name on this site, so the promotion is
+    // a RE-placement (REQ-229). It lands at that recorded name and mints no
+    // `wordmark-2.png`, so the pages that reference the picture keep serving it.
+    // A DIFFERENT material under a taken name still gets a free name; AC-1711
+    // proves that.
+    const tickets = await ticketStoreFor(routerEnv(), scopeOf(tenant))
+    const assetsBeforeAgain = await first.store.listAssets(first.slug)
     const again = await promoteToSiteAsset(tickets, first.store, {
       uid,
       slug: first.slug,
       name: 'wordmark.png',
     })
-    expect(again.name).toBe('wordmark-2.png')
+    expect(again.name).toBe('wordmark.png')
+    expect(await first.store.listAssets(first.slug)).toEqual(assetsBeforeAgain)
     expect((await listed(tenant, uid)).placed_on).toEqual([first.slug])
 
     // A SECOND SITE OF THE SAME CLIENT: both are listed.
@@ -228,7 +257,8 @@ describe('story-aacb7060 — placement is recorded only when it is true', () => 
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ url: 'https://competitor.example/about', slug: site.slug }),
       }),
-      routerEnv(tenant),
+      routerEnv(),
+      scopeOf(tenant),
       deps({
         fetch: (async () =>
           new Response('<html><body><p>Their story, at length.</p></body></html>', {
@@ -304,7 +334,7 @@ describe('story-aacb7060 — placement is recorded only when it is true', () => 
     // republishable, so the record is narrowed after ingestion (rights withdrawn)
     // and the material is promoted through `promoteToSiteAsset`, the function
     // the route calls and the only promotion path the platform has.
-    const tickets = await ticketStoreFor(routerEnv(tenant))
+    const tickets = await ticketStoreFor(routerEnv(), scopeOf(tenant))
     const held = await handOver(tenant, {
       bytes: bytesOf('a photograph whose licence was withdrawn'),
       name: 'withdrawn.png',
