@@ -16,6 +16,7 @@
  *   AC-907 — a malformed or traversal-shaped component 404s and reads nothing.
  *   AC-908 — the served type follows the key that answered.
  *   AC-909 — a short lifetime, never immutable, never a crawler directive.
+ *   AC-2528 — a delivery rendition under `assets/d/` is immutable; nothing else is.
  *   AC-911 — a warm request skips the store; a not-found is never retained.
  *   AC-912 — read-only: HEAD is bodiless, anything writing is refused.
  *
@@ -38,6 +39,8 @@ import {
 } from '../tools/generate/src/store/revision-model'
 import { starterHomePage, starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import { memorySiteStore } from '../tools/generate/src/store/memory-store'
+import { imageLadder, type ImageRenderer } from '../tools/generate/src/publish/ladder'
+import { ACCOUNT_CHROME_SIGNED_OUT } from '../packages/framework/src/modules/account-chrome/session'
 import { emptyPublished, publishInto, type PublishedFixture } from './fixtures/published-site'
 
 const SLUG = 'acme'
@@ -462,13 +465,20 @@ describe('story-d34eccd8 — serving a published site', () => {
     // when a new revision goes live. So it may declare itself publicly cacheable
     // only briefly, and never immutable — which would strand a visitor on a
     // revision that no longer exists.
-    await publishRevision('FRESHNESS-MARKER')
+    const live = await publishRevision('FRESHNESS-MARKER')
+    const prefix = publishedOutPrefix(SLUG, live)
 
+    // An ORIGINAL picture under `assets/` — not a rendition. Its name does not
+    // change when its bytes do, so marking all of `assets/` immutable would
+    // strand a visitor on an old photograph; this request is what would catch it.
     const page = await get(`/site/${SLUG}/`)
-    const asset = await get(`/site/${SLUG}/theme.css`)
+    const stylesheet = await get(`/site/${SLUG}/theme.css`)
+    const original = await get(`/site/${SLUG}/assets/logo.svg`)
+    expect(await original.clone().text()).toContain('<svg')
     for (const [label, res] of [
       ['entry page', page],
-      ['asset', asset],
+      ['stylesheet', stylesheet],
+      ['original picture under assets/', original],
     ] as const) {
       expect(res.status, label).toBe(200)
       const cacheControl = res.headers.get('cache-control')
@@ -480,6 +490,81 @@ describe('story-d34eccd8 — serving a published site', () => {
       // surviving its channel would silently deindex every customer's site.
       expect(res.headers.get('x-robots-tag'), label).toBeNull()
     }
+
+    // A page carrying the account chrome is the one other exception: private,
+    // never immutable — and, like every other page, never asks a crawler to stay
+    // away. Its bytes carry the chrome's own published marker, which is the
+    // trigger the Worker reads (the chrome's rendering is pinned by REQ-200's
+    // suite; what is under test here is the header policy on such a page).
+    published.bucket.objects.set(
+      `${prefix}/account.html`,
+      Buffer.from(`<html><body>${ACCOUNT_CHROME_SIGNED_OUT}</body></html>`, 'utf8'),
+    )
+    const chromed = await get(`/site/${SLUG}/account.html`)
+    expect(chromed.status).toBe(200)
+    expect(await chromed.clone().text()).toContain(ACCOUNT_CHROME_SIGNED_OUT)
+    expect(chromed.headers.get('cache-control')).toBe('private, no-store')
+    expect(chromed.headers.get('cache-control')).not.toContain('immutable')
+    expect(chromed.headers.get('x-robots-tag')).toBeNull()
+  })
+
+  it('test_UAT_AC2528_a_delivery_rendition_is_immutable_and_nothing_else_is', async () => {
+    // AC-2528 — a rendition under `assets/d/` is named by its content, so it is
+    // served immutable for a year. The REQUESTED PATH decides, so the original
+    // picture beside it, every page, and a page reached through the clean-URL
+    // fallback all keep the short lifetime.
+    //
+    // A REAL LADDERED PUBLISH: the rendition requested is the key the ladder
+    // actually wrote, not one this test invented and then matched.
+    const SOURCE = new TextEncoder().encode('a photograph, as far as this test is concerned')
+    const renderer: ImageRenderer = {
+      measure: async () => ({ width: 1000, height: 500 }),
+      resize: async (_bytes, _type, width) => new TextEncoder().encode(`rendition-${width}`),
+    }
+    const page = starterHomePage(SLUG) as unknown as Record<string, unknown>
+    page.l1 = {
+      widths: [320, 1280],
+      root: { kind: 'box', children: [{ kind: 'image', src: '/assets/hero.jpg', alt: 'a picture' }] },
+    }
+    const { id, content } = await publishInto(
+      published,
+      SLUG,
+      {
+        siteJson: starterSiteJson(SLUG) as unknown as Record<string, unknown>,
+        pages: { 'home.json': page },
+        assets: { 'hero.jpg': SOURCE },
+      },
+      imageLadder(renderer),
+    )
+    const renditions = [...(content.derived ?? new Map()).keys()]
+    expect(renditions.length).toBeGreaterThan(0)
+
+    for (const rendition of renditions) {
+      expect(rendition).toMatch(/^assets\/d\//)
+      const res = await get(`/site/${SLUG}/${rendition}`)
+      expect(res.status, rendition).toBe(200)
+      expect(res.headers.get('cache-control'), rendition).toBe('public, max-age=31536000, immutable')
+    }
+
+    // A page reached through the extensionless clean-URL fallback.
+    published.bucket.objects.set(
+      `${publishedOutPrefix(SLUG, id)}/about.html`,
+      Buffer.from('<html>CLEAN-URL</html>', 'utf8'),
+    )
+
+    for (const path of [
+      `/site/${SLUG}/assets/hero.jpg`,
+      `/site/${SLUG}/`,
+      `/site/${SLUG}/index.html`,
+      `/site/${SLUG}/about`,
+    ]) {
+      const res = await get(path)
+      expect(res.status, path).toBe(200)
+      expect(res.headers.get('cache-control'), path).toBe('public, max-age=60')
+      expect(res.headers.get('cache-control'), path).not.toContain('immutable')
+    }
+    // The original really is the picture, not some other object at that name.
+    expect(new Uint8Array(await (await get(`/site/${SLUG}/assets/hero.jpg`)).arrayBuffer())).toEqual(SOURCE)
   })
 
   it('test_UAT_AC911_a_warm_request_skips_the_store_and_a_not_found_is_never_retained', async () => {

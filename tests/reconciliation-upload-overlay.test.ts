@@ -317,6 +317,44 @@ describe('story-325da65f — the overlay: the one question only the client can a
       overlay.destroy()
     }
   })
+
+  it('test_UAT_AC2538_the_picker_names_heic_and_the_formats_read_and_never_says_image_wildcard', () => {
+    // AC-2538 — the file picker an area opens says what it takes, so the
+    // commonest case does not have to be learned from a refusal.
+    const { overlay, uploads } = overlayWithLog()
+    overlay.open('library')
+
+    // The ONE input every area activates — read off the rendered element, not
+    // off the constant, so an input that stopped carrying the list fails here.
+    const input = overlay.element.querySelector('.builder-upload__input') as HTMLInputElement
+    expect(input).toBeTruthy()
+    expect(input.type).toBe('file')
+    expect(input.multiple, 'several files may still be chosen at once').toBe(true)
+    const accepted = input.accept.split(',').map((token) => token.trim())
+
+    // IT NAMES HEIC — both extensions and both media types.
+    for (const token of ['.heic', '.heif', 'image/heic', 'image/heif']) {
+      expect(accepted, token).toContain(token)
+    }
+    // The picture formats the platform reads…
+    for (const token of ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg']) {
+      expect(accepted, token).toContain(token)
+    }
+    // …and the documents the describer reads.
+    for (const token of ['.pdf', '.md', '.txt', '.csv']) {
+      expect(accepted, token).toContain(token)
+    }
+    // NO WILDCARD: what `image/*` admits depends on the client's OS and browser.
+    expect(accepted).not.toContain('image/*')
+    expect(input.accept).not.toMatch(/\*/)
+
+    // A HINT, NOT A GATE: a file whose type is on no list, dropped onto an area,
+    // is still handed over with that area's role.
+    areasOf(overlay)[1].dispatchEvent(
+      fileDrag('drop', [aFile('archive.zip', 'application/zip')]),
+    )
+    expect(uploads).toEqual([{ names: ['archive.zip'], role: 'reference', source: 'library' }])
+  })
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('story-325da65f — two entry points, one interaction', () => {
@@ -329,7 +367,10 @@ describe.skipIf(!WEBUI_INSTALLED)('story-325da65f — two entry points, one inte
    * returned, and a count of the calls the list route received is the only
    * mechanical form of it.
    */
-  function mount(uploadImpl?: (args: Record<string, unknown>) => Promise<unknown>) {
+  function mount(
+    uploadImpl?: (args: Record<string, unknown>) => Promise<unknown>,
+    listed: Array<Record<string, unknown>> = [],
+  ) {
     const sent: Array<Record<string, unknown>> = []
     const listCalls: number[] = []
     const app = mountBuilder(host, {
@@ -348,7 +389,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-325da65f — two entry points, one inte
       libraryTransport: {
         list: async () => {
           listCalls.push(1)
-          return { material: [] }
+          return { material: listed.map((row) => ({ ...row })) }
         },
         item: async () => ({ body: '' }),
         save: async () => ({}),
@@ -574,6 +615,76 @@ describe.skipIf(!WEBUI_INSTALLED)('story-325da65f — two entry points, one inte
     expect(listCalls.length, 'the list was re-read after a Library handover').toBeGreaterThan(
       afterChat,
     )
+  })
+
+  it('test_UAT_AC2539_a_library_route_refusal_is_reported_in_the_library_and_cleared_by_the_next_handover', async () => {
+    // AC-2539 — a refused upload tells the client why, from whichever drop area
+    // they used. The platform's double accepts one file and refuses the other
+    // with its OWN sentence; the accepted file lands in the list the Library
+    // re-reads.
+    const REASON = 'That file is 40MB, and the limit is 25MB.'
+    const listed: Array<Record<string, unknown>> = []
+    let mode: 'mixed' | 'accept' | 'refuse' | 'wordless' = 'mixed'
+    const { app } = mount(async (args) => {
+      const file = args.file as File
+      if (mode === 'wordless') return null
+      if (mode === 'refuse' || (mode === 'mixed' && file.name === 'huge.heic')) {
+        throw new Error(REASON)
+      }
+      listed.push(
+        libraryRow({ uid: `material-${file.name}`, title: file.name, filename: file.name }),
+      )
+      return { uid: `material-${file.name}`, role: args.role, site_asset: file.name, indexed: true }
+    }, listed)
+    await settle()
+
+    const notice = () =>
+      (host.querySelector('.builder-library__refusal') as HTMLElement | null)?.textContent ?? null
+    const rowOf = (uid: string) =>
+      host.querySelector(`.list-detail-row[data-key="${uid}"]`)
+    expect(notice(), 'the Library has a notice surface, empty to begin with').toBe('')
+
+    // A LIBRARY-ROUTE HANDOVER OF TWO FILES: one accepted, one refused.
+    handOver(app, 'library', 'site', [aFile('logo.png'), aFile('huge.heic', 'image/heic')])
+    await settle()
+    await settle()
+
+    // The notice names the refused file and carries the platform's own sentence…
+    expect(notice()).toContain('huge.heic')
+    expect(notice()).toContain(REASON)
+    // …and says nothing about the file that was accepted, which is in the list.
+    expect(notice()).not.toContain('logo.png')
+    expect(rowOf('material-logo.png'), 'the accepted file is listed').not.toBeNull()
+    // Not reported in a conversation it was not part of.
+    expect(messagesOf(app)).toHaveLength(0)
+
+    // THE NEXT HANDOVER CLEARS IT — here one that succeeds outright.
+    mode = 'accept'
+    handOver(app, 'library', 'site', [aFile('second.png')])
+    await settle()
+    await settle()
+    expect(notice(), 'a successful handover leaves no notice standing').toBe('')
+    expect(rowOf('material-second.png')).not.toBeNull()
+
+    // ONLY WHERE THE PLATFORM GAVE NO REASON does the builder supply one.
+    mode = 'wordless'
+    handOver(app, 'library', 'site', [aFile('mystery.png')])
+    await settle()
+    await settle()
+    expect(notice()).toContain('mystery.png')
+    expect(notice()).toContain('the upload failed')
+
+    // A CONVERSATIONAL HANDOVER IS NOT REPORTED TWICE: the refusal is in the
+    // conversation turn, and the Library's notice is cleared and stays empty.
+    mode = 'refuse'
+    handOver(app, 'chat', 'site', [aFile('chatty.heic', 'image/heic')])
+    await settle()
+    await settle()
+    expect(notice(), 'the Library does not repeat a chat-route refusal').toBe('')
+    const turns = messagesOf(app)
+    expect(turns).toHaveLength(1)
+    expect(turns[0].markdown).toContain('chatty.heic')
+    expect(turns[0].markdown).toContain(REASON)
   })
 })
 

@@ -19,6 +19,7 @@ import type { SiteStoreEnv } from '../tools/generate/src/store/d1r2-store'
 import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 import { seedFormSite } from './support/lead-site'
+import { CONTACT_FORM_CONFIG, contactFormSeed } from './support/behavior-site'
 
 /**
  * story-f2e5032c (BUNDLE-43, BUG-78) — **the builder's draft preview submits
@@ -542,5 +543,80 @@ describe('story-f2e5032c — the draft preview submits for real', () => {
       expect([channel, response.status]).toEqual([channel, 404])
     }
     expect(await contactCount(tenant)).toBe(0)
+  })
+
+  it('test_UAT_AC2515_the_rendered_draft_preview_form_resolves_to_the_preview_lead_route_and_lands_a_lead', async () => {
+    // END TO END: the form the operator actually sees in the draft preview, its
+    // `action` resolved the way a browser resolves it against the page URL, and
+    // a submission sent THERE. A form that resolved to the builder's own
+    // `/api/lead` would fail here, though every route-level test would still pass.
+    const tenant = aTenant()
+    const site = await seedFormSite({ tenantId: tenant, publish: false })
+
+    // The draft becomes a real L1 page with the form mounted at a declared seam,
+    // its `action` the document-relative `api/lead` — the one value that resolves
+    // to `/site/<key>/api/lead` published and `/preview/<slug>/draft/api/lead` here.
+    const seed = contactFormSeed(site.slug)
+    const home = seed.pages['home.json'] as { modules: Array<Record<string, unknown>> }
+    home.modules = home.modules.map((m) => ({
+      ...m,
+      id: site.instanceId,
+      config: { ...CONTACT_FORM_CONFIG, action: 'api/lead' },
+    }))
+    const store = await d1r2SiteStore(env as unknown as SiteStoreEnv).forTenant(tenant)
+    await store.write(site.slug, {
+      siteJson: seed.siteJson,
+      pages: [{ name: 'home.json', page: home }],
+      assets: [],
+    })
+
+    const pageUrl = `${PREVIEW_ORIGIN}/preview/${site.slug}/draft/`
+    const page = await route(new Request(pageUrl), routerEnv(), { businessId: tenant } as Scope)
+    expect(page.status).toBe(200)
+    const html = await page.text()
+
+    const formTag = /<form\b[^>]*>/.exec(html)?.[0]
+    expect(formTag, 'the draft preview renders a form').toBeTruthy()
+    expect(formTag).toMatch(/method="post"/)
+    const action = /\saction="([^"]*)"/.exec(formTag!)?.[1]
+    expect(action, 'the form carries an action').toBeTruthy()
+    const resolved = new URL(action!.replace(/&amp;/g, '&'), pageUrl)
+    expect(resolved.origin).toBe(PREVIEW_ORIGIN)
+    expect(resolved.pathname).toBe(`/preview/${site.slug}/draft/api/lead`)
+
+    // The instance id the form carries, read off the rendered hidden input.
+    const instanceInput = new RegExp(`<input\\b[^>]*name="${FORM_INSTANCE_FIELD}"[^>]*>`).exec(html)?.[0]
+    expect(instanceInput, 'the rendered form carries its instance id').toBeTruthy()
+    expect(instanceInput).toContain(`value="${site.instanceId}"`)
+
+    // A native submission to exactly where the form points lands one lead.
+    const submitted = await route(
+      new Request(resolved.href, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          [FORM_INSTANCE_FIELD]: site.instanceId,
+          name: 'Preview Visitor',
+          email: 'rendered-form@example.com',
+          message: 'Sent from the rendered preview form',
+        }).toString(),
+      }),
+      routerEnv(),
+      { businessId: tenant } as Scope,
+    )
+    expect(submitted.status).toBe(200)
+    expect(await contactsFor(tenant, 'rendered-form@example.com')).toHaveLength(1)
+
+    // The edit channel renders the same instance with no action and no method,
+    // so nothing there can submit.
+    const edit = await route(
+      new Request(`${PREVIEW_ORIGIN}/preview/${site.slug}/edit/`),
+      routerEnv(),
+      { businessId: tenant } as Scope,
+    )
+    expect(edit.status).toBe(200)
+    const editForm = /<form\b[^>]*>/.exec(await edit.text())?.[0] ?? ''
+    expect(editForm).not.toMatch(/\saction=/)
+    expect(editForm).not.toMatch(/method="post"/)
   })
 })

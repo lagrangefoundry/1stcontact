@@ -10,7 +10,7 @@ import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 
 /**
- * Reconciliation UAT — story-5349d01f, AC-2523, the CLOUD leg.
+ * Reconciliation UAT — story-5349d01f, AC-2527 (store-port parity), the CLOUD leg.
  *
  * The same publish with the same fake renderer, run against the cloud store
  * (real D1 and R2 inside workerd) and the in-memory store, must leave the same
@@ -81,7 +81,7 @@ describe('story-5349d01f — renditions cross the store port identically (cloud)
     await applySchema()
   })
 
-  it('test_UAT_AC2523_cloud_and_memory_stores_hold_identical_renditions_and_the_frozen_definition_ignores_the_ladder', async () => {
+  it('test_UAT_AC2527_cloud_and_memory_stores_hold_identical_renditions_and_the_frozen_definition_ignores_the_ladder', async () => {
     const slug = nextSlug('ladder-cloud')
 
     // Cloud: real D1 + R2.

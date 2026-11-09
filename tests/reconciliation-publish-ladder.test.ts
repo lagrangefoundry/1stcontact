@@ -14,13 +14,14 @@ import { nextSlug, siteSeed } from './support/site-seed'
 
 /**
  * Reconciliation UATs — story-5349d01f, the publish's delivery width ladder
- * (REQ-222): AC-2523 (filesystem leg), AC-2524, AC-2525, AC-2526, AC-2527.
+ * (REQ-222): AC-2523, AC-2524, AC-2525, AC-2526, AC-2527 (filesystem and
+ * in-memory legs).
  *
  * Every test drives the real publish (`publishSite`, the one implementation the
  * builder route and `1c publish` both call) against real store adapters. The
  * only stand-ins are the two external platform boundaries: the Images binding
  * (a fake renderer that records what it was asked) and the R2 bucket the
- * rendition cache sits in. AC-2523's cloud leg runs against real D1/R2 in
+ * rendition cache sits in. AC-2527's cloud leg runs against real D1/R2 in
  * `reconciliation-publish-ladder-cloud.workers.test.ts`.
  */
 
@@ -31,6 +32,8 @@ const CONVENTIONAL = [320, 640, 960, 1280, 1600, 1920]
 const HERO = new TextEncoder().encode('hero photograph bytes')
 /** A file named as a PNG whose bytes the renderer cannot measure. */
 const BROKEN = new TextEncoder().encode('not a png at all')
+/** Bytes standing in for a decodable PNG, distinct from every other picture here. */
+const PHOTO_PNG = new TextEncoder().encode('diagram png bytes')
 
 interface FakeRenderer extends ImageRenderer {
   measuredTypes: string[]
@@ -143,7 +146,7 @@ function srcsetPaths(html: string): string[] {
 }
 
 describe('story-5349d01f — the publish builds a delivery width ladder (REQ-222)', () => {
-  it('test_UAT_AC2523_filesystem_and_memory_stores_hold_identical_renditions_and_the_manifest_only_feeds_the_render', async () => {
+  it('test_UAT_AC2527_filesystem_and_memory_stores_hold_identical_renditions_and_the_manifest_only_feeds_the_render', async () => {
     const slug = nextSlug('ladder-port')
     const pages = { 'home.json': imagePage(slug) }
     const assets = { 'hero.jpg': HERO }
@@ -204,7 +207,7 @@ describe('story-5349d01f — the publish builds a delivery width ladder (REQ-222
     }
   })
 
-  it('test_UAT_AC2524_publish_writes_raster_renditions_under_assets_d_and_skips_vectors_animations_and_undecodable_files', async () => {
+  it('test_UAT_AC2523_publish_writes_raster_renditions_under_assets_d_in_their_own_format_and_skips_vectors_animations_and_undecodable_files', async () => {
     const renderer = fakeRenderer((bytes) =>
       new TextDecoder().decode(bytes) === new TextDecoder().decode(BROKEN) ? null : { width: 2000, height: 1000 },
     )
@@ -212,6 +215,9 @@ describe('story-5349d01f — the publish builds a delivery width ladder (REQ-222
       { 'home.json': imagePage('home') },
       {
         'hero.jpg': HERO,
+        // A DECODABLE PNG beside the JPEG, so "each rendition keeps its source's
+        // format" is distinguishable from a ladder that always writes JPEG.
+        'diagram.png': PHOTO_PNG,
         'wordmark.svg': new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
         'spinner.gif': new TextEncoder().encode('GIF89a'),
         'broken.png': BROKEN,
@@ -221,20 +227,37 @@ describe('story-5349d01f — the publish builds a delivery width ladder (REQ-222
     expect(result.published).toBe(true)
 
     // Only the raster stills were measured; SVG and GIF never reached the binding.
-    expect(renderer.measuredTypes.sort()).toEqual(['image/jpeg', 'image/png'])
+    expect(renderer.measuredTypes.sort()).toEqual(['image/jpeg', 'image/png', 'image/png'])
 
-    // The JPEG has a full ladder under assets/d/, in its own format; the other
-    // three have none.
+    // The JPEG and the decodable PNG each have a full ladder under assets/d/, each
+    // in ITS OWN format; the SVG, the GIF and the undecodable PNG have none.
     const derived = store.derivedRevision(slug, result.id) ?? new Map<string, Uint8Array>()
     const keys = [...derived.keys()].sort()
-    expect(keys).toHaveLength(CONVENTIONAL.length)
-    for (const key of keys) expect(key).toMatch(/^assets\/d\/[0-9a-f]{16}-\d+\.jpg$/)
-    expect(renderer.resized.every((r) => r.contentType === 'image/jpeg')).toBe(true)
+    expect(keys).toHaveLength(CONVENTIONAL.length * 2)
+    for (const key of keys) expect(key).toMatch(/^assets\/d\/[0-9a-f]{16}-\d+\.(jpg|png)$/)
+    const jpgKeys = keys.filter((k) => k.endsWith('.jpg'))
+    const pngKeys = keys.filter((k) => k.endsWith('.png'))
+    expect(jpgKeys).toHaveLength(CONVENTIONAL.length)
+    expect(pngKeys).toHaveLength(CONVENTIONAL.length)
+    // The two ladders are different pictures' renditions, not one ladder twice.
+    const shaOf = (k: string) => /^assets\/d\/([0-9a-f]{16})-/.exec(k)![1]
+    expect(new Set(jpgKeys.map(shaOf)).size).toBe(1)
+    expect(new Set(pngKeys.map(shaOf)).size).toBe(1)
+    expect(shaOf(jpgKeys[0])).not.toBe(shaOf(pngKeys[0]))
+    // The PNG's rungs were rendered as PNG and carry the PNG's bytes, the JPEG's as JPEG.
+    const resizedTypes = renderer.resized.map((r) => r.contentType)
+    expect(resizedTypes.filter((t) => t === 'image/jpeg')).toHaveLength(CONVENTIONAL.length)
+    expect(resizedTypes.filter((t) => t === 'image/png')).toHaveLength(CONVENTIONAL.length)
+    for (const key of pngKeys) {
+      expect(new TextDecoder().decode(derived.get(key)!), key).toContain(
+        new TextDecoder().decode(PHOTO_PNG),
+      )
+    }
 
     // None of it is in the frozen definition, so a checkout restores no rendition.
     const frozen = await store.readRevision(slug, result.id)
     expect(frozen?.assets.map((a) => a.name).sort()).toEqual(
-      ['broken.png', 'hero.jpg', 'spinner.gif', 'wordmark.svg'],
+      ['broken.png', 'diagram.png', 'hero.jpg', 'spinner.gif', 'wordmark.svg'],
     )
 
     // A site whose only picture is a background still gets renditions.
@@ -307,7 +330,7 @@ describe('story-5349d01f — the publish builds a delivery width ladder (REQ-222
     expect(otherRenderer.resized.map((r) => r.width)).toEqual([320, 640, 960])
   })
 
-  it('test_UAT_AC2526_ladder_is_the_conventional_widths_strictly_below_the_source_and_never_upscales', async () => {
+  it('test_UAT_AC2524_ladder_is_the_conventional_widths_strictly_below_the_source_and_never_upscales', async () => {
     const ladderWidths = async (sourceWidth: number): Promise<number[]> => {
       const { store, slug } = memorySite({ 'home.json': imagePage('home') }, { 'hero.jpg': HERO })
       const renderer = fakeRenderer(wide(sourceWidth))
@@ -334,7 +357,7 @@ describe('story-5349d01f — the publish builds a delivery width ladder (REQ-222
     expect(await ladderWidths(5000)).toEqual(CONVENTIONAL)
   })
 
-  it('test_UAT_AC2527_draft_channel_and_a_publish_with_no_images_binding_build_no_ladder_and_are_otherwise_unchanged', async () => {
+  it('test_UAT_AC2526_draft_channel_and_a_publish_with_no_images_binding_build_no_ladder_and_are_otherwise_unchanged', async () => {
     const { store, slug } = memorySite({ 'home.json': imagePage('home') }, { 'hero.jpg': HERO })
 
     // The builder's draft and edit channels render the working picture, no ladder.

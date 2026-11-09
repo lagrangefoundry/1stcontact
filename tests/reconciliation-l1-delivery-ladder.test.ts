@@ -402,10 +402,16 @@ describe('STORY-d0a8cfad — the delivery ladder in the renderer (REQ-222)', () 
   it('test_UAT_AC2533_document_carries_no_delivery_fields_and_rendition_urls_pass_url_safety', () => {
     // The asset reference keeps exactly its authored shape.
     expect(Object.keys(assetRefSchema.shape).sort()).toEqual(['alt', 'focalPoint', 'id', 'src'])
-    // A delivery key never survives into a parsed asset reference.
+    // A delivery key on an asset reference is STRIPPED, not refused: the schema
+    // is unchanged (REQ-222) and is not strict, so the reference parses and the
+    // key never survives into the parsed value — nothing downstream can read it.
     for (const key of ['srcset', 'sizes', 'renditions']) {
       const parsed = assetRefSchema.safeParse({ id: 'a', src: '/assets/hero.jpg', alt: 'x', [key]: 'v' })
-      if (parsed.success) expect(Object.keys(parsed.data), key).not.toContain(key)
+      expect(parsed.success, key).toBe(true)
+      if (parsed.success) {
+        expect(Object.keys(parsed.data).sort(), key).toEqual(['alt', 'id', 'src'])
+        expect(parsed.data, key).not.toHaveProperty(key)
+      }
     }
 
     // An image node carrying a delivery key is refused as an unknown key.
