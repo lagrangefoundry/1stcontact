@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-1500b111'
 created_by: xgd
 created_at: '2026-11-09T19:09:41.069624+00:00'
-updated_at: '2026-11-09T19:20:30.792775+00:00'
+updated_at: '2026-11-09T19:21:15.584206+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-1500b111
@@ -67,6 +67,27 @@ fields:
     the backdrop — through one `close`, and this'
   trust_boundary_notes: []
   trust_boundary_mismatch: true
+  conformance_verdict: fail
+  conformance_findings:
+  - item: 5
+    reason: 'planner misjudged trust boundary: trust_boundary_mismatch is true (planner
+      declared trust_boundary false while the production diff matches the trust-boundary
+      patterns), and no test in the batch asserts that the escaping/marking of untrusted
+      content on the affected paths is preserved.'
+    added_lines:
+    - '      // EVERY EXIT — Close, Escape, the backdrop — reports here through the
+      shell''s'
+    - '    // EVERY ROUTE OUT IS REPORTED — the Close button, Escape and the backdrop
+      all'
+    - '        // exit — the Close button, Escape, the backdrop — through one `close`'
+    - '      if (shownImg) shownImg.alt = next || row.filename || '''''
+    absent_tip_lines:
+    - '"planner_trust_boundary": false'
+    - '"trust_boundary_mismatch": true'
+    files:
+    - apps/control-app/src/builder/app.js
+    - apps/control-app/src/builder/image-editor.js
+    - apps/control-app/src/builder/library.js
 ---
 
 # Mode override granted: code_frozen
