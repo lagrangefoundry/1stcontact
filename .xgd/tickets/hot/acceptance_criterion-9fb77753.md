@@ -6,10 +6,10 @@ title: The channel left behind stays connected and laid out, hidden by visibilit
   and never taken out of layout
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T03:11:34.147854+00:00'
-updated_at: '2026-11-09T03:11:34.147854+00:00'
+updated_at: '2026-11-09T03:53:14.166002+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
