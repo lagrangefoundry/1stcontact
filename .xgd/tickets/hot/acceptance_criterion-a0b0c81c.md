@@ -6,10 +6,10 @@ title: The image converter binding is declared once, under the same name, in bot
   the local and the production environment
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T17:46:04.659037+00:00'
-updated_at: '2026-11-09T17:46:04.659037+00:00'
+updated_at: '2026-11-09T18:22:54.522150+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-6ccaedd5
   kind: behavior
