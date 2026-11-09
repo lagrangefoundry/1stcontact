@@ -626,13 +626,14 @@ export function createLibraryPanel(options = {}) {
         // rename in the dialog has to reach the pane's own box and the row in
         // the list, or the client closes the modal onto the old name.
         onSaved: (saved) => adoptSaved(saved),
-        // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
-        // way out through one `close` whose `onClose` the editor forwards here,
-        // so the pane learns the editor is gone and the picture can be reopened.
         onClose: () => {
           editor = null
         },
       })
+      // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
+      // exit — the button, Escape, the backdrop — through one `close`, and this
+      // is how the pane learns the editor is gone rather than holding a handle
+      // to a dialog that has left the document.
     }
 
     // DESTROYED WITH THE DETAIL, because it owns an in-flight fetch and possibly
