@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-1500b111'
 created_by: xgd
 created_at: '2026-11-09T19:09:41.069624+00:00'
-updated_at: '2026-11-09T19:28:22.374983+00:00'
+updated_at: '2026-11-09T19:29:11.571709+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-1500b111
@@ -77,10 +77,11 @@ fields:
   conformance_verdict: fail
   conformance_findings:
   - item: 5
-    reason: 'planner misjudged trust boundary: trust_boundary_mismatch is true (planner
-      declared trust_boundary false while the production diff matches the trust-boundary
-      patterns), and no test in the batch asserts that the escaping/marking of untrusted
-      content on the affected paths is preserved.'
+    reason: 'planner misjudged trust boundary: trust_boundary_mismatch is true because
+      the planner declared planner_trust_boundary false while the production diff
+      matches the trust-boundary patterns; the escaping is preserved and now tested
+      (test_UAT_AC2556_a_name_carrying_markup_stays_inert_text_through_the_feed_the_modal_and_the_chat_opener),
+      but the mismatch alone fails this item.'
     added_lines:
     - '      // EVERY EXIT — Close, Escape, the backdrop — reports here through the
       shell''s'
