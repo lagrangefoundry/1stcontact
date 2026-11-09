@@ -2,7 +2,7 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-09T05:35:48.570464+00:00",
-  "ticket_count": 12556,
+  "ticket_count": 12557,
   "rebuild_epoch": 1794202512.856856,
   "tickets": {
     "acceptance_criterion-002fc710": {
@@ -18607,31 +18607,6 @@
         "story_points": 3,
         "priority": "high",
         "session_id": "96539a66-c8a4-4a91-8985-21d5e3a6aecb"
-      }
-    },
-    "bug-00de1faf": {
-      "id": "BUG-79",
-      "type": "bug",
-      "status": "free_and_reconciled",
-      "updated_at": "2026-11-09T05:35:08.751155+00:00",
-      "created_at": "2026-09-11T01:55:00.746671+00:00",
-      "completed_at": "2026-11-09T05:28:49.363084+00:00",
-      "title": "Builder: View/Edit flips in place instead of reloading the pane",
-      "fields": {
-        "auto_merge_back": true,
-        "commits": [
-          {
-            "working_sha": null,
-            "reconcile_sha": null,
-            "main_sha": "915bbd249dddfc604fdd6f12fd1f312c90b35039"
-          }
-        ],
-        "version": "0.2.160",
-        "story_points": 3,
-        "priority": "medium",
-        "_prose_backlinks": [
-          "request-8a5f499e"
-        ]
       }
     },
     "bug-00f418cf": {
@@ -190095,12 +190070,51 @@
         "subject_uid": "bug-00de1faf",
         "report_kind": "permissions_audit"
       }
+    },
+    "report-5e4e8df8": {
+      "id": "REPORT-11717",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-09T05:35:53.614572+00:00",
+      "created_at": "2026-11-09T05:35:53.614572+00:00",
+      "completed_at": null,
+      "title": "Regression success: none caught (reconciliation)",
+      "fields": {
+        "subject_uid": "bug-00de1faf",
+        "intent_uid": "bug-00de1faf",
+        "report_kind": "regression_success",
+        "cycle": "reconciliation"
+      }
+    },
+    "bug-00de1faf": {
+      "id": "BUG-79",
+      "type": "bug",
+      "status": "free_and_reconciled",
+      "updated_at": "2026-11-09T05:38:46.831974+00:00",
+      "created_at": "2026-09-11T01:55:00.746671+00:00",
+      "completed_at": "2026-11-09T05:28:49.363084+00:00",
+      "title": "Builder: View/Edit flips in place instead of reloading the pane",
+      "fields": {
+        "auto_merge_back": true,
+        "commits": [
+          {
+            "working_sha": null,
+            "reconcile_sha": null,
+            "main_sha": "915bbd249dddfc604fdd6f12fd1f312c90b35039"
+          }
+        ],
+        "version": "0.2.160",
+        "story_points": 3,
+        "priority": "medium",
+        "_prose_backlinks": [
+          "request-8a5f499e"
+        ]
+      }
     }
   },
   "by_type": {
     "bug": [
       "bug-00d5f738",
-      "bug-00de1faf",
       "bug-00f418cf",
       "bug-01080809",
       "bug-034bf955",
@@ -190486,7 +190500,8 @@
       "bug-fe8af80a",
       "bug-fecb3bda",
       "bug-ffc8d54d",
-      "bug-fff67a01"
+      "bug-fff67a01",
+      "bug-00de1faf"
     ],
     "comment": [
       "comment-00006e07",
@@ -202575,7 +202590,8 @@
       "report-fff31053",
       "report-fff8d22d",
       "report-fff96718",
-      "report-9d2c2456"
+      "report-9d2c2456",
+      "report-5e4e8df8"
     ],
     "sprint": [
       "sprint-9006c5b0",
@@ -202689,7 +202705,6 @@
     "auto_merge_back": {
       "true": [
         "bug-00d5f738",
-        "bug-00de1faf",
         "bug-00f418cf",
         "bug-01080809",
         "bug-034bf955",
@@ -203653,7 +203668,8 @@
         "todo-c365a65f",
         "todo-c4b5e9ea",
         "todo-c71a5e3c",
-        "todo-d61dcb04"
+        "todo-d61dcb04",
+        "bug-00de1faf"
       ]
     },
     "commits": {
@@ -203662,9 +203678,6 @@
       ],
       "c23acc894b82b88eccf1e0c4857ecc01875637a7": [
         "bug-00d5f738"
-      ],
-      "915bbd249dddfc604fdd6f12fd1f312c90b35039": [
-        "bug-00de1faf"
       ],
       "1ffbe44c4356fa0a701d2d0113ab75d57a037a89": [
         "bug-00f418cf"
@@ -209759,14 +209772,14 @@
       ],
       "1c3103d14dd7a76a5181241e7201af2f16d46ddc": [
         "request-ffe27606"
+      ],
+      "915bbd249dddfc604fdd6f12fd1f312c90b35039": [
+        "bug-00de1faf"
       ]
     },
     "version": {
       "0.2.792": [
         "bug-00d5f738"
-      ],
-      "0.2.160": [
-        "bug-00de1faf"
       ],
       "0.2.764": [
         "bug-00f418cf"
@@ -212317,12 +212330,14 @@
       ],
       "0.2.744": [
         "request-ffe27606"
+      ],
+      "0.2.160": [
+        "bug-00de1faf"
       ]
     },
     "story_points": {
       "3": [
         "bug-00d5f738",
-        "bug-00de1faf",
         "bug-00f418cf",
         "bug-034bf955",
         "bug-05e80baa",
@@ -212604,7 +212619,8 @@
         "story-ea7b4646",
         "story-ee073693",
         "story-f2e5032c",
-        "story-fde7370b"
+        "story-fde7370b",
+        "bug-00de1faf"
       ],
       "2": [
         "bug-04d1bc51",
@@ -213203,7 +213219,6 @@
     },
     "priority": {
       "medium": [
-        "bug-00de1faf",
         "bug-00f418cf",
         "bug-034bf955",
         "bug-03a42831",
@@ -213763,7 +213778,8 @@
         "request-ff0cdfa7",
         "request-ffdc3e43",
         "todo-23de59e3",
-        "todo-a9767ab0"
+        "todo-a9767ab0",
+        "bug-00de1faf"
       ],
       "high": [
         "bug-00d5f738",
@@ -224649,7 +224665,8 @@
         "report-d1799186",
         "report-d2c5193b",
         "report-f916807a",
-        "report-9d2c2456"
+        "report-9d2c2456",
+        "report-5e4e8df8"
       ],
       "report-333177e9": [
         "comment-d037541a"
@@ -241589,6 +241606,9 @@
         "story-24098299",
         "story-8acc338d",
         "story-d0a8cfad"
+      ],
+      "bug-00de1faf": [
+        "report-5e4e8df8"
       ]
     },
     "updated_by": {
@@ -247246,7 +247266,8 @@
         "report-dd9cbac9",
         "report-ec0d27a9",
         "report-f2b243d0",
-        "report-ff87fd31"
+        "report-ff87fd31",
+        "report-5e4e8df8"
       ],
       "overlap_resolution": [
         "report-044db82b",
@@ -250264,7 +250285,8 @@
         "report-dd9cbac9",
         "report-ec0d27a9",
         "report-f2b243d0",
-        "report-ff87fd31"
+        "report-ff87fd31",
+        "report-5e4e8df8"
       ],
       "regression": [
         "report-08ec8f69",
@@ -252015,7 +252037,6 @@
     "AC-2429": "acceptance_criterion-ffd44f4d",
     "AC-1262": "acceptance_criterion-ffe1f8e9",
     "BUG-366": "bug-00d5f738",
-    "BUG-79": "bug-00de1faf",
     "BUG-346": "bug-00f418cf",
     "BUG-371": "bug-01080809",
     "BUG-42": "bug-034bf955",
@@ -263195,7 +263216,9 @@
     "TODO-20": "todo-c4b5e9ea",
     "TODO-14": "todo-c71a5e3c",
     "TODO-6": "todo-d61dcb04",
-    "REPORT-11716": "report-9d2c2456"
+    "REPORT-11716": "report-9d2c2456",
+    "REPORT-11717": "report-5e4e8df8",
+    "BUG-79": "bug-00de1faf"
   },
   "backlinks_index": {
     "request-8a5f499e": {
@@ -263207,13 +263230,13 @@
         "acceptance_criterion-dadda0fd",
         "acceptance_criterion-e2cece6c",
         "acceptance_criterion-f1115dda",
-        "bug-00de1faf",
         "bug-26ffd91c",
         "bundle-7ba3af93",
         "comment-fc674685",
         "doc-976cde0e",
         "request-10200dc8",
-        "request-a2f3c272"
+        "request-a2f3c272",
+        "bug-00de1faf"
       ]
     },
     "request-d71a191f": {
