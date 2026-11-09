@@ -5,10 +5,10 @@ type: request
 title: HEIC converts at the door, so an iPhone photograph is an ordinary image
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:10.281072+00:00'
-updated_at: '2026-11-09T05:46:39.138615+00:00'
-completed_at: null
+updated_at: '2026-11-09T20:39:11.505226+00:00'
+completed_at: '2026-11-09T20:39:11.505226+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   epic_parent: epic-34760bf1
