@@ -3,6 +3,7 @@ import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { PROJECT_KB, projectKnowledgeFor } from '../apps/control-app/src/knowledge'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import { MAX_MATERIAL_BYTES } from '../apps/control-app/src/material'
 import { applySchema } from './support/d1-site-factory'
 import { stubEmbedder } from './support/stub-embedder'
@@ -41,12 +42,14 @@ const APPLIED = applySchema()
 const TENANT = 'story6ccaedd5'
 const OTHER_TENANT = 'story6ccaedd5-other'
 
-function routerEnv(tenantId = TENANT, over: Partial<RouterEnv> = {}): RouterEnv {
+/** The account a call is made for — passed explicitly, never read off the env. */
+const scopeOf = (tenantId = TENANT): Scope => ({ businessId: tenantId })
+
+function routerEnv(over: Partial<RouterEnv> = {}): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
@@ -103,7 +106,8 @@ async function upload(
   for (const [key, value] of Object.entries(opts.extra ?? {})) form.append(key, value)
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
-    routerEnv(opts.tenant ?? TENANT),
+    routerEnv(),
+    scopeOf(opts.tenant ?? TENANT),
     d,
   )
 }
@@ -148,7 +152,7 @@ async function keysUnder(bucket: R2Bucket, prefix: string): Promise<string[]> {
 
 /** How many pieces of material an account holds right now. */
 async function materialCount(tenant = TENANT): Promise<number> {
-  const store = await ticketStoreFor(routerEnv(tenant))
+  const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
   return (await store.list({ type: 'material', limit: 'all' })).tickets.length
 }
 
@@ -192,7 +196,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     expect(attachment.content_type).toBe('text/plain')
 
     // A SECOND, INDEPENDENTLY CONSTRUCTED HANDLE on the account's material store.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.type).toBe('material')
     expect(ticket.title.trim()).not.toBe('')
@@ -241,8 +245,8 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     // stored records would miss a shared index, and one proved only over search
     // would miss a shared listing.
     const embedder = stubEmbedder()
-    const mine = await projectKnowledgeFor(routerEnv(TENANT), { embedder, defer: () => {} })
-    const theirs = await projectKnowledgeFor(routerEnv(OTHER_TENANT), {
+    const mine = await projectKnowledgeFor(routerEnv(), scopeOf(TENANT), { embedder, defer: () => {} })
+    const theirs = await projectKnowledgeFor(routerEnv(), scopeOf(OTHER_TENANT), {
       embedder,
       defer: () => {},
     })
@@ -265,7 +269,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     await theirs.refreshIndex()
     expect((await theirs.search('oxblood palette bakery')).map((hit) => hit.uid)).not.toContain(uid)
 
-    const otherStore = await ticketStoreFor(routerEnv(OTHER_TENANT))
+    const otherStore = await ticketStoreFor(routerEnv(), scopeOf(OTHER_TENANT))
     const listed = (await otherStore.list({ type: 'material', limit: 'all' })).tickets
     expect(listed.map((ticket) => ticket.uid)).not.toContain(uid)
   })
@@ -276,7 +280,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     // then prevented from being written — which is what an interruption at that
     // instant looks like from outside. What must hold afterwards is that nothing
     // observable points at a location holding nothing.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const bytes = bytesOf('a file whose attachment record never landed')
     const { ticket } = await store.create({
       type: 'material',
@@ -391,7 +395,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
         scenario.why,
       ).toBe(scenario.recorded)
 
-      const store = await ticketStoreFor(routerEnv())
+      const store = await ticketStoreFor(routerEnv(), scopeOf())
       const { ticket } = await store.get({ uid: String(body.uid) })
       expect(ticket.fields.kind, scenario.why).toBe(scenario.kind)
       expect(ticket.fields.content_type, scenario.why).toBe(scenario.recorded)
@@ -403,7 +407,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     // envelope is derived from the ticket, so a claim the pipeline accepted would
     // show up in both — but a test that read only the envelope could not tell the
     // difference between "inferred" and "echoed".
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
 
     const plain = (await (
       await upload(bytesOf('an ordinary upload'), 'plain.txt', 'text/plain')
@@ -483,9 +487,9 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     // read off a tally the pipeline also computes. The account's knowledge is
     // brought up to date first so there is a real prior cost to compare against.
     const embedder = stubEmbedder()
-    const kb = await projectKnowledgeFor(routerEnv(), { embedder, defer: () => {} })
+    const kb = await projectKnowledgeFor(routerEnv(), scopeOf(), { embedder, defer: () => {} })
 
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     await store.create({
       type: 'material',
       title: 'An older note',
@@ -558,7 +562,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
 
     // Stored exactly as it is when an indexer is present: readable afterwards,
     // as a real record.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.type).toBe('material')
     expect(ticket.title.trim()).not.toBe('')

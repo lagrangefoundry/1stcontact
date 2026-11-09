@@ -5,6 +5,7 @@ import { projectKnowledgeFor } from '../apps/control-app/src/knowledge'
 import { CoRankedKnowledge, sessionKnowledgeFor } from '../apps/control-app/src/session-knowledge'
 import { loadIndex } from '../apps/control-app/src/generated/knowledge'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import { MATERIAL_TEXT_KIND } from '../apps/control-app/src/material'
 import { MAX_EXTRACTED_TEXT_CHARS } from '../apps/control-app/src/describe'
 import { applySchema } from './support/d1-site-factory'
@@ -31,12 +32,14 @@ import { bytesOf } from './support/material-fixtures'
 
 const APPLIED = applySchema()
 
-function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
+/** The account a call is made for — passed explicitly, never read off the env. */
+const scopeOf = (tenantId: string): Scope => ({ businessId: tenantId })
+
+function routerEnv(over: Partial<RouterEnv> = {}): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
@@ -62,7 +65,8 @@ async function upload(
   form.append('role', 'reference')
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     d,
   )
 }
@@ -94,7 +98,7 @@ const HANDBOOK = [
  * is also no new comment.
  */
 async function holdings(tenant: string): Promise<{ tickets: string[]; material: string[]; blobs: string[] }> {
-  const store = await ticketStoreFor(routerEnv(tenant))
+  const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
   const uids = (tickets: Array<{ uid: string }>) => tickets.map((t) => t.uid).sort()
   const blobs: string[] = []
   let cursor: string | undefined
@@ -129,7 +133,7 @@ describe('story-6ccaedd5 — a document keeps its own text beside its material (
 
     // Read back through a second, independently constructed store: the durable
     // record is the thing, not the response envelope.
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
     const { ticket } = await store.get({ uid: String(body.uid) })
     // THE BODY IS THE DIGEST, and the document's own sentence is not in it.
     expect(ticket.body).toBe(DIGEST)
@@ -178,7 +182,7 @@ describe('story-6ccaedd5 — a document keeps its own text beside its material (
   it('test_UAT_AC2096_a_deep_text_search_finds_the_material_by_its_own_uid_while_its_listed_description_is_the_digest', async () => {
     const tenant = 'ac2096'
     const embedder = stubEmbedder()
-    const kb = await projectKnowledgeFor(routerEnv(tenant), { embedder, defer: () => {} })
+    const kb = await projectKnowledgeFor(routerEnv(), scopeOf(tenant), { embedder, defer: () => {} })
 
     const response = await upload(
       tenant,
@@ -195,7 +199,7 @@ describe('story-6ccaedd5 — a document keeps its own text beside its material (
 
     // NO FURTHER REBUILD: the chat host's own passage search, over the index the
     // ingestion refreshed, finds the material — by ITS uid, never the comment's.
-    const knowledge = await sessionKnowledgeFor(routerEnv(tenant), { embedder, system: null })
+    const knowledge = await sessionKnowledgeFor(routerEnv(), scopeOf(tenant), { embedder, system: null })
     expect(knowledge).not.toBeNull()
     const toolbox = new CoRankedKnowledge(knowledge!)
     const hits = (await toolbox.chunk_search({ query: 'stoneground rye Bennett Mill invoiced' })) as Array<
@@ -214,13 +218,14 @@ describe('story-6ccaedd5 — a document keeps its own text beside its material (
     expect(docs.metadata.map((m) => m.uid)).not.toContain(commentUid)
 
     // THE LISTING has the material and not the comment; its description is the digest.
-    const listed = await route(new Request('https://app.test/api/material'), routerEnv(tenant), deps())
+    const listed = await route(new Request('https://app.test/api/material'), routerEnv(), scopeOf(tenant), deps())
     const rows = ((await listed.json()) as { material: Array<Record<string, unknown>> }).material
     expect(rows.map((r) => r.uid)).toContain(uid)
     expect(rows.map((r) => r.uid)).not.toContain(commentUid)
     const item = await route(
       new Request(`https://app.test/api/material/item?uid=${encodeURIComponent(uid)}`),
-      routerEnv(tenant),
+      routerEnv(),
+      scopeOf(tenant),
       deps(),
     )
     expect(((await item.json()) as Record<string, unknown>).body).toBe(DIGEST)
@@ -233,7 +238,7 @@ describe('story-6ccaedd5 — a deployment with no model key refuses ingestion (R
     const noKey: RouterDeps = { index: async () => async () => {} }
 
     // THE STATUS ROUTE says which deployment this is, once.
-    const off = await route(new Request('https://app.test/api/status'), routerEnv(tenant), {})
+    const off = await route(new Request('https://app.test/api/status'), routerEnv(), scopeOf(tenant), {})
     expect(off.status).toBe(200)
     const offBody = (await off.json()) as Record<string, unknown>
     expect(offBody.ai).toBe(false)
@@ -254,7 +259,8 @@ describe('story-6ccaedd5 — a deployment with no model key refuses ingestion (R
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ url: 'https://example.com/a.pdf' }),
       }),
-      routerEnv(tenant),
+      routerEnv(),
+      scopeOf(tenant),
       noKey,
     )
     expect(fetched.status).toBe(503)
@@ -266,7 +272,8 @@ describe('story-6ccaedd5 — a deployment with no model key refuses ingestion (R
     // WITH A KEY: ai true, no message, and never the secret itself.
     const on = await route(
       new Request('https://app.test/api/status'),
-      routerEnv(tenant, { ANTHROPIC_API_KEY: 'sk-test-not-a-real-key-000000' }),
+      routerEnv({ ANTHROPIC_API_KEY: 'sk-test-not-a-real-key-000000' }),
+      scopeOf(tenant),
       {},
     )
     const onBody = (await on.json()) as Record<string, unknown>
@@ -275,7 +282,7 @@ describe('story-6ccaedd5 — a deployment with no model key refuses ingestion (R
     expect(JSON.stringify(onBody)).not.toContain('sk-test')
 
     // OR A DESCRIBER HANDED IN BY THE HOST: also ai true.
-    const injected = await route(new Request('https://app.test/api/status'), routerEnv(tenant), deps())
+    const injected = await route(new Request('https://app.test/api/status'), routerEnv(), scopeOf(tenant), deps())
     expect(((await injected.json()) as Record<string, unknown>).ai).toBe(true)
   })
 })

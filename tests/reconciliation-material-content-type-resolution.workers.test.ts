@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import { MATERIAL_TEXT_KIND } from '../apps/control-app/src/material'
 import { applySchema } from './support/d1-site-factory'
 
@@ -36,13 +37,14 @@ import { applySchema } from './support/d1-site-factory'
 const APPLIED = applySchema()
 
 const TENANT = 'story6ccaedd5ct'
+/** The account a call is made for — passed explicitly, never read off the env. */
+const scopeOf = (): Scope => ({ businessId: TENANT })
 
 function routerEnv(): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: TENANT,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
@@ -76,6 +78,7 @@ async function upload(text: string, filename: string, contentType: string): Prom
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(),
+    scopeOf(),
     deps,
   )
 }
@@ -118,7 +121,7 @@ describe('story-6ccaedd5 — the content type is settled once, at the head', () 
 
     // …and the three consumers agree, read back through a SECOND handle on the
     // account's material store rather than off the envelope.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.fields.kind).toBe('document')
     expect(ticket.fields.content_type).toBe('text/markdown')
@@ -164,7 +167,7 @@ describe('story-6ccaedd5 — the content type is settled once, at the head', () 
   })
 
   it('test_UAT_AC1810_a_stated_type_is_never_second_guessed_and_an_unreadable_extension_degrades_honestly', async () => {
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
 
     // A STATED TYPE THAT CONTRADICTS THE EXTENSION. The sender observed the bytes
     // and the platform did not, so overriding it would make a mislabelled file
@@ -213,6 +216,7 @@ describe('story-6ccaedd5 — the content type is settled once, at the head', () 
     const listing = await route(
       new Request('https://app.test/api/material', { method: 'GET' }),
       routerEnv(),
+      scopeOf(),
       deps,
     )
     expect(listing.status).toBe(200)
