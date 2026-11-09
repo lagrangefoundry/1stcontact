@@ -81,8 +81,9 @@ export function createDisplayPanel(options = {}) {
   /** @type {Map<string, ModeSpec>} */
   const modes = new Map()
   /**
-   * One record per document mode: its frame, the URL that frame was last asked
-   * for, and whether what it holds is out of date.
+   * One record per document mode: its frame, the URL that frame holds (the one
+   * it was last asked for, or the one it arrived at by itself — see `follow`),
+   * and whether what it holds is out of date.
    *
    * @type {Map<string, { id: string, el: HTMLIFrameElement, src: string, stale: boolean }>}
    */
@@ -155,6 +156,7 @@ export function createDisplayPanel(options = {}) {
     // longer one element — and the announcement is only true of the frame the
     // operator can see.
     el.addEventListener('load', () => {
+      follow(rec)
       if (current?.id === id) emit('document', el.contentDocument)
       prime()
     })
@@ -162,6 +164,24 @@ export function createDisplayPanel(options = {}) {
     frames.set(id, rec)
     element.append(el)
     return rec
+  }
+
+  /**
+   * Record the address the frame actually HOLDS, which is not always the one
+   * the pane sent it to: the operator may have followed a link inside it.
+   * `show` and `prime` compare against `rec.src`, so a record that only knew
+   * where the pane last pointed the frame would re-navigate one already holding
+   * the right page on the next flip, which is [[BUG-79]] by another route.
+   * A window that cannot be read, or the blank one a fresh frame starts with,
+   * leaves the record as it was.
+   */
+  function follow(rec) {
+    try {
+      const live = rec.el.contentWindow?.location?.href
+      if (typeof live === 'string' && live !== '' && live !== 'about:blank') rec.src = live
+    } catch {
+      /* cross-origin or detached: keep what the pane last asked for */
+    }
   }
 
   /** Show this frame and hide every other. `null` hides them all (a mount mode). */

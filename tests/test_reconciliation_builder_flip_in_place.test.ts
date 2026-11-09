@@ -272,6 +272,36 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the View/Edit flip is in p
     expect(navsOf(editFrame())).toEqual([])
     expect(envLoads.get(viewFrame()) ?? 0).toBe(0)
     expect(envLoads.get(editFrame()) ?? 0).toBe(0)
+
+    // Separately: the reader follows a link inside View. The frame moves by
+    // itself (the pane re-points nothing), and Edit is primed at that page
+    // behind it.
+    const linked = await arrive(viewFrame(), 'draft', 'acme', 'contact', 'Contact page')
+    expect(viewFrame().getAttribute('src')).toBe(viewSrc)
+    expect(editFrame().getAttribute('src')).toBe(previewUrl('acme', 'edit', 'contact'))
+    const linkedEdit = await arrive(editFrame(), 'edit', 'acme', 'contact', 'Edit of contact')
+    await tick()
+    clearNavs()
+
+    // A round trip from there navigates neither channel: View already holds the
+    // page Edit was showing, so it is revealed, not re-pointed at it.
+    modeButton('edit').click()
+    expect(shown()).toBe(editFrame())
+    expect(app.panel.getSrc()).toBe(previewUrl('acme', 'edit', 'contact'))
+    modeButton('view').click()
+    // Read before yielding: the observer hands its records to its callback at
+    // the next microtask, so a navigation is only observable synchronously.
+    expect(navsOf(viewFrame())).toEqual([])
+    expect(navsOf(editFrame())).toEqual([])
+    expect(viewFrame().getAttribute('src')).toBe(viewSrc)
+    expect(editFrame().getAttribute('src')).toBe(previewUrl('acme', 'edit', 'contact'))
+    await tick()
+    expect(shown()).toBe(viewFrame())
+    expect(app.panel.getSrc()).toBe(previewUrl('acme', 'draft', 'contact'))
+    expect(viewFrame().contentDocument).toBe(linked.doc)
+    expect(editFrame().contentDocument).toBe(linkedEdit.doc)
+    expect(envLoads.get(viewFrame()) ?? 0).toBe(0)
+    expect(envLoads.get(editFrame()) ?? 0).toBe(0)
   })
 
   it('test_UAT_AC2518_the_channel_left_behind_stays_connected_and_laid_out_hidden_by_visibility', () => {

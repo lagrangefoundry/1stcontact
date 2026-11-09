@@ -406,15 +406,22 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the page carried across a 
 
     // A different offset in Edit, and back to View: the ordinary channel, the
     // same page, the new offset. The View frame was moved to `about` by the
-    // reader's link, not by the pane, so the pane now points it there and the
-    // page arrives with the offset carried from Edit.
+    // reader's link, not by the pane, and it still holds that page, so it is
+    // revealed in place (no re-point, no load) and the offset carried from Edit
+    // is applied to the very document the reader left.
     scrollTo(edit, 300)
+    clearNavs()
     modeButton('view').click()
+    // Read before yielding: the observer's records go to its callback at the
+    // next microtask, so a re-point is only observable synchronously.
+    expect(navsOf(viewFrame())).toEqual([])
+    expect(displayed()).toBe(previewUrl('acme', 'draft'))
+    await tick()
     expect(shown()).toBe(viewFrame())
     expect(app.panel.getSrc()).toBe(previewUrl('acme', 'draft', 'about'))
-    expect(navsOf(viewFrame())).toEqual([previewUrl('acme', 'draft', 'about')])
-    const back = await deliverRequested(viewFrame(), 'draft', 'acme', 'about', signInPage())
-    expect(back.scrolled).toEqual([300])
+    expect(envLoads.get(viewFrame()) ?? 0).toBe(0)
+    expect(viewFrame().contentDocument).toBe(view.doc)
+    expect(view.scrolled.at(-1)).toBe(300)
 
     // The rendered documents ship nothing to make this happen. The edit render
     // stays inert.
@@ -591,18 +598,21 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — the page carried across a 
     expect(modeButton('edit')).not.toBeNull()
 
     // View, on a page other than home. Edit opens the edit channel at that page.
-    await arrive(viewFrame(), 'draft', 'acme', 'about', plainPage())
+    const viewAbout = await arrive(viewFrame(), 'draft', 'acme', 'about', plainPage())
     await deliverRequested(editFrame(), 'edit', 'acme', 'about', plainPage())
     modeButton('edit').click()
     expect(shown()).toBe(editFrame())
     expect(app.panel.getSrc()).toBe(previewUrl('acme', 'edit', 'about'))
     expect(app.panel.getSrc()).not.toBe(previewUrl('acme', 'edit'))
 
-    // Back to View: the ordinary channel at that same page, not the root.
+    // Back to View: the ordinary channel at that same page, not the root. The
+    // View frame still holds that page, so it is revealed rather than re-pointed.
+    clearNavs()
     modeButton('view').click()
+    expect(navsOf(viewFrame())).toEqual([])
     expect(shown()).toBe(viewFrame())
     expect(app.panel.getSrc()).toBe(previewUrl('acme', 'draft', 'about'))
-    await deliverRequested(viewFrame(), 'draft', 'acme', 'about', plainPage())
+    expect(viewFrame().contentDocument).toBe(viewAbout.doc)
 
     // With Edit active, a different site opens that site's edit channel at its
     // root. Another site's page is not this page in another state.
