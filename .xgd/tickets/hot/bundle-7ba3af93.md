@@ -5,57 +5,16 @@ type: bundle
 title: BUG-73 + BUG-75 + REQ-216 + REQ-215 + REQ-223 + 1 more
 created_by: xgd
 created_at: '2026-11-08T20:38:01.654591+00:00'
-updated_at: '2026-11-09T02:43:30.288706+00:00'
+updated_at: '2026-11-09T02:50:05.062963+00:00'
 completed_at: '2026-11-09T02:43:30.288706+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
   commits:
-  - working_sha: 69ed3fd6e972c92679db2dcef096b612276f9158
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 1ba6d909988ddac2faab891bbf1ec80402dd0aa4
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 577dd246b574a94bda59f197b87b7cd75c7bb3ad
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 98c03ed6e8928a1ba401f77bc3ad65257496cc51
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 6758319fa112da08541c9ca895de4fe09bcd7a92
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 6b8ae21bac86744a0d462ad664dcffc087c8a217
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: bf0bce3cc074742948a9dd2f506203bfcfafabdc
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: d28af32fc0ce8dd5a4990a2348323ac24959ce72
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 7d60b5b2ecd96bd62c3fad4401649ee972ade924
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 82309854d54d2de99a1995e6126a0d3d795e176d
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 7c55bf0baaa4722c063e0cf954dab12fe5e2d417
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 9b4bf16e21ad91c89cb757230a07f3ef21fc7567
   auto_merge_back: true
   priority: medium
   regression_anchor_uid: report-0758e7c5
@@ -65,6 +24,7 @@ fields:
   session_builder_started_at: '2026-11-09T02:20:16.118585+00:00'
   session_assessor: 63105d84-6691-4d9c-b985-a80de47dac91
   session_assessor_started_at: '2026-11-09T01:58:31.459302+00:00'
+  merged_at_commit: 9b4bf16e21ad91c89cb757230a07f3ef21fc7567
 ---
 
 # Bundle
