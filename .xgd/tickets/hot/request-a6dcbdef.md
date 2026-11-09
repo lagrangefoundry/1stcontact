@@ -5,10 +5,10 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-11-09T05:46:39.685560+00:00'
-completed_at: null
+updated_at: '2026-11-09T20:39:10.853467+00:00'
+completed_at: '2026-11-09T20:39:10.853467+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   epic_parent: epic-34760bf1
