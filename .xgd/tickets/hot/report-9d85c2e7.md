@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T17:27:43.023768+00:00'
-updated_at: '2026-11-09T17:27:43.023768+00:00'
+updated_at: '2026-11-09T17:38:04.152689+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -46,6 +46,7 @@ fields:
         so the batch makes no production edit.'
       files:
       - tests/reconciliation-l1-substrate.test.ts
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 58
