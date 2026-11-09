@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T07:11:01.358410+00:00'
-updated_at: '2026-11-09T07:11:01.358410+00:00'
+updated_at: '2026-11-09T08:10:44.904096+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: story-d0a8cfad
@@ -47,6 +47,10 @@ fields:
   batch_index: 0
   parent_report_uid: report-7526f59b
   anchor_ticket: bundle-0881342c
+  ruling: declined
+  ruling_reason: 'Rung 2: the reference pins playwright ^1.61.1 (tools/generate/package.json:21),
+    identical to the working tree, and no intent in scope demands a bump; the blocker
+    is a missing browser install plus gate defect BUG-1696, not code.'
 ---
 
 # Builder blocked by `code_frozen`
@@ -82,3 +86,7 @@ operator_action: "Run `pnpm --filter @1stcontact/generate exec playwright instal
 files_changed: []
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: declined
+
+Rung 2: the reference pins playwright ^1.61.1 (tools/generate/package.json:21), identical to the working tree, and no intent in scope demands a bump; the blocker is a missing browser install plus gate defect BUG-1696, not code.
