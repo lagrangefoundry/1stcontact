@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-11-09T20:39:12.172544+00:00'
+updated_at: '2026-11-09T20:39:13.972935+00:00'
 completed_at: '2026-11-09T20:39:12.172544+00:00'
 last_field_updated: status
 status: free_and_reconciled
