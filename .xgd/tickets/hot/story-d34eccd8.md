@@ -6,9 +6,9 @@ title: 'Serve a published site: a URL names a site, the revision record says whi
   bytes'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-11-09T06:20:09.375104+00:00'
+updated_at: '2026-11-09T06:21:25.176912+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
