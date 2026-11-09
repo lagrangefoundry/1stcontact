@@ -2,7 +2,7 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-09T20:50:58.956606+00:00",
-  "ticket_count": 12973,
+  "ticket_count": 12974,
   "rebuild_epoch": 1794257458.618766,
   "tickets": {
     "acceptance_criterion-002fc710": {
@@ -190285,70 +190285,6 @@
         ]
       }
     },
-    "bundle-0881342c": {
-      "id": "BUNDLE-43",
-      "type": "bundle",
-      "status": "free_and_reconciled",
-      "updated_at": "2026-11-09T20:49:49.231848+00:00",
-      "created_at": "2026-11-09T05:46:37.966626+00:00",
-      "completed_at": "2026-11-09T20:39:08.781359+00:00",
-      "title": "REQ-222 + REQ-221 + REQ-219 + REQ-220 + BUG-78",
-      "fields": {
-        "auto_merge_back": true,
-        "commits": [
-          {
-            "working_sha": null,
-            "reconcile_sha": null,
-            "main_sha": "4d73fcfcd2397c949851096d8cf58e8fc10b755f"
-          }
-        ],
-        "bundle_type": "reconcile",
-        "priority": "medium",
-        "_prose_backlinks": [
-          "request-1f64eecf",
-          "request-a6dcbdef",
-          "request-b99bea26",
-          "request-e53d068f",
-          "request-4b5c10e9",
-          "request-a6dcbdef",
-          "request-a6dcbdef",
-          "request-4b5c10e9",
-          "epic-34760bf1",
-          "request-a6dcbdef",
-          "request-1f64eecf",
-          "request-1f64eecf",
-          "request-1f64eecf",
-          "request-b99bea26",
-          "request-f51c8748",
-          "request-f51c8748",
-          "request-4502c34e",
-          "request-f51c8748",
-          "request-b99bea26",
-          "request-f51c8748",
-          "request-b99bea26",
-          "request-4502c34e",
-          "request-4502c34e",
-          "request-4b5c10e9",
-          "request-577ae72f",
-          "bug-ee6c6c39",
-          "request-fd68ef61",
-          "request-fd68ef61",
-          "request-fd68ef61",
-          "request-fd68ef61",
-          "request-a6dcbdef",
-          "request-fd68ef61",
-          "bug-cd883d86",
-          "request-a6dcbdef",
-          "bug-cd883d86",
-          "request-4b5c10e9",
-          "request-7d9f8b2e",
-          "request-4af0cf7f",
-          "request-7d9f8b2e",
-          "request-7d9f8b2e",
-          "request-7d9f8b2e"
-        ]
-      }
-    },
     "comment-02724258": {
       "id": "COMMENT-8092",
       "type": "comment",
@@ -195961,6 +195897,85 @@
       "fields": {
         "subject_uid": "bundle-0881342c",
         "report_kind": "permissions_audit"
+      }
+    },
+    "report-e9ccd80a": {
+      "id": "REPORT-12023",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-09T20:51:05.996737+00:00",
+      "created_at": "2026-11-09T20:51:05.996737+00:00",
+      "completed_at": null,
+      "title": "Regression success: none caught (reconciliation)",
+      "fields": {
+        "subject_uid": "bundle-0881342c",
+        "intent_uid": "bundle-0881342c",
+        "report_kind": "regression_success",
+        "cycle": "reconciliation"
+      }
+    },
+    "bundle-0881342c": {
+      "id": "BUNDLE-43",
+      "type": "bundle",
+      "status": "free_and_reconciled",
+      "updated_at": "2026-11-09T20:51:53.080907+00:00",
+      "created_at": "2026-11-09T05:46:37.966626+00:00",
+      "completed_at": "2026-11-09T20:39:08.781359+00:00",
+      "title": "REQ-222 + REQ-221 + REQ-219 + REQ-220 + BUG-78",
+      "fields": {
+        "auto_merge_back": true,
+        "commits": [
+          {
+            "working_sha": null,
+            "reconcile_sha": null,
+            "main_sha": "4d73fcfcd2397c949851096d8cf58e8fc10b755f"
+          }
+        ],
+        "bundle_type": "reconcile",
+        "priority": "medium",
+        "_prose_backlinks": [
+          "request-1f64eecf",
+          "request-a6dcbdef",
+          "request-b99bea26",
+          "request-e53d068f",
+          "request-4b5c10e9",
+          "request-a6dcbdef",
+          "request-a6dcbdef",
+          "request-4b5c10e9",
+          "epic-34760bf1",
+          "request-a6dcbdef",
+          "request-1f64eecf",
+          "request-1f64eecf",
+          "request-1f64eecf",
+          "request-b99bea26",
+          "request-f51c8748",
+          "request-f51c8748",
+          "request-4502c34e",
+          "request-f51c8748",
+          "request-b99bea26",
+          "request-f51c8748",
+          "request-b99bea26",
+          "request-4502c34e",
+          "request-4502c34e",
+          "request-4b5c10e9",
+          "request-577ae72f",
+          "bug-ee6c6c39",
+          "request-fd68ef61",
+          "request-fd68ef61",
+          "request-fd68ef61",
+          "request-fd68ef61",
+          "request-a6dcbdef",
+          "request-fd68ef61",
+          "bug-cd883d86",
+          "request-a6dcbdef",
+          "bug-cd883d86",
+          "request-4b5c10e9",
+          "request-7d9f8b2e",
+          "request-4af0cf7f",
+          "request-7d9f8b2e",
+          "request-7d9f8b2e",
+          "request-7d9f8b2e"
+        ]
       }
     }
   },
@@ -208858,7 +208873,8 @@
       "report-fe0b2f9c",
       "report-fe32a2ec",
       "report-fec9ebb2",
-      "report-c6097e51"
+      "report-c6097e51",
+      "report-e9ccd80a"
     ],
     "sprint": [
       "sprint-9006c5b0",
@@ -209935,12 +209951,12 @@
         "bug-8825aeaa",
         "bug-b2aecde6",
         "bug-f6c3fedf",
-        "bundle-0881342c",
         "request-4502c34e",
         "request-a6dcbdef",
         "request-b99bea26",
         "request-e845f1d5",
-        "request-f51c8748"
+        "request-f51c8748",
+        "bundle-0881342c"
       ]
     },
     "commits": {
@@ -216014,9 +216030,6 @@
       "d7661e84149d61da7398129e24c32a254251a877": [
         "bug-f6c3fedf"
       ],
-      "4d73fcfcd2397c949851096d8cf58e8fc10b755f": [
-        "bundle-0881342c"
-      ],
       "f87c58e2a1dabdfdc5618858b32ce0f19c6fc18f": [
         "request-4502c34e"
       ],
@@ -216088,6 +216101,9 @@
       ],
       "9db539fbb584055240161600381765e15b47c51e": [
         "request-f51c8748"
+      ],
+      "4d73fcfcd2397c949851096d8cf58e8fc10b755f": [
+        "bundle-0881342c"
       ]
     },
     "version": {
@@ -220094,9 +220110,9 @@
         "bug-7935a7ed",
         "bug-8825aeaa",
         "bug-b2aecde6",
-        "bundle-0881342c",
         "request-e845f1d5",
-        "request-f51c8748"
+        "request-f51c8748",
+        "bundle-0881342c"
       ],
       "high": [
         "bug-00d5f738",
@@ -239714,7 +239730,8 @@
         "report-f2a65708",
         "report-f4e40531",
         "report-f78fe620",
-        "report-c6097e51"
+        "report-c6097e51",
+        "report-e9ccd80a"
       ],
       "story-ed976856": [
         "report-51f4601f",
@@ -248585,7 +248602,8 @@
         "report-5e4e8df8"
       ],
       "bundle-0881342c": [
-        "story-ed976856"
+        "story-ed976856",
+        "report-e9ccd80a"
       ]
     },
     "updated_by": {
@@ -254536,7 +254554,8 @@
         "report-ec0d27a9",
         "report-f2b243d0",
         "report-ff87fd31",
-        "report-5e4e8df8"
+        "report-5e4e8df8",
+        "report-e9ccd80a"
       ],
       "overlap_resolution": [
         "report-044db82b",
@@ -258005,7 +258024,8 @@
         "report-ec0d27a9",
         "report-f2b243d0",
         "report-ff87fd31",
-        "report-5e4e8df8"
+        "report-5e4e8df8",
+        "report-e9ccd80a"
       ],
       "regression": [
         "report-08ec8f69",
@@ -270983,7 +271003,6 @@
     "BUG-394": "bug-8825aeaa",
     "BUG-396": "bug-b2aecde6",
     "BUG-78": "bug-f6c3fedf",
-    "BUNDLE-43": "bundle-0881342c",
     "COMMENT-8092": "comment-02724258",
     "COMMENT-8111": "comment-054bab66",
     "COMMENT-8082": "comment-078c23e8",
@@ -271371,7 +271390,9 @@
     "STORY-95": "story-d34eccd8",
     "STORY-178": "story-ed976856",
     "STORY-177": "story-f2e5032c",
-    "REPORT-12022": "report-c6097e51"
+    "REPORT-12022": "report-c6097e51",
+    "REPORT-12023": "report-e9ccd80a",
+    "BUNDLE-43": "bundle-0881342c"
   },
   "backlinks_index": {
     "request-8a5f499e": {
@@ -272114,8 +272135,8 @@
         "bug-3d1ee8ac",
         "epic-34760bf1",
         "epic-95bc3b15",
-        "bundle-0881342c",
-        "request-b99bea26"
+        "request-b99bea26",
+        "bundle-0881342c"
       ]
     },
     "bug-350d7a6f": {
@@ -272438,8 +272459,8 @@
         "epic-34760bf1",
         "request-3731fe6b",
         "request-b813aa4a",
-        "bundle-0881342c",
-        "request-f51c8748"
+        "request-f51c8748",
+        "bundle-0881342c"
       ]
     },
     "request-b8322637": {
@@ -273169,10 +273190,10 @@
         "report-966a48c1",
         "request-4b5c10e9",
         "request-fd68ef61",
-        "bundle-0881342c",
         "request-4502c34e",
         "request-b99bea26",
-        "request-f51c8748"
+        "request-f51c8748",
+        "bundle-0881342c"
       ]
     },
     "request-1f64eecf": {
@@ -273181,9 +273202,9 @@
         "epic-34760bf1",
         "report-15fed5d0",
         "request-3a73d6af",
-        "bundle-0881342c",
         "request-a6dcbdef",
-        "request-f51c8748"
+        "request-f51c8748",
+        "bundle-0881342c"
       ]
     },
     "request-aa42dbaf": {
@@ -275725,12 +275746,12 @@
         "request-2ac88003",
         "request-4b5c10e9",
         "request-7573c2ab",
-        "bundle-0881342c",
         "report-45428295",
         "report-da2e2310",
         "report-e1e6a0a8",
         "report-f9c72a40",
-        "request-a6dcbdef"
+        "request-a6dcbdef",
+        "bundle-0881342c"
       ]
     },
     "request-33c49c03": {
@@ -276504,8 +276525,8 @@
         "request-4b5c10e9",
         "request-7573c2ab",
         "request-8ef68c26",
-        "bundle-0881342c",
-        "request-4502c34e"
+        "request-4502c34e",
+        "bundle-0881342c"
       ]
     },
     "epic-45f2e9a6": {
@@ -276623,8 +276644,8 @@
     "request-577ae72f": {
       "mentions": [
         "comment-9c2b9afb",
-        "bundle-0881342c",
-        "request-b99bea26"
+        "request-b99bea26",
+        "bundle-0881342c"
       ]
     },
     "request-b559a8df": {
@@ -277230,12 +277251,12 @@
     "request-4502c34e": {
       "mentions": [
         "epic-34760bf1",
-        "bundle-0881342c",
         "report-45428295",
         "report-da2e2310",
         "report-e1e6a0a8",
         "report-f9c72a40",
-        "request-a6dcbdef"
+        "request-a6dcbdef",
+        "bundle-0881342c"
       ]
     },
     "request-b99bea26": {
@@ -277243,10 +277264,10 @@
         "epic-34760bf1",
         "request-4b5c10e9",
         "request-fd68ef61",
-        "bundle-0881342c",
         "report-0712dc13",
         "request-a6dcbdef",
-        "request-f51c8748"
+        "request-f51c8748",
+        "bundle-0881342c"
       ]
     },
     "bug-db01897e": {
@@ -277260,17 +277281,17 @@
         "request-4b5c10e9",
         "request-aab6c72e",
         "request-fd68ef61",
-        "bundle-0881342c",
-        "request-b99bea26"
+        "request-b99bea26",
+        "bundle-0881342c"
       ]
     },
     "request-4b5c10e9": {
       "mentions": [
         "epic-34760bf1",
-        "bundle-0881342c",
         "request-a6dcbdef",
         "request-b99bea26",
-        "request-f51c8748"
+        "request-f51c8748",
+        "bundle-0881342c"
       ]
     },
     "request-3966aad2": {
@@ -278011,8 +278032,8 @@
     "bug-ee6c6c39": {
       "mentions": [
         "report-7ff6b63e",
-        "bundle-0881342c",
-        "request-b99bea26"
+        "request-b99bea26",
+        "bundle-0881342c"
       ]
     },
     "request-8a132869": {
