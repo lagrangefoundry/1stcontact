@@ -5,10 +5,10 @@ type: bug
 title: 'Paperwork: drop SMS text, show Recipients as a field, On/Off only where optional'
 created_by: EPIC-30
 created_at: '2026-11-08T20:28:29.652125+00:00'
-updated_at: '2026-11-08T20:32:06.478978+00:00'
+updated_at: '2026-11-08T20:47:53.938024+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: high
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-addf5a62
+  commits:
+  - working_sha: d5b0ab71935565dd58469066fd52391c6152192a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d9e24f5a0121b115aa83d79119f93af04bda3b66
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.831
 ---
 
 ## Symptom
@@ -59,3 +67,24 @@ UATs named `test_UAT_FC_BUG-386_*`:
 - The Items list and the Detail pane show each message's Recipients; "New order" reads "Owner & delegates", "Invitation" reads "Invited contact"; no label contains "(to the team)".
 - Order shipped shows On | Off and, when off, sends nothing when an order is marked shipped; no other message shows the switch; setting `enabled: false` on New order is refused with its reason; a non-optional message stored off still sends.
 - A real delegate invitation's link, followed, signs the person in to 1st Contact (platform-tenant session) and lands on the builder for that business, not `/c/<businessId>/`.
+
+
+## What changed (as landed)
+
+- **No SMS/push text.** `sms_text` is gone from the message record (never written; a stored one is not read), from `MessageVersion`, the save/refusal rules (no SMS length cap or block check), the render result, the routes (`GET`/`PUT`/`preview` answer no `sms`; a `PUT` carrying `sms` stores nothing of it), the Detail pane, and the Email assistant's `messages` surface (no `sms` parameter type, no `sms` on `preview` / `update_message`, no SMS in its overview or preview shape).
+- **Recipients is a field.** Each trigger declares `recipients` (the table above; the five buyer emails read "Buyer"). The routes and the Email assistant's `list_messages`, `read_message` and `list_triggers` report it; a save cannot change it. The Items list shows it beside each message's subject; the Detail pane shows a fixed **Recipients** field. Labels are the event alone: "New order", "Cancellation requested".
+- **On/Off only on optional messages.** A trigger declares `optional` (only **Order shipped**) or an always-on reason. Only an optional message shows the Items "On/Off" state and the Detail "On" switch, and only it sends `enabled` on save. Switching any other off (pane, `PUT /api/messages/<key>`, the Email assistant's `update_message`) is refused with "the <label> message cannot be switched off: <reason>" — e.g. New order: "it is how the business learns it has an order to fulfil"; Order confirmation: "the law asks for a confirmation of every order sold at a distance". A stored "off" on a message that is not optional is read as on, so it sends; its next save writes no `enabled` field (that is how it is cleared — no version is written just to clear it, so it never shows as a client change).
+- **Delegate invitation lands on the business.** Pinning the design note found one gap: the redeemed link signed the delegate in to 1st Contact but landed on `/`, not on that business. The delegate route now records `/b/<businessId>/` as the link's landing (the sign-in return REQ-482 already stores beside the token), so the link signs the person in to 1st Contact and opens that business in the builder. Other invitations still land on `/`.
+
+## Tests this ticket supersedes
+
+- REQ-660: the "SMS text over 320 characters is refused" case is removed.
+- REQ-661: the Items row no longer shows "On" for the sign-in link, nor the audience label; it shows its recipients.
+- REQ-205, REQ-663: fixtures drop `sms`.
+
+## UATs
+
+- `tests/test_UAT_FC_BUG-386_paperwork_messages.workers.test.ts` — no SMS field on records/routes/preview; recipients per trigger and unbracketed labels; only Order shipped optional and New order's off refused with its reason; a stored-off invitation still sends and its next save clears it; the Email assistant's tools and priming carry no SMS, report recipients, and refuse New order off.
+- `tests/test_UAT_FC_BUG-386_paperwork_pane.test.ts` — Items show recipients and On/Off only on Order shipped; Detail shows fixed Recipients, no SMS field, the On switch only on Order shipped.
+- `test_UAT_FC_BUG-386_order_shipped_off_sends_nothing_and_a_stored_off_new_order_still_reaches_the_owner` (in the REQ-644 fulfilment suite).
+- `test_UAT_FC_BUG-386_the_delegate_invitation_signs_in_to_1st_contact_and_opens_the_business_in_the_builder` (in the REQ-369 delegate-access suite).

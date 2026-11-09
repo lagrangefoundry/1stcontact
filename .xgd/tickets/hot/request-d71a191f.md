@@ -6,10 +6,10 @@ title: 'Legal: 1st Contact''s own documents through the same pipeline, and owner
   sections'
 created_by: EPIC-29
 created_at: '2026-11-08T17:04:44.638103+00:00'
-updated_at: '2026-11-08T18:27:32.109372+00:00'
+updated_at: '2026-11-08T20:54:17.157242+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: ready_to_reconcile
 fields:
   priority: high
   parent_uid: epic-e3db69b8
@@ -17,6 +17,26 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-73cb53a4
+  commits:
+  - working_sha: 599b0eb34da0f8ac6747cf1a7497fb31318aed66
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a48009edb43911e67dbe1947adecb5c13b42dee7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9b0b9ee3a77059e9b97d4ae7c2fa9e48163e7414
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 80dc98ae043f46962a59808b510ee755ce0f0658
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: db3ce92efb3b2686a4be487e6c0a4d79a8e0928e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 692a35a3d857060b4e1f3081e730f807580e5878
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.832
 ---
 
 ## Why
@@ -118,3 +138,91 @@ Choosing which signed-in customers a document applies to stays out (DOC-121 §7,
 3. Separate legal publishing and revision announcements.
 
 Merge back and move to `free_coded` only when all three are done.
+
+
+
+## As built (REQ-669 session, 2026-11-08)
+
+One branch, four commits, landed together. Where this section and the earlier ones differ, this describes the code.
+
+**1. The library check (item 5).** A trigger is now only `always` or `sells`. The build refuses a Terms of use, Privacy notice or Member terms module that is not `always` / `any`, and a Terms of sale module whose trigger is not `sells`. Detection of site features (contact form, mailing list, account box, media from other sites) is gone, so turning one on or off never changes a document. DOC-116's trigger is now `always`. The Legal assistant's `feature_effect` only knows `sells`.
+
+**2. Owner-added sections (item 1).** These are `legal_owner_section` records, placed at `start`, `after:<module key>` or `end`. A section whose module later leaves the document goes to the end rather than being dropped. Adding one is refused on an edited document ("change its text directly, or go back to the standard version first"). Each save or removal writes a new standard version, with the "tell people" / "ask again" switch off by default. The heading is escaped and the text goes through the legal Markdown sink. The pane has "Your own sections" (add, change, remove) on a standard document.
+
+**3. The business's own documents (item 2, DOC-121 §7).** These are `legal_own_document` drafts.
+- The address comes from the title when the document is created, and never moves. The standard documents' addresses are refused.
+- There are three kinds: display only, accept once, accept every new version.
+- **Publish new version** publishes the draft, and is refused when nothing changed since the last version. Each version gets its own `/legal/<address>/v<N>` page.
+- **Withdraw** takes it off the site and the acceptance page. Every acceptance and every version page are kept.
+- A display-only document is in the footer. The other kinds are accepted on the acceptance page under `own_document:<address>` keys. "Accept every new version" asks again at each version; "accept once" never asks again.
+
+**4. What signed-in customers accept (answers 1–2).** Every business has Member terms. They are served at `/legal/member-terms` and are not in the footer. Signed-in customers agree to the Member terms, read the Privacy notice, and accept the business's own documents that ask for it. They are never asked to accept the Terms of use. Membership ("member since") counts a Member terms acceptance, as well as an older `t_and_c_accepted` one.
+
+**5. The cutover (items 3–4).**
+- The build no longer bundles 1st Contact's Terms, Privacy Notice and Beta Terms (`legal-documents.ts` and `generated/legal.js` are gone).
+- 1st Contact's members go through the same gate, Legal mode, pages and checks as any business's customers. The separate builder-door path, its pages, and the read-only 1st Contact Legal mode are removed.
+- The one step that stays specific to 1st Contact is onboarding, not a legal rule: accepting 1st Contact's documents, as someone who owns nothing, still gives them a business ([[REQ-203]]).
+- `/terms`, `/privacy` and `/beta-terms` redirect (302) to the Member terms, Privacy notice and Beta Terms on 1st Contact's own site. `<path>/<YYYY-MM-DD>` goes to the version published that day.
+- The `{{processors}}` list used to come from the bundled Privacy Notice's table. It is now a platform constant (`PLATFORM_PROVIDERS`, taken from DOC-118's table).
+- Acceptance counts (how many people hold which version, never who) are now in every business's Legal mode and in the Legal assistant's `acceptance_summary`.
+- People → Agreements names a business's own version (`v<N>`) and links its page.
+
+**6. The seed (item 4, answers 4–5).** You run `1c legal seed-platform --env dev|production` once per environment. It reads the old doc tickets and DOC-120 (now marked `legal_seed: platform`) and posts them to the operator-only `POST /api/admin/legal/seed-platform`, which:
+- Writes 1st Contact's business details.
+- Writes history: the Terms of Service versions become the Member terms' history, the Privacy Notice versions the Privacy notice's. Each keeps its original uid (`named_uid`, so an acceptance naming DOC-84 still finds DOC-84's text) and its date. History is numbered after any version a site publish already wrote.
+- Writes DOC-120's added sections, then one new standard version of each document carrying them. These are material, so every 1st Contact client accepts again.
+- Creates the Beta Terms as an accept-every-version document of 1st Contact's own (DOC-78, then a version with its links moved to `/legal/...`).
+- Stores the Terms of sale section until 1st Contact sells, and records the history as having been on its site, so every old version keeps a permanent page.
+- Publishes the legal pages.
+- Refuses to run a second time, or on a business that already has its own sections or documents.
+
+DOC-120's "Legal documents we provide for your site" now includes the "You can add your own sections" bullet. No separate Terms of Service version.
+
+**7. Legal pages published on their own (item 7).**
+- These publish the legal pages straight away, with no site publish: a Paperwork → Legal write (details, an edit, "go back", a section, publishing or withdrawing one of the business's own documents, but not saving a draft), and the Legal assistant's detail change. They rebuild each published site from its **published** definition.
+- Selling starting or stopping (the `payments` rebuild) does the same, so the Terms of sale come and go with it.
+- An item or stock rebuild keeps the legal pages as they stand.
+
+**8. Standard revisions (items 8–9).**
+- The library keeps every published module version. A version takes effect `LEGAL_REVISION_NOTICE_DAYS` (14) after its `legal_module_version` date. Versions on or before `LEGAL_LIBRARY_BASELINE` (2026-11-08, the library as published at this landing) are in force at once.
+- Documents are always built from the library in force that day. Before the day, a site publish keeps the old wording.
+- On every tick, `runLegalRevisions` (migration 0060: `legal_revision_runs`, `legal_revision_businesses`) tells businesses in batches of 10, with a cursor. It sends the fixed `legal_revision` owner message (copy editable in Paperwork → Email) to the owner and delegates: each document, the day, and each changed section as it is now and as it will be. A business whose document is edited is told as advice, and that document is never changed.
+- A business that joins during the notice period is told too.
+- On the day, the job publishes each told business's legal pages again, so REQ-666's consequences of a material change follow then (the privacy email to contacts, re-acceptance).
+- Paperwork → Legal shows the notice with both wordings. The consultant's pre-publish summary and the Legal assistant's new `standard_revisions` tool say what changes and when.
+- The owner message is a notify kind, so it carries "Stop these emails" like the other notifications. Whether a legal notice should be opt-out-able is yours to decide.
+
+## What you need to do at landing
+
+1. Deploy, so migration 0060 applies.
+2. Straight after, run the seed. Until it has run, 1st Contact has no documents, so somebody signing up to 1st Contact is shown no acceptance page and gets no business. For production, with the Access service token in `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`: `NODE_USE_ENV_PROXY=1 node tools/generate/bin/1c.mjs legal seed-platform --env production`. For dev, run the same with `--env dev` (through `bin/access-sim`).
+3. Expect two things. The seed's Privacy notice is a material change, so 1st Contact's contacts with an email address get "We've updated our privacy notice". And every 1st Contact client is asked to accept the Member terms, Privacy notice and Beta Terms at their next sign-in.
+
+## UATs
+
+- Library check: `test_UAT_FC_REQ-669_library_check` (refusals, and the published library accepted).
+- Sections and own documents: `test_UAT_FC_REQ-669_owner_sections_and_documents` (routes, publish, site, acceptance page) and `test_UAT_FC_REQ-669_legal_pane` (jsdom: sections, add a document, the revision notice).
+- Cutover and seed: `test_UAT_FC_REQ-669_platform_cutover` (the seed through the admin route, DOC-84's uid, 1st Contact's acceptance page, signing up, redirects) and `test_UAT_FC_REQ-669_platform_seed` (the seed built from the real tickets and DOC-120).
+- Publishing on its own, revisions, and features: `test_UAT_FC_REQ-669_standard_revisions` (announced with both wordings and the date, nothing until the day, applied on the day with the owner's section in place, edited documents told as advice, the privacy email on the day, a business joining in the notice period, details publishing at once, a mailing list on and off changing nothing).
+- The Legal assistant's revisions tool: `test_UAT_FC_REQ-669_the_legal_assistant_says_what_our_standard_text_will_change_and_when`, in REQ-665's assistant suite.
+- Suites pinning behaviour this ticket supersedes were rewritten: REQ-169, REQ-488, REQ-661, REQ-665, REQ-666, REQ-479, REQ-642.
+
+
+## Paperwork → Legal: how a document is shown and edited (operator, 2026-11-08, EPIC-29)
+
+Change to the as-built REQ-665/REQ-666 document view (`apps/control-app/src/builder/paperwork.js`, `openClientDocument`). This replaces that view's layout; where earlier items in this ticket describe the pane differently, this section wins. Applies to every legal document of every business, 1st Contact included. Wording below uses the Privacy notice; for other documents say "terms" (e.g. "Use custom terms").
+
+1. **No "Sections, and what added them" list.** Site features no longer add sections (DOC-121), so the list goes, along with its data in the view.
+2. **No "rebuilt from your site's features…" sentence.** It is wrong: the notice never changes with the site's features.
+3. **The first thing shown is the current document**, read-only. The always-open "Edit (markdown)" box, its Preview button and "Save my edit" go.
+4. **Standard document.** Above the text, a short description: "This is 1st Contact's standard privacy notice. We keep it up to date for you, and it is filled in from your business details." On the right, **[Use custom notice]**. It opens a confirmation explaining the consequences (from then on the text is yours, we stop updating it, and you're responsible for keeping it accurate), with **OK | Cancel**. OK replaces the read-only text in that space with the editor, starting from the current text.
+5. **Custom document.** The area above the editor says where the owner is ("You're using your own privacy notice. We no longer update it for you.") and offers **[Use standard notice]**, with a confirmation. OK puts the read-only standard text back and removes the editor. **The custom text is kept, not deleted**: it stays in the version history, and choosing "Use custom notice" again starts from the last saved custom text.
+6. **The editor is our standard LF editor**: `mountRichEditor` from `@lagrangefoundry/webui-markdown` (TipTap-based, already a control-app dependency, used by goal-map), reading and writing the same Markdown we store and render. Don't add TipTap or any other editor directly. It is never called "Markdown" anywhere a user sees: no "markdown" label, hint or button. Its output must stay within what our safe legal renderer shows.
+7. **Save and Cancel**, both with confirmations:
+   - **Cancel:** "Changes since your last save will be lost." **Keep editing | Discard changes**. Discarding goes back to the last saved text.
+   - **Save:** asks whether the change affects people. For the Privacy notice: a checkbox "These changes change how we use people's information"; for terms: "These changes matter to people already signed up". Unchecked by default. **Cancel | Save**. The checkbox drives the existing material-change behaviour (REQ-666). The confirmation states when it goes live (with legal pages publishing on their own under this ticket: on save).
+8. **The Legal assistant's chat box sits at the bottom of the page**, as on every other tab's assistant. Match their layout; don't build a second one.
+
+**Owner-added sections (item 1 above) in this layout — open, confirm with the operator before building:** the redesign has no visible place for "Add your own section" yet, and 1st Contact needs it. Proposed: on a standard document, below the read-only text, an **"Add your own section"** button. Added sections appear inline in the document marked "Your section", each with Edit and Remove, using the same editor and the same Save/Cancel confirmations. The document stays Standard.
+
+Tests: standard view shows the description and [Use custom notice] with no editor; the confirmation's Cancel leaves it unchanged and OK shows the editor seeded with the current text; custom view shows [Use standard notice], and switching back restores the read-only standard text while keeping the custom text (switching to custom again starts from it); Cancel with unsaved changes asks and discards; Save asks with the checkbox, and the checked state reaches the material-change path; no "Sections" list, no "site's features" sentence and no visible "markdown" text in the pane; the chat box is at the bottom as on other tabs.

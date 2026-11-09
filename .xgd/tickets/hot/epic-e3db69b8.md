@@ -5,7 +5,7 @@ type: epic
 title: 'Legal: 1st Contact terms & privacy, and standard legal pages for client sites'
 created_by: xgd
 created_at: '2026-10-29T23:34:26.197150+00:00'
-updated_at: '2026-11-08T18:01:42.552466+00:00'
+updated_at: '2026-11-09T01:08:25.277446+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -17,6 +17,10 @@ fields:
   - request-fc2557ae
   - request-d71a191f
   - bug-c960af0a
+  - bug-630b0ab0
+  - bug-84201195
+  - bug-8825aeaa
+  - bug-ea74aee1
   chat_comment: comment-02b19238
   session_id: eae99f9b-9f22-4f66-b84e-ccecf31866e1
 ---
@@ -237,3 +241,35 @@ Shaped with the operator in this epic's chat, prompted by EPIC-9's finding that 
 
 
 - **2026-11-08:** answered [[REQ-669]]'s five implementation questions in its body (Member terms for every business, never accepted Terms of use, rebuild from published definitions, one-off seed command per environment, the added-sections sentence at the cutover; item 2 built in [[DOC-121]] §7's shape). [[TODO-23]] reminds the operator of the features not yet ticketed.
+
+
+
+## 2026-11-08 — Paperwork → Legal redesign
+
+Operator's review of the Legal pane went into [[REQ-669]] (it is building this pane now): no feature-driven Sections list or 'rebuilt from your site's features' sentence; the current document shown first, read-only; [Use custom notice] / [Use standard notice] with confirmations, keeping the custom text when going back to standard; a TipTap rich text editor never labelled Markdown; Save and Cancel confirmations, Save asking whether the change affects people; the Legal assistant's chat box at the bottom like other tabs. Open: where 'Add your own section' sits in this layout.
+
+
+
+## 2026-11-08 — Owner-added sections dropped; standard Terms of sale tie in site text
+
+Operator: added sections are complexity without real use cases; a business's own conditions (deposits, cancellation, made-to-order, age limits) are site text, not legal text. Done in the docs: standard Terms of sale [[DOC-108]] now says what the product page, booking page or checkout says before purchase is part of the order, and [[DOC-111]] Returns excludes items shown as made to order, personalised or perishable (both material standard revisions). [[DOC-121]] updated (no added sections; 1st Contact uses custom Member terms, Privacy notice and Terms of sale; the redesigned Legal pane). [[DOC-120]] is now the starting text of 1st Contact's custom documents, and its 'You can add your own sections' bullet is gone.
+
+**Code pending.** [[REQ-669]] reached ready_to_reconcile with added sections built and without the Legal-pane redesign that its body now describes, and its body is frozen. The removal of added sections, 1st Contact's switch to custom documents and the pane redesign still need building; prepared REQ-669 body text is waiting for the operator's choice of ticket.
+
+
+
+**Revised same day:** operator — "drop the additional sections except for on 1c itself". Added sections stay for 1st Contact only, written from [[DOC-120]] by a platform command; owners get standard or custom only. DOC-120 and DOC-121 updated to match (1st Contact's documents stay Standard). The code is [[BUG-388]] (Legal pane redesign + no owner-added sections + the platform-sections command); reconcile runs in order, so it supersedes REQ-669 where they differ.
+
+
+
+## 2026-11-08 — Terms of sale before first publish ([[BUG-393]])
+
+Operator wants real payments through an unpublished production test site's preview. Buy was off because the Terms of sale count only once a published site carries them. Fix (not a relaxation): the business's legal versions are written when selling becomes possible, with or without a published site; readiness asks for the business's current Terms of sale version; the preview checkout records it on the order.
+
+
+
+**[[BUG-394]] (2026-11-08):** BUG-393 writes Terms of sale only on a legal, payments or shipping change, so a business already set up before the deploy gets none. Fix: the scheduled job catches such businesses up. Workaround until then: re-save the business details in Paperwork → Legal.
+
+
+
+**[[BUG-395]] (2026-11-08):** production 503s on Settings → Shipping/Shop were D1 'overloaded' errors during builder-load bursts (every product photo requested at once on a large catalog). Filed under this epic because it blocks the real-payment test and recent legal reads are among the suspects.

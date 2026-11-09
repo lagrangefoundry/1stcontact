@@ -5,7 +5,7 @@ type: doc
 title: 'Legal module: Terms of sale — Returns'
 created_by: REQ-665
 created_at: '2026-11-07T21:57:08.329590+00:00'
-updated_at: '2026-11-08T17:20:29.070241+00:00'
+updated_at: '2026-11-08T20:57:01.498482+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -26,4 +26,4 @@ fields:
 
 ## Returns
 
-If you buy goods, you can return an item within {{returns_days}} days of receiving it for a refund, as long as it is unused and in its original condition. Contact us at {{contact_email}} to arrange a return. If an item is faulty or not as described, you are entitled to a repair, replacement or refund, whatever the time limit.
+If you buy goods, you can return an item within {{returns_days}} days of receiving it for a refund, as long as it is unused and in its original condition. This does not apply to items the product page tells you are made to order, personalised or perishable. Contact us at {{contact_email}} to arrange a return. If an item is faulty or not as described, you are entitled to a repair, replacement or refund, whatever the time limit.

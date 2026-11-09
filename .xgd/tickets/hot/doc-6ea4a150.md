@@ -6,7 +6,7 @@ title: 'Legal documents: design for every business''s terms, privacy notice and 
   of sale'
 created_by: EPIC-29
 created_at: '2026-11-08T17:59:13.759856+00:00'
-updated_at: '2026-11-08T18:01:41.545863+00:00'
+updated_at: '2026-11-08T21:01:46.003449+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -14,7 +14,6 @@ fields:
   doc_kind: architecture
   epic_uid: epic-e3db69b8
 ---
-
 
 # Legal documents: design
 
@@ -57,14 +56,16 @@ A business has:
 
 Each standard document is either **Standard** or **Edited by you**, per document:
 
-- **Standard:** built from the library and the business details. The owner can still **add their own sections** at a place they choose; the document stays Standard and our sections keep updating ([[REQ-669]]).
+- **Standard:** built from the library and the business details; we keep it up to date. Owners cannot add sections to a standard document (decided 2026-11-08: the use cases were the business's own conditions, which belong on the site, see below). The one exception is 1st Contact's own documents (below), whose added sections come from [[DOC-120]], never from the pane.
 - **Edited by you:** the owner has changed our text. From then on we never change it; they get our revisions as advice (§5) and a warning when it falls behind.
 
 **Business details** (Legal mode form; the Legal assistant may change them): legal name, trading name, postal address, contact email, country, returns window, delivery note. Changing a detail never takes a document out of Standard. Selling needs the legal name, address and contact email ([[REQ-666]]).
 
+**A business's own conditions are site text, not legal text** (operator, 2026-11-08). Deposits, cancellation charges, notice periods, made-to-order, age limits: these go on the product page, booking page and checkout, where the buyer sees them before buying. The standard Terms of sale tie that text into the order ([[DOC-108]]: "Anything the product page, booking page or checkout tells you before you buy … is part of your order"; [[DOC-111]]: items the product page says are made to order, personalised or perishable are outside the returns promise). Nobody needs to write legal wording to rely on them.
+
 ### 1st Contact's own documents
 
-Exactly the same model ([[REQ-669]], seeded from [[DOC-120]]): the standard documents plus 1st Contact's added sections, plus its Beta Terms as a document of its own. 1st Contact's clients accept its Member terms (which carry the platform rules: AI, content, harassment and doxing, processing terms, liability), read its Privacy notice and accept the Beta Terms. We maintain **one** standard set plus 1st Contact's additions, never a second full copy. Until REQ-669 lands, [[DOC-117]] and [[DOC-118]] are in force and 1st Contact's sites also carry generated standard documents; that duplication is accepted until then.
+The standard documents plus 1st Contact's added sections ([[REQ-669]], seeded from [[DOC-120]]), plus its Beta Terms as a document of its own. Its documents stay **Standard**, so our revisions keep reaching them. Added sections exist **only for 1st Contact** (operator, 2026-11-08): they are kept in DOC-120, which we maintain, and reach the business through a platform command, never through Paperwork → Legal. Everything else (pipeline, pane, checks, acceptance) is the same as any business. 1st Contact's clients accept its Member terms (which carry the platform rules: AI, content, harassment and doxing, processing terms, liability), read its Privacy notice and accept the Beta Terms. We maintain **one** standard set plus 1st Contact's additions, never a second full copy. Until REQ-669 lands, [[DOC-117]] and [[DOC-118]] are in force and 1st Contact's sites also carry generated standard documents; that duplication is accepted until then.
 
 ## 4. Where documents appear
 
@@ -91,9 +92,14 @@ Exactly the same model ([[REQ-669]], seeded from [[DOC-120]]): the standard docu
 
 ## 6. Paperwork → Legal
 
-- Lists the business's own documents: status (Standard / Edited by you), live version, which sections are the owner's, warnings, pending standard revisions with their date.
+- Lists the business's documents: status (Standard / Edited by you), live version, warnings, pending standard revisions with their date.
 - Business details form.
-- Markdown editor and preview for edits and added sections.
+- **A document opens on its current text, read-only.** No feature-driven section list, and nothing says the text changes with the site's features.
+  - **Standard:** a description above the text ("This is 1st Contact's standard privacy notice. We keep it up to date…") and, on the right, **[Use custom notice]** ("terms" for the terms documents). A confirmation explains the consequences (the text becomes theirs, we stop updating it, they're responsible for it): **OK | Cancel**. OK swaps the text for the editor, starting from the current text.
+  - **Custom:** the area above the editor says the owner is using their own text and offers **[Use standard notice]**, with a confirmation. OK removes the editor and shows the standard text again. The custom text is kept; switching back to custom starts from the last saved custom text.
+  - **The editor** is our standard LF editor (`mountRichEditor`, `@lagrangefoundry/webui-markdown`). The word "Markdown" never appears to users.
+  - **Save and Cancel** both confirm. Cancel: changes since the last save will be lost. Save: a checkbox, off by default, for whether the change affects people (Privacy notice: "changes how we use people's information"; terms: "matters to people already signed up"), driving the material-change behaviour; **Cancel | Save**.
+- The Legal assistant's chat box is at the bottom of the page, as on every other tab.
 - The **Legal assistant** explains sections (from each module's note), says what a change will do, changes business details, and files a library gap as a request. It never writes document text and is not a lawyer.
 
 ## 7. Custom documents (agreed 2026-11-08; built under [[REQ-669]] item 2, without choosing an audience)

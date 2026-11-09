@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-11-08T19:25:27.969467+00:00'
+updated_at: '2026-11-08T22:12:19.014925+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7357,5 +7357,34 @@ Your reload problem was a network glitch, as you guessed. These new "work stoppe
 **No workaround exists.** There's no switch to run turns outside the container; the old in-Worker path was removed when the cutover happened. Until BUG-385 lands, the consultant is down on production. If real customers are using it, you may want to tell them.
 
 **Something else from the same logs:** your `--force` chat copy worked. The session loaded all 168 copied turns from the database and rebuilt its live store from them. It also logged about 30 "malformed turn order" warnings, places where two user or two assistant messages sit back to back in the copied dev conversation. Those were already in the dev transcript, and the session replays them as they are. They may show up as duplicated or odd messages in the chat history, but they don't stop turns.
+
+<!-- xgd-turn id="7b6ada52-e27a-425a-a7f8-9bf842e13124-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T22:09:56.934040+00:00" -->
+#### You
+Something in the bin/deploy script breaks control characters on the terminal, they are fixed with a ctrl-c but its annoying can you create a bug to fix please?
+
+<!-- xgd-turn id="7b6ada52-e27a-425a-a7f8-9bf842e13124-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T22:12:16.971062+00:00" -->
+#### Claude
+Filing the bug now. I've checked the obvious suspect: the dev services `bin/deploy` restarts don't read from the terminal. So the cause is still open, and I'll record it that way in the ticket.
+
+I've filed **BUG-391** under EPIC-16, at `draft` with low severity.
+
+The cause isn't found yet. Two things are ruled out:
+- **The dev services `bin/deploy --env dev` restarts:** they're started with no terminal input, so their own `wrangler dev` sessions can't switch your keyboard into their interactive mode.
+- **The deploy script's own output:** it only prints plain bold headings, which can't change the terminal's settings.
+
+That leaves the programs the script runs while they're attached to your terminal: `npx wrangler deploy`, the container image build it starts, and the hook scripts in `bin/deploy.d/`. One of these probably switches the terminal into a different mode and doesn't switch it back. That Ctrl-C clears it suggests something is still holding the terminal.
+
+**What the ticket asks for:**
+- Find which program it is and stop it changing the terminal, while keeping the progress output you read.
+- As a backstop, `bin/deploy` saves your terminal's settings when it starts and puts them back when it exits, whether it succeeds or fails.
+- A test that runs the deploy in a simulated terminal and checks the settings are the same afterwards.
+
+Does it happen with `--env dev`, with production, or both? And does it start during the deploy or only after it finishes? Either answer would narrow it down, and I'll add it to the ticket.
+
+Until it's fixed, typing `stty sane` (or `reset`) and pressing Enter should also fix the terminal.
 
 <!-- xgd-chat-end -->

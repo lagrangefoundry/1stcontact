@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-31
 created_by: xgd
 created_at: '2026-11-02T17:24:17.509637+00:00'
-updated_at: '2026-11-08T00:50:44.740823+00:00'
+updated_at: '2026-11-09T02:11:39.248623+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2000,5 +2000,76 @@ It covers four fixes:
 It also has the test plan. Its done check is that rerun on production, with no "Too many API requests" errors in the logs.
 
 The import is still showing "running" in the Shop tab. If you'd rather not wait for the fix to clear it, I can mark it failed in production now, but only if you say so.
+
+<!-- xgd-turn id="946e4723-a10f-44b2-995c-2f89e9c23ef5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T22:29:38.214506+00:00" -->
+#### You
+**Fill in your business details to start selling: your Terms of sale need your legal name, postal address, contact email. Your site has no Terms of sale yet, so there is no Buy: a buyer has to be able to read what they agree to. They are added when you publish, once selling is set up — see Paperwork → Legal. <-- this is a useful notice, can you have the CTA open the Business Details (today it just navigates to Paperwork-> Legal**
+
+**On the biz details, please make "Country" a drop list of country codes, its a free text field right now expecting an enum...**
+
+<!-- xgd-turn id="732b2ead-3147-4ce1-9a41-83f73680fbec-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T22:30:06.812142+00:00" -->
+#### You
+**Fill in your business details to start selling: your Terms of sale need your legal name, postal address, contact email. Your site has no Terms of sale yet, so there is no Buy: a buyer has to be able to read what they agree to. They are added when you publish, once selling is set up — see Paperwork → Legal. <-- this is a useful notice, can you have the CTA open the Business Details (today it just navigates to Paperwork-> Legal - this note should disappear when the Biz Details are saved, today it does not**
+
+**On the biz details, please make "Country" a drop list of country codes, its a free text field right now expecting an enum...**
+
+<!-- xgd-turn id="732b2ead-3147-4ce1-9a41-83f73680fbec-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T22:31:42.178056+00:00" -->
+#### Claude
+I'm filing a bug ticket under EPIC-31. The relevant code is `shop.js`, `app.js`'s `onOpenLegal`, and the Business details form in `paperwork.js`.
+
+I'm checking how BUG-380 was linked to the epic, so BUG-392 gets linked the same way.
+
+I've filed **BUG-392**, "Shop: seller-details notice opens Legal not Business details, doesn't clear on save; Country is free text". It's under EPIC-31 at `draft`, with medium severity. I haven't changed any code: an epic session writes the ticket, and the child session builds it.
+
+The ticket covers three fixes:
+
+1. **The button opens Business details.** "Fill in business details" will open the Business details form directly. Today it only goes to the Paperwork → Legal list. The "Open Terms of sale" button on the separate warning about the owner's own Terms of sale still goes to Legal.
+2. **The notice goes away once the details are saved.** It stays today for two reasons:
+   - The Shop only re-checks this when it decides to. Saving in Paperwork doesn't tell it.
+   - The second sentence, "Your site has no Terms of sale yet…", is shown until the next publish, even when nothing is missing.
+
+   With the fix, the Shop checks again when you come back to it or when Paperwork saves. That sentence only shows while details are still missing, because once they're complete, the next publish adds the standard Terms of sale anyway. A partial save keeps the notice, listing only the fields still missing.
+3. **Country becomes a drop-down.** It shows country names, saves the two-letter code (for example Ireland saves `IE`), and starts with an empty "Choose a country…". The list comes from the same country data the server checks against, as the shipping country picker already does, so every choice is one the server accepts.
+
+The ticket also has a test plan for each fix.
+
+One decision for you: I've had the "no Terms of sale yet" sentence disappear along with the missing-details part, which is how I read "the note should disappear". If you'd rather keep a short "your Terms of sale are added at your next publish" line until then, tell me and I'll change the ticket.
+
+<!-- xgd-turn id="b848330c-4f7f-4c7d-859b-c65404e5d7e7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T02:09:39.762196+00:00" -->
+#### You
+ok I have an issue in prod. I believe we are configured and have a ToS, we are not published (deliberately). I an trying to test the core purchase flow,
+
+I select a region for delivery and the buy button looses its label and collapses to a little snub that is unresponsive?
+
+<!-- xgd-turn id="b848330c-4f7f-4c7d-859b-c65404e5d7e7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T02:11:36.656384+00:00" -->
+#### Claude
+I'm going to find the product page's Buy and region code, then look at what changes when a region is chosen.
+
+Here's what I know so far. Choosing a region makes the checkout script reserve the item and load Stripe's payment form in place of the button. I'm checking where that form is placed on the page.
+
+The checkout's server side is fine. The production logs for this session show the price being re-checked and a Stripe session opening successfully (200) on every region change, and the previous one cancelled when you picked another region. So the failure is in the page, after the session opens.
+
+**Likely cause** (not yet confirmed against your page's template):
+- The checkout page only gets a slot for Stripe's payment form when its template has the standard button row, with Continue and Cancel side by side. If your template places Continue differently, the page is built with no slot.
+- After choosing a region, the checkout script opens the session and hides Continue whether or not a form appeared. What's left is the button's outer styled box, with no label and nothing behind it. That's the snub you're seeing.
+
+I've filed **BUG-396**, "Checkout: choosing a region hides Continue but no payment form appears (empty box, can't pay)". It's under EPIC-31 at `draft`, with high severity because it blocks buying. The fix:
+1. Every checkout page gets a slot for the payment form, whatever its template looks like.
+2. Continue is only hidden once Stripe's form is actually on the page. Otherwise it stays labelled and clickable as a retry, the opened session is cancelled so the stock isn't held, and the buyer sees "Payment could not be started. Nothing was charged".
+3. When Continue is hidden, the box around it goes too.
+
+It's done when your preview's checkout on production shows Stripe's form after you choose a region.
+
+**To confirm the cause quickly:** open the browser console on the checkout page (in the preview frame) and choose a region. If nothing is logged, it's the missing slot above. If a Stripe or Content-Security-Policy error appears, it's the other possibility in the ticket: Stripe's form loads but stays invisible inside the preview. Pasting whatever shows up there would settle it, and I'll update the ticket to match.
 
 <!-- xgd-chat-end -->

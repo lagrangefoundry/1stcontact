@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-29
 created_by: xgd
 created_at: '2026-10-29T23:35:13.589538+00:00'
-updated_at: '2026-11-08T18:02:03.091851+00:00'
+updated_at: '2026-11-09T01:12:44.989003+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1356,5 +1356,412 @@ Each item points to its section in DOC-121.
 - version history is reminded by TODO-23.
 
 I've also noted all of this on EPIC-29.
+
+<!-- xgd-turn id="3cc270c1-4cc0-4760-be49-9937cdccfa08-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:47:39.926104+00:00" -->
+#### You
+ok some comment on Paperwork->Legal
+1. Sections - we abandoned our modular approach - I think this UI piece is now redundant - unless I misunderstand please remove it. Also: "We keep this up to date: it is rebuilt from your site’s features and your business details each time you publish." <-- this is wrong, the notice does not change based on the sites features please remove it.
+2. The first thing we see should be the current notice - the Edit box is wrong, remove it.
+3. If the site is using the standard text at the top of current notice text there should be a description: "This is the standard 1st contact notice text...we keep it up to date...etc" and a CTA on the right hand side [Use Custom Notice] Hitting this pops up a confirmation explaining the consequences OK | Cancel. OK-> remove the current text in that space offer a TipTap markdown editor (DO NOT CALL IT MARKDOWN - our users do not know what that is).
+4. If the site is using custom text the area above the editor pane is different. It explains where the user is and offers a CTA [Use Standard Notice] again confirmation pop up. Custom text is not deleted (we have to store it anyway) but the editor is removed and the read-only panel with the standard text is returned.
+5. Editor changes - editor has a save (and cancel) button - both have confirmation pop ups. Cancel pop up makes it clear that changes since the last save will be lost. Save pop up asks if the edits change how information is used (checkbox) CTAs Cancel | Save
+6. All the other chats, the chat text box is at the bottom of the page, please make this one consistent
+
+<!-- xgd-turn id="3cc270c1-4cc0-4760-be49-9937cdccfa08-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:49:32.396555+00:00" -->
+#### Claude
+Reading the current Legal pane code, so the change request is precise. Next I'll check whether TipTap is already a dependency and how the other tabs lay out their chat.
+
+No TipTap in the project yet, and REQ-669 (still being built) is the ticket that's changing this pane. I'm adding your redesign to it rather than opening another ticket.
+
+I've written all six points into **REQ-669** as a change to how the Legal pane works today. REQ-669's session is already rebuilding this pane, so it's the natural home and no new ticket was needed. That session still has to pick the change up; I haven't changed any code.
+
+What REQ-669 now says, for every legal document of every business, 1st Contact included:
+1. **The "Sections, and what added them" list is removed,** and so is the sentence saying the notice is "rebuilt from your site's features". You understood correctly: those sections were the old modular approach.
+2. **The current document is shown first, read-only.** The always-open edit box, its Preview button and "Save my edit" are gone.
+3. **On a standard document,** a short description sits above the text and **[Use custom notice]** on the right. It opens a confirmation that explains:
+   - the text becomes theirs;
+   - we stop updating it;
+   - they're responsible for keeping it accurate.
+
+   **OK | Cancel.** OK replaces the text with the editor, starting from the current text.
+4. **On a custom document,** the top area says the owner is using their own notice and offers **[Use standard notice]**, with a confirmation. The custom text is kept: if they switch back to custom later, the editor starts from their last saved custom text.
+5. **The editor is TipTap,** and the word "Markdown" never appears anywhere a user sees. It only offers what our safe renderer can show: headings, paragraphs, bold, italic, lists and links.
+6. **Save and Cancel both ask first.**
+   - Cancel warns that changes since the last save will be lost.
+   - Save has a checkbox, unticked by default: for the Privacy notice "these changes change how we use people's information"; for the terms "these changes matter to people already signed up". **Cancel | Save.** The tick triggers the existing process for telling people about a significant change.
+7. **The chat box goes at the bottom,** matching the other tabs.
+
+For the terms documents the buttons say "terms" instead of "notice".
+
+**Decision for you:** your layout has no place yet for "Add your own section", which REQ-669 is also adding. 1st Contact needs it to add its own sections while keeping the standard text and its updates. I've proposed putting an **"Add your own section"** button below the read-only standard text. Each added section would appear in the document marked "Your section", with Edit and Remove, using the same editor and confirmations, and the document stays standard. I've told REQ-669 to check this with you before building it. Does that work?
+
+TipTap isn't in the project yet, so REQ-669's session will give you the install command to run. I've also noted all of this on EPIC-29.
+
+<!-- xgd-turn id="2c10a680-bdc0-44ef-aec5-90ff06c23ac1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:50:24.557387+00:00" -->
+#### You
+When I say tiptap I mean to use our standard LF md editor - ok?
+
+<!-- xgd-turn id="2c10a680-bdc0-44ef-aec5-90ff06c23ac1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:51:20.408747+00:00" -->
+#### Claude
+It's `mountRichEditor` from `@lagrangefoundry/webui-markdown`. Checking whether the control app already depends on it, then fixing REQ-669's wording.
+
+Already used by the control app, so nothing new to install. Updating the ticket.
+
+Yes, that works, and nothing needs installing. Our standard editor is `mountRichEditor` in the `@lagrangefoundry/webui-markdown` package. The control app already uses that package, and the goal map uses the editor.
+
+I've rewritten item 6 in REQ-669 to say:
+- Use that editor, and don't add TipTap or any other editor directly.
+- It reads and writes the Markdown we already store, but users never see the word "Markdown".
+- What it produces has to stay within what our safe legal page renderer can show.
+
+The line saying REQ-669's session would give you an install command is gone. Everything else in REQ-669 is unchanged. Its session still has to pick this up.
+
+The other question is still open: does "Add your own section" go below the read-only standard text?
+
+<!-- xgd-turn id="bff01290-b721-46d2-bb04-c5c66da28bb1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:52:09.364826+00:00" -->
+#### You
+What is "Add your own section"?
+
+<!-- xgd-turn id="bff01290-b721-46d2-bb04-c5c66da28bb1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:52:25.615213+00:00" -->
+#### Claude
+"Add your own section" is item 1 of REQ-669, which we agreed earlier today. It lets an owner add a section of their own, a heading plus text, to a standard document **without the document stopping being standard**. Our sections keep updating automatically, and the owner's section is carried through every update unchanged.
+
+**Why it exists:**
+- **You asked for it.** In the first EPIC-29 discussion you wanted two ways to edit: take the whole document over, or make a "small language change" that keeps the automatic updates. Your new design covers the first way; this is the second.
+- **1st Contact depends on it.** Under DOC-120, 1st Contact's documents are the standard text plus its own sections:
+  - its Member terms carry the platform rules: AI, content ownership, harassment and doxing, the GDPR Article 28 data-processing terms, and the paragraph about the legal documents we provide;
+  - its Privacy notice and Terms of sale have their own additions too.
+
+  Without added sections, 1st Contact would have to take those documents over as custom text and lose the automatic updates. That's the outcome we chose this approach to avoid.
+
+**Your new layout offers only standard or custom, so there's a choice:**
+1. **Keep it.** Put an "Add your own section" button below the read-only standard text. This is what I proposed, and it's the only option that keeps 1st Contact's documents updating.
+2. **Drop it for owners, keep it for 1st Contact only.** 1st Contact's additions stay in the platform's own records, which we maintain, and owners get only standard or custom. Owners see a simpler pane, but 1st Contact gets a special case, which goes against "every business is treated the same".
+3. **Drop it altogether.** 1st Contact uses custom text for those documents, and we keep them current by hand.
+
+I'd go with **option 1**. Shall I confirm it in REQ-669, or would you rather take option 2 or 3?
+
+<!-- xgd-turn id="54832871-19ed-4085-ad61-f3a2eed7ab39-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:53:35.279434+00:00" -->
+#### You
+This feels like additional complexity - can you give me example use cases for real customers needing this?
+
+<!-- xgd-turn id="54832871-19ed-4085-ad61-f3a2eed7ab39-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:53:59.768817+00:00" -->
+#### Claude
+Honestly, the use cases from real customers are thin. Here's what I can come up with:
+
+**Terms of sale** (the strongest case):
+- A bakery: "Custom cakes need 48 hours' notice and a 50% deposit, which isn't refundable."
+- A salon or class: "Cancel less than 24 hours before and we charge half the price."
+- A furniture maker: "Made-to-order items can't be returned unless they're faulty."
+- A wine shop: "You must be 18 or over to buy; we check ID on delivery."
+
+**Member terms:**
+- A gym or studio: "Classes book up a week ahead; three no-shows pause your booking for a month."
+
+**Privacy notice:**
+- A shop with CCTV, or a photographer who posts event photos. These are rare, and getting them wrong is risky.
+
+**Most of these aren't really free-text sections. They're a business's own policies.** The legal details form already has a "delivery note" field that gets filled into the standard Terms of sale. A few more fields like it would cover nearly every example above, more safely than free text. They'd stay standard and keep updating, and the Legal assistant can help fill them in:
+- returns;
+- cancellations and deposits;
+- age restrictions.
+
+**The real driver for added sections was 1st Contact**: its own platform rules on top of the standard text. Without added sections, 1st Contact would use **custom text** for those documents, like any other business. We maintain them anyway. And under REQ-669, when we revise the standard text, owners with custom text get the advance warning with the old and new wording. So we'd see each change and could update our own documents by hand.
+
+**My recommendation: drop "Add your own section".** Instead:
+1. Owners get only standard or custom, which is your layout.
+2. A few policy fields go in the business details and are filled into the standard Terms of sale: returns, cancellations and deposits, age limit, plus the existing delivery note.
+3. 1st Contact uses custom text for its Member terms, Privacy notice and Terms of sale, with no special case. DOC-120's split becomes the starting text for those custom documents.
+
+This is simpler: there's no separate section editor, no choosing where a section goes, and no carrying owners' sections through updates. It also keeps 1st Contact working exactly like everyone else.
+
+If you agree, I'll change REQ-669 and DOC-121 to match. Do you want the policy fields in point 2, or just standard or custom for now?
+
+<!-- xgd-turn id="93feda71-499c-4907-ae36-9e296b3dc433-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:55:11.411286+00:00" -->
+#### You
+Do those examples really need LEGAL coverage - that sounds like text on the site to me
+
+<!-- xgd-turn id="93feda71-499c-4907-ae36-9e296b3dc433-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:55:32.185070+00:00" -->
+#### Claude
+Mostly, yes, they're text on the site. The legal requirement is that a buyer is told the condition **before they buy**, not that it sits in a legal document:
+- **Deposits, cancellation charges, notice periods:** a line on the product or booking page, and at checkout, is the clearest place. A buyer is more likely to have seen it there than in the Terms.
+- **No returns on made-to-order items:** the law already exempts custom-made goods from the right to cancel, and the standard Terms of sale already allow for it. The product page only needs to say the item is made to order.
+- **Age limits:** what the law requires is the check itself. The text belongs on the product and at checkout.
+
+**One thing I'd make sure of:** the standard Terms of sale should include a sentence like "Conditions shown on the product page or at checkout form part of your order." That ties the site's own text into the agreement, so a business never has to write legal wording to rely on it. I'll check that the standard text has it, and add it in our document tickets if it doesn't.
+
+That leaves only standard or custom, as your layout has it:
+- **Drop "Add your own section"** and the policy fields I suggested.
+- **1st Contact uses custom text** for the documents that carry its platform rules, as any business would. DOC-120's split becomes their starting text, and the advance warning before each standard update tells us when to revise them by hand.
+
+REQ-669 is being built right now. Shall I take added sections out of REQ-669 and DOC-121 and add this?
+
+<!-- xgd-turn id="a90a0df9-db66-45db-894d-10a8ef510e59-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:55:52.471345+00:00" -->
+#### You
+please continue
+
+<!-- xgd-turn id="a90a0df9-db66-45db-894d-10a8ef510e59-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:58:53.082993+00:00" -->
+#### Claude
+Those already match. Now REQ-669: removing added sections, and switching 1st Contact to custom text.
+
+REQ-669 has just moved to `ready_to_reconcile`, so its body is now frozen. Checking whether the pane redesign made it into its code.
+
+REQ-669 landed without the pane redesign and with added sections built, and its body is now frozen. I'll keep its updated body ready, and update the design docs, which aren't frozen.
+
+I've updated the design docs and the standard text, but **the ticket change didn't go in, and that needs your decision.**
+
+## Changed in the standard text and docs
+- **The standard Terms of sale now cover a business's own conditions:**
+  - **"Who you are buying from" (DOC-108)** now ends: "Anything the product page, booking page or checkout tells you before you buy, such as a deposit, a cancellation charge or an age limit, is part of your order."
+  - **"Returns" (DOC-111)** now excludes "items the product page tells you are made to order, personalised or perishable". Before, it promised returns on everything. The UK and EU cancellation sections already had the matching exceptions.
+
+  Both changes are significant, so every selling business will get them as a standard revision.
+- **DOC-121** now says:
+  - there are no added sections, and a business's own conditions are site text;
+  - 1st Contact uses **custom** Member terms, Privacy notice and Terms of sale, and its Terms of use stay standard;
+  - your Legal pane design: read-only first, Use custom / Use standard with confirmations, our standard editor, Save and Cancel confirmations, chat box at the bottom.
+- **DOC-120** is now the starting text for 1st Contact's custom documents, not sections added on top. The "You can add your own sections" sentence is gone.
+- I've noted all of this on EPIC-29.
+
+## The problem: REQ-669 is already finished
+While we were talking, REQ-669 moved to `ready_to_reconcile`, so its body can't be edited any more. It was finished **with added sections built and without the Legal pane redesign**. But its body already contains the redesign I added earlier. Reconcile reads the ticket body as the spec, so it would treat a pane that was never built as required.
+
+**Removing added sections, switching 1st Contact to custom documents, and the pane redesign all still need building.** You have two options:
+1. **Move REQ-669 back to `free_coded`** (that's your call). I then add the removal section I've already written, and REQ-669's session builds all three changes. One ticket, and the body matches the code before reconcile runs. **I recommend this.**
+2. **I file a bug under EPIC-29** for the three changes. But REQ-669 would still reconcile with a body describing a pane it doesn't have, so you'd want to hold it until the bug lands.
+
+Which do you prefer?
+
+<!-- xgd-turn id="c7a88253-ed5c-4bf6-a1da-7619bc61fb94-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T21:00:35.890888+00:00" -->
+#### You
+Reconciliation takes place in order for this reason - new ticket please
+
+<!-- xgd-turn id="3e2c6c01-caff-400f-8ec0-e13bcf42f28a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T21:01:17.830947+00:00" -->
+#### You
+Reconciliation takes place in order for this reason - new ticket please
+
+Lets drop the additional sections except for on 1c itself
+
+<!-- xgd-turn id="3e2c6c01-caff-400f-8ec0-e13bcf42f28a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T21:02:34.889055+00:00" -->
+#### Claude
+Reworking the plan: added sections stay, but only for 1st Contact, and they come from DOC-120 rather than the Legal pane. First I'll put DOC-120 and DOC-121 back in line with that.
+
+Now the new bug ticket.
+
+I've filed **BUG-388, "Paperwork → Legal: show the document first, standard or custom with confirmations, no owner-added sections"**. It's a draft under EPIC-29, 5 points, medium severity, and needs its own session to build it. It says outright that it overrides REQ-669 where the two differ.
+
+**Part 1: the Legal pane redesign, as you described it:**
+- the document is shown first, read-only, with no Sections list and no "site's features" sentence;
+- [Use custom notice] and [Use standard notice] each ask for confirmation, and the custom text is kept when switching back;
+- the editor is our standard LF editor, and "Markdown" never appears to users;
+- Save and Cancel each ask for confirmation, and Save has the checkbox for whether the change affects people;
+- the chat box is at the bottom.
+
+**Part 2: added sections only for 1st Contact:**
+- Owners can't add sections. The pane controls go, and the server refuses any attempt to add one, for every business, 1st Contact included.
+- 1st Contact's sections come only from DOC-120, which I maintain. Its documents stay standard, so our updates still reach them with its sections in place.
+- A new command, `1c legal platform-sections --env dev|production`, applies DOC-120 changes to 1st Contact as a new version of each affected document. You run it.
+- No other business has added sections, so nothing needs migrating.
+
+The ticket also lists the tests, and the changes needed to REQ-669's section tests.
+
+**Changed alongside:**
+- **DOC-120 and DOC-121** now say that added sections are 1st Contact's only, and that its documents stay standard. They also describe the new pane. This undoes my earlier edit that would have switched 1st Contact to custom documents.
+- **Standard Terms of sale**, kept from before: they now tie the product page, booking page and checkout text into the order (DOC-108), and Returns excludes items shown as made to order, personalised or perishable (DOC-111).
+- **EPIC-29** lists BUG-388 as a child and records the decision.
+
+**Before you promote BUG-388:** I didn't create an acceptance criterion and test for the platform-sections command beyond the one test-plan line. The ticket says "e.g." for the command name, so BUG-388's session can choose the final name.
+
+<!-- xgd-turn id="570cff97-51c1-4c8a-ab06-4753200ade2c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T23:22:53.587014+00:00" -->
+#### You
+I have a problem with our legal set up. I see: **Your site has no Terms of sale yet, so there is no Buy: a buyer has to be able to read what they agree to. They are added when you publish, once selling is set up — see Paperwork → Legal.**
+
+Fill in business details
+
+As we discussed I think this is still there because I have not published the site. However, here's the thing - I don't really want to publish the site - this is a test site in production, but I DO want to run real payments through it to prove they work. Can you relax the "required to publish" if the site itself is pre-publication?
+
+<!-- xgd-turn id="570cff97-51c1-4c8a-ab06-4753200ade2c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T23:24:59.723134+00:00" -->
+#### Claude
+Tracing why the Terms of sale only appear after a site publish. The check reads the facts recorded by the last legal publication, and I'm finding where those are written.
+
+I've confirmed the cause: both the Shop tab and the checkout use the same check. Adding the fix to BUG-388, which hasn't been started.
+
+BUG-388 has already been built and is at `ready_to_reconcile`, so its body is frozen. My story-points edit did go through, so I'm reverting that and filing this as a new bug.
+
+I've filed **BUG-393**, "Shop: Terms of sale exist once selling is set up, so an unpublished site's preview can take real payments". It's a draft under EPIC-29, 3 points, medium severity, and needs its own session to build it.
+
+**Why you see the message:** you guessed right, it's because the site isn't published. The Shop and checkout ask whether a *published site* carries a Terms of sale, and that record is only written when a site is published. Your preview already shows the Terms of sale pages, but until a publish no version exists for an order to record, so Buy stays off.
+
+**The fix doesn't relax the rule.** A buyer still has to be able to read the Terms of sale, and every order still records the exact version. What changes is when that version is created:
+- **It's created as soon as selling is set up** (payments, shipping and the seller details), whether or not the site is published. It's updated when the details or regions change. Legal documents have belonged to the business, not a site, since REQ-669, so this follows from that.
+- **Buy appears on the preview, and a real payment works end to end**, with the order recording the Terms of sale version the buyer saw.
+- **Your first publish uses the same version** and doesn't create a duplicate.
+- **"They are added when you publish" is removed** from the Shop message.
+- **Every business is treated the same**, with no special case for test or unpublished sites.
+
+Two other things:
+- I first tried adding this to BUG-388, but it had already been built and moved to `ready_to_reconcile`. Its body was frozen, so that edit didn't go in, but my change to its story points from 5 to 8 did. I've put it back to 5, so BUG-388 is as it was.
+- **Until BUG-393 lands, the only way to get Buy is to publish the site.** Payments through the preview won't work before then.
+
+<!-- xgd-turn id="521145af-cc85-439b-b0d4-81642433dcda-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T23:25:52.447768+00:00" -->
+#### You
+I still want to see the reminder prompting me to fill in the biz details etc. I just don't want payments blocked
+
+<!-- xgd-turn id="521145af-cc85-439b-b0d4-81642433dcda-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T23:26:23.168181+00:00" -->
+#### Claude
+I've updated BUG-393: **the reminder stays and only the block goes.** Whenever a business detail is missing, the Shop still shows the reminder naming what's missing, with its "Fill in business details" button, as it does now. The fix only removes the dependency on publishing, which was turning Buy off even with everything set up. I've added a test that checks the reminder still appears.
+
+**One thing to confirm.** Your message showed no list of missing details, so your legal name, postal address and contact email are already filled in, and with BUG-393 nothing will block your payments.
+
+If you also mean "don't block Buy even when a business detail is missing", I'd advise against it:
+- The Terms of sale would name no seller, because those three details are what fill in "You are buying from…".
+- UK and EU law require a seller's identity and address before a sale.
+
+I'd keep Buy off only for those three details, with the reminder shown either way. Is that right?
+
+<!-- xgd-turn id="4b9abdd9-d64d-43f0-b950-213883ad4628-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T23:28:35.861228+00:00" -->
+#### You
+no that's fine and actually my correction makes no sense - DO block a buy until biz details are filled in and ToS are ready. DON'T block a buy waiting for PUBLISH if the site itself is unpublished
+
+<!-- xgd-turn id="4b9abdd9-d64d-43f0-b950-213883ad4628-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T23:28:54.104354+00:00" -->
+#### Claude
+That's what BUG-393 already describes. I've added your rule to it in your words:
+- **Buy stays off** until the business details are filled in and the Terms of sale are ready.
+- **Publishing the site is never a condition.**
+- The reminder and its "Fill in business details" button still appear whenever something is missing.
+
+BUG-393 is a draft, ready for its session to pick up.
+
+<!-- xgd-turn id="7898a6b2-b325-442e-a1db-513b031de7ed-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T00:20:33.496762+00:00" -->
+#### You
+BUG-393 is deployed but I'm still not getting buy buttons?
+
+<!-- xgd-turn id="7898a6b2-b325-442e-a1db-513b031de7ed-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T00:21:47.677062+00:00" -->
+#### Claude
+Checking what BUG-393 landed and how it decides when to write the Terms of sale.
+
+BUG-393 only creates the Terms of sale when something triggers it: a save in Paperwork → Legal, or a change to payments or shipping. Your business had all of that set up **before** the deploy, so nothing has triggered it. It still has no Terms of sale, and Buy stays off. BUG-393's tests only checked the case where something changes after the deploy, so they didn't catch this.
+
+**Try this now:** open Paperwork → Legal, open the business details and press Save, with no changes. That save starts the step that creates the Terms of sale. Then reload the Shop tab and the preview, and Buy should appear. If it still doesn't, tell me and I'll check the production logs, because the cause would then be something else.
+
+**The proper fix is BUG-394**, "Shop: businesses already set up before BUG-393 still get no Terms of sale until something changes". It's a high-severity draft under EPIC-29, 2 points.
+- The scheduled job will find businesses that are ready to sell but have no Terms of sale, and create them in small batches, with no action needed from the owner.
+- The rule stays the same: Buy is still blocked until the business details and Terms of sale are in place, never waiting for a publish.
+
+It needs its own session to build it, and I've noted it on EPIC-29.
+
+<!-- xgd-turn id="d90304dd-ef14-4201-bf9c-883bd6ace30a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T01:05:59.439741+00:00" -->
+#### You
+on Settings I see:
+
+**Shipping**
+
+GET /api/shop/shipping → 503
+
+### **Shop**
+
+GET /api/shop/fulfilment → 503
+
+Let buyers request cancellation
+
+A request never cancels an order: you choose to cancel it, with a refund, or to decline.
+
+<!-- xgd-turn id="d90304dd-ef14-4201-bf9c-883bd6ace30a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T01:08:37.191795+00:00" -->
+#### Claude
+Looking into where those 503s come from.
+
+Any uncaught error comes back as a 503, so I'm reading the production logs for the actual error.
+
+The whole app is returning 503 for this business, not just Shop. Reading the error messages around those requests.
+
+The underlying error is **"D1 DB is overloaded. Too many resources consumed within a 10 second window"**. Checking whether it's still happening, and what is loading the database.
+
+The 503s come in two bursts, at 16:55 and 16:59. Those are page loads, when the builder fires about 200 requests at once, and it's been quiet since 17:00. Checking what's in those bursts.
+
+I have enough to file this. Writing it up with the log evidence.
+
+The production database is getting overloaded when the builder loads, not just Shop. Those two 503s weren't specific to Shipping or Shop.
+
+**What the production logs show:**
+- In the same second, nearly every builder request for your business failed: payments, currency, Paperwork, messages, domain, the consultant and the preview. The error behind them is **"D1 DB is overloaded. Too many resources consumed within a 10 second window."** The app reports that as a 503 with no further explanation.
+- **It only happens in bursts when the builder loads** (16:55 and 16:59 today). Each load sends about 90 requests at once, and for your unpublished site the preview requests **every product photo at the same moment**, each taking 6 to 9 seconds. Minutes without a reload were fine, and a reload at 17:04 got through cleanly.
+
+**For now:** reload the builder and wait a few seconds before opening Settings. It will usually come up. The Paperwork → Legal save I suggested for BUG-394 can hit the same overload, so if it errors, just try it again.
+
+**I've filed BUG-395**, "Builder load: D1 overloaded on a large catalog, so Settings, Shop and the preview return 503". It's high severity, 5 points, a draft under EPIC-29, and needs its own session to build it. I put it under EPIC-29 because it blocks your payment test, and the recent legal and Shop changes are among the suspects. The ticket asks for:
+- **measuring which requests use up the database's allowance**, rather than assuming;
+- **limiting the database reads per builder load** to a fixed number, however many products the business has, with no full ticket-store queries per photo;
+- **treating an overload as temporary**: a retryable response and one automatic retry, instead of a raw "→ 503" on the Settings cards.
+
+**I haven't confirmed which code uses the most database capacity.** The logs show what was requested and how long each request took, not what each request did in the database. Measuring that is the first job for BUG-395's session.
+
+<!-- xgd-turn id="dc96b8f8-9db6-475e-8e88-91c25f205d95-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T01:12:05.204655+00:00" -->
+#### You
+This site has nearly 2000 images - requesting them all is bonkers?
+
+<!-- xgd-turn id="dc96b8f8-9db6-475e-8e88-91c25f205d95-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T01:12:44.539058+00:00" -->
+#### Claude
+Checking how many photos the preview actually requested in those bursts.
+
+I've corrected BUG-395:
+- **Requests:** each burst had only 4 to 8 products' photos, 16 to 24 requests, but each one took 6 to 9 seconds.
+- **Likely cause:** each photo request reads all ~2,000 Library records to find one image, and that adds up across the burst.
+- **New test:** a preview photo must cost the same whether the Library holds 20 images or 2,000.
+
+I haven't checked the code to confirm the cause; that's the first job for BUG-395's session.
 
 <!-- xgd-chat-end -->

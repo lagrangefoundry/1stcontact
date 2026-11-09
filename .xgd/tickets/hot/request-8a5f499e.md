@@ -5,8 +5,8 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-11-09T02:43:35.003001+00:00'
-completed_at: '2026-11-09T02:43:32.203918+00:00'
+updated_at: '2026-11-09T02:50:17.344934+00:00'
+completed_at: '2026-11-09T02:50:17.344934+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -17,12 +17,12 @@ fields:
   story_points: 5
   commits:
   - working_sha: a6675273f6edd8395045ad4309de9a6d2c33d4ee
-    reconcile_sha: 68294df8cb55844ad91b7fdb6dfff5864a717bea
-    main_sha: null
+    reconcile_sha: 39b03dbc761db239c51a6fb0d811d4662b7d7f0a
+    main_sha: 39b03dbc761db239c51a6fb0d811d4662b7d7f0a
     working_sha_history: []
   - working_sha: 4378b7d7a7f40469385872d02c78b7ba4baa85a8
-    reconcile_sha: 716ac4afb0fc09cae7d3152bd259b882b898bf43
-    main_sha: null
+    reconcile_sha: 3f0626a6c6cfd6f67754b370b65520fdf09a5960
+    main_sha: 3f0626a6c6cfd6f67754b370b65520fdf09a5960
     working_sha_history: []
   version: 0.2.156
   bundled_in: bundle-7ba3af93

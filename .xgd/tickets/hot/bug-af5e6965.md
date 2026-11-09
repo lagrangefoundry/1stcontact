@@ -5,8 +5,8 @@ type: bug
 title: capabilities.js is a syntax error — no behavior module client code runs
 created_by: REQ-212
 created_at: '2026-09-10T20:23:03.804692+00:00'
-updated_at: '2026-11-09T02:43:35.515361+00:00'
-completed_at: '2026-11-09T02:43:33.359314+00:00'
+updated_at: '2026-11-09T02:50:11.846962+00:00'
+completed_at: '2026-11-09T02:50:11.846962+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -16,12 +16,12 @@ fields:
   needs_review: false
   commits:
   - working_sha: 85e908784f4145248ca1c22392c6f12053bd8a98
-    reconcile_sha: 348f593d60faf6c4829a6dba5c98f26a4a9739b3
-    main_sha: null
+    reconcile_sha: ceec482327fc6df855730b0044269bd8ba436712
+    main_sha: ceec482327fc6df855730b0044269bd8ba436712
     working_sha_history: []
   - working_sha: 09dba944a29928acb7037a065882a2c5dbd3816f
-    reconcile_sha: 8b85aa6e86e07b7c614752182f4da0e106edb8a0
-    main_sha: null
+    reconcile_sha: b60832daf6d672bc949cddd32986312fc17b4c3a
+    main_sha: b60832daf6d672bc949cddd32986312fc17b4c3a
     working_sha_history: []
   version: 0.2.154
   bundled_in: bundle-7ba3af93

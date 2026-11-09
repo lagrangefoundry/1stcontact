@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-32
 created_by: xgd
 created_at: '2026-11-04T18:56:20.615072+00:00'
-updated_at: '2026-11-08T20:31:13.046944+00:00'
+updated_at: '2026-11-08T21:51:15.366214+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -947,5 +947,231 @@ So on this one sample, the Workflow's scheduling costs about three times as much
 **Side note:** the container app shows 5 healthy instances but 0 active. I think those are Cloudflare's pre-warmed pool rather than leaked job containers; the BUG-359 backstop would stop leaked ones within 5 minutes anyway.
 
 **Next:** send one more message now that version 3 is live, and I'll read the container's cause. BUG-385 is already at `ready_to_reconcile`, so I haven't added these findings to its body. The binding fix will need a new ticket or a decision on reusing this one. Which do you want?
+
+<!-- xgd-turn id="7c656f9f-192e-441f-b59c-6cc12f451be3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:49:30.265338+00:00" -->
+#### You
+ok I hit the carry on button a couple times - do you have what you need?
+
+<!-- xgd-turn id="7c656f9f-192e-441f-b59c-6cc12f451be3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:50:12.613211+00:00" -->
+#### Claude
+Yes, the retries logged the full cause.
+
+**The cause: the container's calls to `10.0.0.1:80` are refused.** All 12 platform calls from your two Carry on retries (`turn_4c78af20…` and `turn_c0fea102…`) failed with `connect ECONNREFUSED 10.0.0.1:80`, POST to `/call`, `platform: true`.
+- **Registering the intercept reported success both times:** `outcome: "registered"`, and the binding is a `Fetcher`.
+- **Nothing reached the platform side:** zero `platform_api_request` lines.
+- So on production the intercept registers without error but never catches the connection, and nothing is listening at that address to answer it. The refusal comes back in under 60 ms, and the abandon steps fail the same way.
+
+**Suggested fix, two changes shipped together since each is a one-line change in `ready()`:**
+1. **Pass the loopback entrypoint, `ctx.exports.PlatformApi(...)`, instead of the service binding `env.PLATFORM`.** It's what Cloudflare's docs and its own container library use, and our self-binding is the obvious difference from them. `ctx.exports` needs a newer `compatibility_date` than `2025-07-01`, so we'd need to check what else the new date changes, or add just the flag `ctx.exports` needs.
+2. **Register the intercept before `start()`, as Cloudflare's library does.** The docs say either order works, but it costs nothing and removes a variable.
+
+Doing both means we won't know which one fixed it, which I think is fine given production is down. The new log lines will show whether it worked straight away: `platform_api_request` lines appear, and `container_fetch_failed` stops.
+
+**Response time across both samples:**
+
+| Stage | Time |
+|---|---|
+| Message accepted → first step starts | 2.7–4.7 s |
+| Cold start of the container, including about 0.2 s to register the intercept | 1.4–1.6 s |
+| Each later step on the warm container | about 70 ms of overhead |
+
+The Workflow's start is still the larger cost, so it should come first when we look at speeding up replies.
+
+**One decision for you:** BUG-385 is at `ready_to_reconcile`, so I don't want to add the fix to it. I'd file a new bug, "Job container: production intercept refuses the platform call", with the fix above and these log lines as evidence, for its own session to build. Shall I file it, or would you rather pull BUG-385 back and reuse it?
+
+<!-- xgd-turn id="b6d256d4-47a5-453c-a999-6a6780fd5c10-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:51:04.839204+00:00" -->
+#### You
+New bug please
+
+<!-- xgd-turn id="b6d256d4-47a5-453c-a999-6a6780fd5c10-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:51:50.167194+00:00" -->
+#### Claude
+I've filed **BUG-387**, "Job container: production intercept refuses the platform call (ECONNREFUSED 10.0.0.1:80)". It's at critical severity and high priority, under EPIC-16 Deployment like BUG-385, and is at draft, ready for its own session to pick up.
+
+- **Evidence:** the production log lines from your two Carry on retries. The intercept registers successfully, every platform call is refused at `10.0.0.1:80`, and none reaches the platform side.
+- **Likely cause:** we register the intercept against our service binding to the Worker itself, and only after the container has started. Cloudflare's docs and library register a loopback entrypoint before start.
+- **Fix:**
+  - Pass `ctx.exports.PlatformApi(...)` as the binding.
+  - Register the intercept before `start()`.
+  - Enable `ctx.exports` in every environment, with either a newer compatibility date or just the flag it needs. If the date is raised, the ticket must list what else changes between the two dates and why each change is safe.
+  - Remove the `PLATFORM` service binding if nothing else uses it.
+  - Keep BUG-385's logging.
+- **Out of scope:** failing loudly when the intercept is missing, and the abandon step ending the job from the Worker side. Both stay deferred from BUG-385.
+- **Tests:**
+  - A test that the intercept is registered before start, using the loopback entrypoint.
+  - A test that every environment enables `ctx.exports`.
+  - The existing local container test rig still completes a turn.
+  - Your production check: "hello" gets a reply, and the logs show `platform_api_request` lines and no `container_fetch_failed` for the job.
+
+<!-- xgd-turn id="be4977d2-1ae0-4d38-8d75-9d6f2526e1f3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:56:19.739352+00:00" -->
+#### You
+Can we discuss the latency question?
+
+<!-- xgd-turn id="be4977d2-1ae0-4d38-8d75-9d6f2526e1f3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T20:57:22.591228+00:00" -->
+#### Claude
+Happy to. One limit first: no turn has succeeded on production yet (BUG-387 is still at draft), so all I have is the start-up part of a reply, measured on turns that then failed. Here's where the time goes as far as we can see, and the options.
+
+**Where a reply's time goes**
+
+| Stage | Measured? | What we've seen |
+|---|---|---|
+| 1. Message accepted → Workflow runs the first step | Yes, 3 samples | **2.7–4.7 s** |
+| 2. Container cold start, including registering the intercept | Yes | **1.4–1.6 s** |
+| 3. Container rebuilds the session from storage before calling the model | No | unknown |
+| 4. Model's time to first token, then generation | No | likely the largest share, and mostly outside our control |
+| 5. Each later round's step overhead | Yes | about 70 ms |
+
+Two things stand out:
+- **Stage 1 costs more than stage 2.** Keeping containers warm, the obvious fix, would save at most about 1.5 s of a 4–6 s start-up.
+- **The 1.5 s cold start is already good.** Cloudflare keeps a pool of instances ready, which is likely why the container app showed 5 healthy instances with 0 active. We aren't paying for a full image pull on each message.
+
+**Options, cheapest and safest first**
+
+1. **Start the container while the Workflow is still scheduling.** When the message is accepted, the Worker asks the job's Durable Object to start the container straight away. The two waits then overlap rather than add up, which should save about 1.5 s on every message. It keeps one container per job (item 31), and the BUG-359 stop alarm already cleans up if the Workflow never arrives. This is my first pick.
+2. **Find out what the 2.7–4.7 s actually is.** Some of it may be ours, for example work in `run()` before the first step, or the create call itself, rather than Cloudflare's Workflow start-up. One more timing line would split it. If most of it is ours, fixing it might be the biggest win of all.
+3. **Warm a container when the client starts typing**, before they press send. It hides the cold start entirely, but some containers will start for messages that never get sent. The stop alarm bounds the cost to a few minutes each. Worth trying only if option 1 isn't enough.
+4. **Keep a container for the conversation instead of the job**, reusing it for follow-ups within a few minutes. This saves the cold start and stage 3's rebuild. It does stretch item 31, though, and it reopens questions the disposable design avoids: which job's token the container holds, and an old job still running when a new one starts.
+5. **Answer short dialogue in the Worker without a container.** This is what you were thinking of. It's the hardest option: we'd need to know before the turn runs that it will stay short. Most consultant replies end up using tools, and when that guess is wrong, the turn has to move to a container halfway through. I'd only consider it if stage 3 turns out to be large.
+
+**What I'd do:** once BUG-387 lands and turns succeed, gather a day of real turns. We'd need two more timing points: when the container has finished rebuilding the session (stage 3), and when the model's first token reaches the client. With those we can tell which stage dominates. My expectation is that the model does, so options 1 and 2 would be all the platform-side work worth doing, and they would save about 1.5 s plus whatever part of the Workflow start turns out to be ours.
+
+Do you want me to file the extra timing lines and option 1 as tickets now, so they're ready behind BUG-387? Or keep this as a note on EPIC-32 until we have real numbers?
+
+<!-- xgd-turn id="9dfb1ee9-fc2c-4fb2-a16b-e3d3f6c7310d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T20:59:11.985728+00:00" -->
+#### You
+Its hard to imagine Cloudflare making a successful business if they have a multi second latency on any serverless calls can you dig into that delay please? Do we need more logging?
+
+<!-- xgd-turn id="9dfb1ee9-fc2c-4fb2-a16b-e3d3f6c7310d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T21:01:07.620765+00:00" -->
+#### Claude
+I'll lay the platform's own events for one turn on a timeline, from the POST that created it to its first step, to see where the 2.7 s went.
+
+The 13 MB bundle suggests the Workflow and Durable Object may be starting cold. Checking where each piece ran (data-centre code) and whether the logs already record it.
+
+I agree with you: Cloudflare doesn't normally take seconds to start serverless work, so it's likely something about our setup, and yes, we need more logging to pin it down. Here's one turn (your Carry on, `turn_c0fea102`) as the platform recorded it, measured from when the first step began:
+
+| When | What happened |
+|---|---|
+| −3.1 s | Your request reaches the Worker (`POST /api/ai/prompt`) |
+| −2.7 s | The Workflow instance is created: the request handler took about 0.4 s to get there |
+| 0 | The Workflow runs our first step |
+| about +1.1 s | The job's Durable Object calls `start()` on the container |
+| about +1.45 s | The container answers its health check |
+
+**Two delays found:**
+1. **The Workflow takes 1.7–4.7 s to start running after it's created** (3 samples). None of our code runs in that gap: `run()` goes straight into the first step. So the time is spent before our code is entered, either by Cloudflare or by loading our code.
+2. **About 1.1 s passes between the step starting and the container being asked to start.** That's the job's Durable Object waking up (it's a new object for every job) and writing to storage, before the container's own 0.3 s.
+
+**The handler can be slow too.** On the first failing turn it took 1.5 s before creating the Workflow. During that time it logged 30 "malformed turn order" warnings while re-reading a transcript with about 160 entries.
+
+**My main suspect is our bundle.** The Worker deploys as a **13 MB unminified `worker.js` (about 226,000 lines)**. Your browser's requests reach copies of the Worker that are already loaded. The Workflow and each new Durable Object, though, may run in a fresh copy (possibly in a different data centre), which first has to load and run all 13 MB. That would account for both delays, and it's the kind of problem that doesn't show up in Cloudflare's typical numbers. The other explanations are Cloudflare's own Workflow scheduling, or the Workflow running far from LAX. The current logs can't tell these apart: they record neither the data centre nor whether the Worker was freshly loaded.
+
+**Logging that would settle it:**
+1. **Fresh-load flag:** in the Worker, the Workflow and the Durable Object, a marker for the first call after the code was loaded, plus how long loading took.
+2. **Data centre:** where the request handler, the Workflow and the Durable Object each ran. Only the request handler has this directly; the other two would need a one-off lookup when first loaded.
+3. **Handler timing:** request received → Workflow created → creation returned.
+4. **Workflow entry:** when `run()` is entered, compared with the instance's creation time.
+5. **Durable Object:** when the call arrived, and the time spent on storage writes before `start()`.
+6. **Container:** Node start until the server listens; per step, the session rebuild time and the model's first token.
+7. **First reply text:** when the first text reaches the conversation, measured from the request.
+
+**One check that needs no deploy:** turn on minification and compare bundle sizes. If the fresh-load flag then confirms the bundle, the fix is minifying it, removing dead code, and splitting off rarely used parts. Item 4 would also tell us if the 1.5 s handler time is the transcript checks.
+
+Shall I file this logging as a new bug under EPIC-32, for its own session to build like BUG-385? It doesn't depend on BUG-387, but its last two items will only produce numbers once turns succeed.
+
+<!-- xgd-turn id="3a0a3bff-a788-4b84-a7bd-ad0a6fb969fe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T21:03:15.355254+00:00" -->
+#### You
+New logging bug please
+
+<!-- xgd-turn id="3a0a3bff-a788-4b84-a7bd-ad0a6fb969fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T21:04:00.657941+00:00" -->
+#### Claude
+I've filed **BUG-389**, "Consultant reply start-up: log where the 4.6–7.7 s before the container's step goes". It's under EPIC-32 at high severity and priority, and at draft for its own session to build.
+
+The body includes the timeline I traced and the 13 MB unminified bundle as the main suspect. It's logging only, with no change in behaviour, and no line may include a token, header, key, query string, message text or request body. It adds seven log lines:
+
+1. **`isolate_cold`:** the first call each fresh copy of the code serves, with how long ago it was loaded and how long loading took.
+2. **Data centre:** where the request handler, the Workflow and the Durable Object each run. The last two look it up once per fresh copy, and a failed lookup costs nothing.
+3. **`turn_start_timing`:** the request handler's time before creating the Workflow (with the transcript read and checks timed separately), and how long the creation call took.
+4. **`job_run_entered`:** when the Workflow's `run()` is entered, compared with the instance's creation time.
+5. **`job_container_wake`:** how long the call takes to reach the Durable Object, and the storage writes before the container starts.
+6. **`container_boot`:** time from Node starting until the server listens, plus each round's session rebuild time and the model's first token.
+7. **`turn_first_output`:** when the reply's first text is written, measured from the client's message arriving.
+
+Items 1–5 will produce numbers straight away, even while turns are failing. Items 6 and 7 need BUG-387 to land first. The ticket also suggests building with minification on to compare the bundle size, which needs no deploy.
+
+<!-- xgd-turn id="4f2959bc-1c80-48e0-8174-87fcd85ce8b2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T21:21:27.056025+00:00" -->
+#### You
+The chat is still failing - same symptoms after a redeploy
+
+<!-- xgd-turn id="4f2959bc-1c80-48e0-8174-87fcd85ce8b2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T21:23:41.500069+00:00" -->
+#### Claude
+BUG-387's fix has landed. Pulling the last half hour of production logs to see whether the deploy runs it and how it fails now.Moving the intercept before `start()` and switching to `ctx.exports` didn't fix it. Both are deployed in version `e89a3296`, and every platform call still gets `connect ECONNREFUSED 10.0.0.1:80`, with nothing reaching `PlatformApi`. So it's neither of the two causes I suggested in BUG-387.
+
+**New likely cause: `10.0.0.1` is probably the container's own address on Cloudflare.**
+- **Cloudflare's own docs use it that way.** The container API reference uses `10.0.0.1:8080` as the address of the container itself, for the Worker-to-container direction.
+- **It fits all the evidence:**
+  - Our server inside the container listens on `0.0.0.0:8080`. If `10.0.0.1` is the container's own address, a call to `10.0.0.1:80` reaches the container itself, where nothing listens on port 80. It's refused within milliseconds and never leaves the machine, so the intercept never sees it. The intercept reports `registered` because it really is registered; it just never gets traffic.
+  - Local dev works because Docker gives containers a different subnet (172.x).
+  - Cloudflare's intercept examples use addresses outside the private ranges (`15.0.0.1`, `203.0.113.0/24`) or hostnames, never `10.x`.
+- **Ruled out:** region or placement hints, which an open issue in Cloudflare's containers repo says break interception (#226). We use none.
+
+**Suggested fix: move the platform address out of `10.0.0.0/8`, and log the container's own network so we stop guessing.**
+1. **Address:** use a documentation address such as `192.0.2.1`, which isn't routable on the internet, or a hostname such as `platform.internal`.
+   - **Fails closed:** if the intercept ever stopped working, these addresses fail rather than sending the job token to a real internet host. Cloudflare's example `15.0.0.1` is real public address space, so a failed intercept would send the token to whoever owns it. I'd avoid that one.
+   - **Hostname check:** with a hostname, Cloudflare doesn't document whether DNS answers for it when internet access is on, so the IP is the safer pick.
+2. **Network log line:** at boot, the container logs its interfaces and addresses, and which route a connection to the platform address takes. This one line confirms the cause whether or not the fix works.
+3. **Keep the BUG-385 lines:** the `platform_api_request` lines should then appear.
+
+BUG-389's lines aren't in production yet (it's still being built), so there's no new latency data.
+
+BUG-387 is at `ready_to_reconcile`. Shall I file this as a new bug ("Job container: the platform address 10.0.0.1 is the container's own address on Cloudflare"), for its own session to build like the last two?
+
+<!-- xgd-turn id="f6e1f470-47d5-418e-b819-e370d5463f7f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T21:50:16.883200+00:00" -->
+#### You
+Did the network changes go in to a bug?
+
+<!-- xgd-turn id="f6e1f470-47d5-418e-b819-e370d5463f7f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T21:51:12.966513+00:00" -->
+#### Claude
+Not yet: I'd asked first and was waiting for your answer, and nobody else has filed it. Filing it now.
+
+I hadn't filed it yet: I'd asked in my last message and was waiting for your answer. It's filed now as **BUG-390**, "Job container: the platform address 10.0.0.1 is the container's own address on Cloudflare". It's at critical severity and high priority, under EPIC-16 Deployment like BUG-385 and BUG-387, and at draft for its own session to build.
+
+- **Evidence:** BUG-387's fix is live, and the intercept still reports `registered`. Yet every platform call is refused at `10.0.0.1:80` within about 50 ms, and none reaches the platform side.
+- **Likely cause:** `10.0.0.1` is the container's own address on Cloudflare, so its calls go back to itself, where nothing listens on port 80. That's an inference: Cloudflare's own docs use `10.0.0.1:8080` as the container's address, and it fits every symptom.
+- **Fix:**
+  - **New address:** move the platform address to one that is neither private nor routable on the internet, such as `192.0.2.1`. If the intercept ever fails, the job token then goes nowhere instead of to a real host. It's set in one place, which the container, the intercept and the platform's host check all use.
+  - **Network log:** the container logs its own interfaces once at boot (`container_network`), including whether the platform address is one of its own. That settles the cause either way.
+  - **Earlier logging:** BUG-385's and BUG-387's lines stay.
+- **Tests:**
+  - A test that the address sits outside the private ranges and is used everywhere from that one place.
+  - A test that the network line is logged once.
+  - The local container test rig still completes a turn.
+  - Your production check: "hello" gets a reply, and the logs show `platform_api_request` lines.
 
 <!-- xgd-chat-end -->

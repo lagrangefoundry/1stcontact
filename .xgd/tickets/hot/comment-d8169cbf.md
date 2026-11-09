@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-11-07T21:31:23.718891+00:00'
+updated_at: '2026-11-08T22:52:28.731169+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -25766,5 +25766,45 @@ It refuses on purpose, and I think the reasoning doesn't hold up, so I've filed 
 5. **A deploy that stopped can't look like it finished.** The last line says "control-app NOT deployed: <reason>" and the exit code is non-zero.
 
 Until it's built, run `bin/kb-release` with `1c_Admin_Token` before deploying, as in my last message.
+
+<!-- xgd-turn id="805d34dd-625b-4458-a5d9-f4fb0c296a13-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-08T22:50:27.273549+00:00" -->
+#### You
+Can we take a moment to talk about the progress indication. I see right now: The consultant is building the hero slideshow and its new text overlay — about 5 minutes left about 3 min left, 17:48 so far
+
+That makes less than no sense - its almost written to be confusing
+
+<!-- xgd-turn id="805d34dd-625b-4458-a5d9-f4fb0c296a13-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-08T22:52:23.521432+00:00" -->
+#### Claude
+Finding where each of the three numbers in that line comes from.
+
+Found where both countdowns are made. Reading them now.
+
+I'm tracing the countdown down to the screen. It may be drawn in the shared framework repo.
+
+Three numbers in that line come from three different clocks, and none of them is labelled:
+
+| What you see | Where it comes from | What it actually measures |
+|---|---|---|
+| "about 5 minutes left" | The host writes it into the status **text** when the step starts (`progressText`, REQ-625) | The time left on the whole job *at the moment the line was posted*. It never changes. |
+| "about 3 min left" | The status box's own countdown (lagrange-framework `webui/chat/js/src/status.js`), started from the same estimate | The same 5-minute estimate, counted down since this **step** began. So 2 minutes have passed since the line was posted. |
+| "17:48 so far" | The same status box, counting from when **your request** began | Everything since you asked: the consultant reading and planning, any earlier builds, and this step. |
+
+So the first two are the same estimate, one frozen and one ticking, and the third measures something else from a different start. You can't tell how long it has really taken, or how that compares with what was promised. It isn't written to confuse, but two features (the framework box from REQ-209 and the host's job progress from REQ-625) were each added on their own and never combined.
+
+**What I'd propose:**
+1. **One remaining number, and only the box shows it.** The host stops writing the time into the text: it says what's happening ("building the hero slideshow and its text overlay, step 2 of 3") and passes the estimate separately. The box counts it down, and it's recalculated when each step finishes (BUG-371's pace correction).
+2. **The elapsed time is for the same thing,** the job, and says so: "about 3 minutes left, running 6:12". Time the consultant spent before the build started isn't counted as build time.
+3. **An overrun is stated honestly,** against what you were told: "taking longer than the 5 minutes expected, running 7:40". It doesn't quietly switch to a new number.
+4. **One line, plain words:** no duplicated time, no unlabelled clocks.
+
+This needs changes in two repos. The host side (stop putting the time in the text, send the job's start and remaining time) is here. The box's wording and which start time it counts from are in lagrange-framework, which would get its own ticket there.
+
+BUG-371, which tightened the estimates, is built (`free_coded`). It changed how the numbers are calculated but not this display.
+
+Shall I file it, as one bug here plus the matching framework ticket? And would you rather see the elapsed time for the build only ("running 6:12"), or since you asked ("17:48 since you asked")?
 
 <!-- xgd-chat-end -->
