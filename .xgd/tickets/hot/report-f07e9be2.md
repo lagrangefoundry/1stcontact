@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-43 (REQ-222, REQ-221, REQ-219, RE
   BUG-78)'
 created_by: xgd
 created_at: '2026-11-09T06:16:50.788808+00:00'
-updated_at: '2026-11-09T18:46:34.617477+00:00'
+updated_at: '2026-11-09T19:57:25.905043+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -258,7 +258,7 @@ fields:
     intent_delta_summary: 'Lead capture now also works from the draft preview: same
       handler, draft definition, channel recorded, anti-abuse controls skipped only
       for server-identified preview submitters.'
-    story_uid: null
+    story_uid: story-f2e5032c
 ---
 
 # Reconciliation Plan
