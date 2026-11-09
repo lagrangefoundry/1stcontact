@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T12:27:30.364435+00:00'
-updated_at: '2026-11-09T12:27:30.364435+00:00'
+updated_at: '2026-11-09T12:34:49.926599+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -37,6 +37,7 @@ fields:
         stand; stuck on missing pinned webkit/firefox plus XGD BUG-1695 (AC-permitted
         skip counted as orphan); not re-batched per BUG-1067.'
   fix_iteration: 35
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 35
