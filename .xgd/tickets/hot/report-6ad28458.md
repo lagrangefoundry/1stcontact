@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T08:46:47.292552+00:00'
-updated_at: '2026-11-09T08:46:47.292552+00:00'
+updated_at: '2026-11-09T08:54:20.262264+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -38,6 +38,7 @@ fields:
       rung3: 'Tests stand; AC-688 is blocked by the sandbox (operator, outside sandbox:
         pnpm --filter @1stcontact/generate exec playwright install webkit firefox)
         and by XGD tooling defect BUG-1696, so it is not re-batched.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 15
