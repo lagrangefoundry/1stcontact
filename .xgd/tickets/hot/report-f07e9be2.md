@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-43 (REQ-222, REQ-221, REQ-219, RE
   BUG-78)'
 created_by: xgd
 created_at: '2026-11-09T06:16:50.788808+00:00'
-updated_at: '2026-11-09T06:21:25.804596+00:00'
+updated_at: '2026-11-09T06:33:41.502118+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -105,7 +105,7 @@ fields:
     intent_delta_summary: The renderer consumes a publish-time ladder manifest to
       emit responsive <img> and background markup with intrinsic dimensions; the document
       schema stays delivery-free.
-    story_uid: null
+    story_uid: story-d0a8cfad
   - index: 3
     component: Material Ingestion & upload — HEIC converts at the door
     item_type: upgrade
