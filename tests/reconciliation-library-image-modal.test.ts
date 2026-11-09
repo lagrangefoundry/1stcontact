@@ -751,6 +751,107 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2556 — the Library name is one field in 
     expect.soft(freshName.textContent, 'the refusal sentence is shown against the field').toContain(NAME_REQUIRED)
     expect.soft(freshName.textContent, 'the previous name is put back').toContain(was)
   })
+
+  // A TITLE IS UNTRUSTED TEXT: the describer wrote it from bytes that may be
+  // fetched off the web, and the change feed, the modal's close-and-reopen path
+  // and the chat opener all carry it into the DOM. Every place it lands — the
+  // pane's field, the picture's alt, the modal's field and accessible name — must
+  // take it as text, never parse it as markup.
+  it('test_UAT_AC2556_a_name_carrying_markup_stays_inert_text_through_the_feed_the_modal_and_the_chat_opener', async () => {
+    const HOSTILE = '<img src="x" onerror="window.__pwned=1"><b>bold</b>'
+    const injected = (scope: ParentNode) => scope.querySelectorAll('img[src="x"], b, [onerror]')
+    ;(globalThis as Record<string, unknown>).__pwned = undefined
+
+    // ── THE LIBRARY: a rename arriving on the change feed into the open detail.
+    const { panel, transport } = await library()
+    const detail = await open(panel, 'made-one')
+    const renamed = { ...transport.rows.find((r) => r.uid === 'made-one')!, title: HOSTILE }
+    Object.assign(transport.rows.find((r) => r.uid === 'made-one')!, { title: HOSTILE })
+    transport.feeds.at(-1)!({ seq: 11, kind: 'update', cause: 'update', uid: 'made-one', row: renamed, body_changed: false })
+    await settleAll()
+
+    const paneName = detail.querySelector('.builder-library__name')!
+    expect(paneName.textContent).toContain(HOSTILE)
+    expect(injected(paneName)).toHaveLength(0)
+    expect(listTitle(panel, 'made-one')).toBe(HOSTILE)
+    expect(injected(panel.element.querySelector('.list-detail-list') ?? panel.element)).toHaveLength(0)
+    const paneImg = detail.querySelector('img.builder-library__image') as HTMLImageElement
+    expect(paneImg.alt).toBe(HOSTILE)
+
+    // THE MODAL, opened, closed by Escape (the reported exit), and opened again:
+    // the name is text in its field, its accessible name and its picture's alt.
+    for (let pass = 0; pass < 2; pass++) {
+      opener(detail)!.click()
+      await settleAll()
+      expect(dialogs()).toHaveLength(1)
+      const dialog = dialogs()[0]
+      expect(dialog.getAttribute('aria-label')).toBe(HOSTILE)
+      expect(dialog.querySelector('.builder-imaged__name')!.textContent).toContain(HOSTILE)
+      expect((dialog.querySelector('img.builder-imaged__image') as HTMLImageElement).alt).toBe(HOSTILE)
+      expect(injected(dialog)).toHaveLength(0)
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      await settleAll()
+      expect(dialogs()).toHaveLength(0)
+    }
+
+    // ── THE CHAT: a picture opened from the conversation, on the builder's own
+    // scoped address, reads the hostile title and shows it as text.
+    installEngines()
+    document.body.replaceChildren()
+    root = document.createElement('div')
+    document.body.append(root)
+    const item = material({ uid: 'hostile', title: HOSTILE, filename: 'hostile.png' })
+    const { fetchImpl } = recordingFetch(async (url) => {
+      const path = new URL(url, 'http://local.invalid/').pathname
+      if (path.endsWith('/api/material/item')) return ok({ ...item, body: 'About it.', members: [] })
+      return new Response('{}', { status: 404 })
+    })
+    globalThis.fetch = fetchImpl
+    const BUSINESS = 'biz_foundry'
+    const app = mountBuilder(root, {
+      businesses: [{ id: BUSINESS, name: 'Lagrange Foundry', selectable: true }],
+      person: { name: 'Sam', email: 'sam@example.test' },
+      storage: memoryStorage(),
+      loadSites: async () => [{ slug: 'bakery', latest: null }],
+      markdownReady: Promise.resolve(),
+      chatTransport: {
+        openSession: async () => ({
+          sessionId: 'site-bakery',
+          turns: [{ role: 'assistant', markdown: `![hostile](/b/${BUSINESS}/api/material/file?uid=hostile)` }],
+          ready: true,
+        }),
+        streamPrompt: async function* () {
+          yield { kind: 'done' }
+        },
+      },
+      libraryTransport: {
+        list: async () => ({ material: [], seq: 0 }),
+        item: async () => ({ body: '' }),
+        save: async () => ({}),
+        fileUrl: (uid: string) => `/api/material/file?uid=${uid}`,
+      },
+      paletteTransport: {
+        get: async () => ({ palette: {}, usage: {} }),
+        write: async () => ({ palette: {}, usage: {} }),
+      },
+    })
+    await settleAll()
+    const chatPicture = app.chat.element.querySelector('img[alt="hostile"]') as HTMLImageElement
+    expect(chatPicture).toBeTruthy()
+    for (let pass = 0; pass < 2; pass++) {
+      chatPicture.click()
+      await settleAll()
+      expect(dialogs()).toHaveLength(1)
+      const dialog = dialogs()[0]
+      expect(dialog.getAttribute('aria-label')).toBe(HOSTILE)
+      expect(dialog.querySelector('.builder-imaged__name')!.textContent).toContain(HOSTILE)
+      expect(injected(dialog)).toHaveLength(0)
+      tool(dialog, 'Close').click()
+      await settleAll()
+      expect(dialogs()).toHaveLength(0)
+    }
+    expect((globalThis as Record<string, unknown>).__pwned).toBeUndefined()
+  })
 })
 
 // ── AC-2557 ──────────────────────────────────────────────────────────────────
