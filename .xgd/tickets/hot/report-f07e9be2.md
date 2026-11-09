@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-43 (REQ-222, REQ-221, REQ-219, RE
   BUG-78)'
 created_by: xgd
 created_at: '2026-11-09T06:16:50.788808+00:00'
-updated_at: '2026-11-09T17:49:12.554451+00:00'
+updated_at: '2026-11-09T18:26:29.498578+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -172,7 +172,7 @@ fields:
       edit, compiles a recipe, or offers a write tool on a picture. This is a genuinely
       new capability; suggested home CAP-94 (Site Authoring Beyond The Element Tree
       … Generated Images, capability-2d32662d).'
-    story_uid: null
+    story_uid: story-ed976856
   - index: 5
     component: 'Library — the image modal: viewer, editable name, editing tools'
     item_type: upgrade
