@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-e214a00d'
 created_by: xgd
 created_at: '2026-11-08T23:57:34.109689+00:00'
-updated_at: '2026-11-08T23:57:34.109689+00:00'
+updated_at: '2026-11-09T00:03:03.957074+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-e214a00d
@@ -18,6 +18,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: test_UAT_AC2436
+  batches_pending: false
 ---
 
 {
