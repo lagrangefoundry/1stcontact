@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-0758e7c5'
 created_by: xgd
 created_at: '2026-11-09T02:16:46.671902+00:00'
-updated_at: '2026-11-09T02:16:46.671902+00:00'
+updated_at: '2026-11-09T02:26:59.352814+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -113,6 +113,7 @@ fields:
       files:
       - tests/test_reconciliation_public_lead_capture.workers.test.ts
       - tests/reconciliation-assistant-sees-a-stored-picture.test.ts
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
