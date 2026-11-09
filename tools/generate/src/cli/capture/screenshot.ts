@@ -15,7 +15,7 @@
  */
 import { drivePage } from './interact'
 import type { PageStep } from './interact'
-import type { BrowserDriverFactory, Viewport } from './types'
+import type { BrowserDriver, BrowserDriverFactory, Viewport } from './types'
 
 /**
  * Named viewport presets (DOC-8 §3.4). Width is the deterministic dimension;
@@ -313,8 +313,25 @@ export async function rasterizeImage(
     )
   }
 
+  // THE BUG-80 GUARANTEE. Whatever the driver was holding — the document, the
+  // script, a URL, the shot — stops here. What continues is a bounded sentence
+  // naming the picture and the driver's own code. Every driver interaction on
+  // this path (the lease, navigation, delivery, decode and the shot) goes
+  // through it.
+  const unrenderable = (err: unknown): ImageNotRenderableError =>
+    new ImageNotRenderableError(
+      `${what} could not be put in front of the browser: ${safeDriverMessage(err)}. ` +
+        `There is no picture to show you; say so and work from what the Library says ` +
+        `about it instead.`,
+    )
+
   const base64 = toBase64(bytes)
-  const driver = await factory()
+  let driver: BrowserDriver
+  try {
+    driver = await factory()
+  } catch (err) {
+    throw unrenderable(err)
+  }
   try {
     let size: DecodeReport
     try {
@@ -324,16 +341,11 @@ export async function rasterizeImage(
       }
       size = await driver.query<DecodeReport>(decodeScript(mediaType))
     } catch (err) {
-      // THE BUG-80 GUARANTEE. Whatever the driver was holding — the document, the
-      // script, a URL — stops here. What continues is a bounded sentence naming
-      // the picture and the driver's own code.
-      throw new ImageNotRenderableError(
-        `${what} could not be put in front of the browser: ${safeDriverMessage(err)}. ` +
-          `There is no picture to show you; say so and work from what the Library says ` +
-          `about it instead.`,
-      )
+      throw unrenderable(err)
     }
 
+    // The deliberate decode refusal is its own sentence, not a driver failure,
+    // so it is thrown outside the wrapped regions and never re-wrapped.
     if (!size.ok || !size.width || !size.height) {
       throw new ImageNotRenderableError(
         `${what} is stored as ${mediaType} and the browser would not decode it, so there ` +
@@ -341,8 +353,15 @@ export async function rasterizeImage(
           `work from what the Library says about it instead.`,
       )
     }
+
+    let shot: Uint8Array
+    try {
+      shot = await driver.screenshot({ width: size.width, height: size.height })
+    } catch (err) {
+      throw unrenderable(err)
+    }
     return {
-      bytes: await driver.screenshot({ width: size.width, height: size.height }),
+      bytes: shot,
       width: size.width,
       height: size.height,
       naturalWidth: size.naturalWidth ?? size.width,
