@@ -6,9 +6,9 @@ title: 'Serve a published site: a URL names a site, the revision record says whi
   bytes'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-11-07T07:16:31.004268+00:00'
+updated_at: '2026-11-09T00:58:43.304727+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -127,8 +127,15 @@ In scope:
 - **Honest, opaque failure.** A URL that names nothing answers with a plain
   not-found — never a listing of the storage behind it, and never a difference a
   stranger could use to tell an unknown site from one that has not published.
-- **A read-only surface.** Fetching and header-only fetching are served;
-  anything that would write is refused and says what is allowed.
+- **A read-only surface with exactly one doorway (REQ-223 §3.1).** Fetching and
+  header-only fetching are served. Exactly one write is admitted: `POST` to a
+  site's lead endpoint, `/api/lead` on the apex or `/site/<siteKey>/api/lead`.
+  The path is resolved through the same address grammar, so the site the write
+  belongs to comes from the URL. Every other method on every path, and `POST` on
+  any other path, is refused with method-not-allowed naming the two read methods.
+  An apex `POST /api/lead` on a deployment that names no apex site has no site to
+  write into, so it meets the same refusal. What the lead endpoint does with a
+  submission belongs to the lead-capture story, not this one.
 - **Responses are typed from what answered them.** A served object's content
   type is derived from the extension of the key that answered — markup,
   stylesheets, scripts, JSON, text, XML, images and web fonts, with text formats
@@ -149,8 +156,10 @@ chrome's state — issuing sessions, the sign-in endpoint, and access control ar
 not here; the account-chrome module itself (its states, markup and preset belong
 to the module-catalog story); custom domains and per-site subdomain routing; the
 clean-URL agreement between the local preview server and this one, which is its
-own story; and minting a revision and writing the bytes, which are the operator
-half's.
+own story; minting a revision and writing the bytes, which are the operator
+half's; and the behaviour of the lead endpoint itself (validation, controls,
+acknowledgement, contact write, asset delivery), which is the REQ-223
+lead-capture story's. This story pins only that the doorway is the one exception.
 
 ## Technical Context
 
@@ -181,6 +190,11 @@ half's.
   by a real published site. The apex-site, session-state and session cache-policy
   criteria replace it; the freshness and repeat-request criteria now carve out
   chrome-bearing pages explicitly.
+- **The write doorway (REQ-223, BUNDLE-42).** Code evidence:
+  `apps/public-site/src/index.ts` checks `POST` against the lead target, which
+  is resolved through `parseRoute` (apex path `/api/lead`, or the keyed site's
+  asset path `/api/lead`), before the method gate. Everything else falls to the
+  `405` with `allow: GET, HEAD`. The handler is `apps/public-site/src/lead.ts`.
 - **One operator step remains for production.** The front-page definition is
   committed but its key is minted only when it is published, so the apex key
   configuration cannot be committed ahead of it. Until it is set the apex answers
@@ -249,6 +263,28 @@ Recorded 2026-11-06 during reconciliation of BUNDLE-38 (REQ-200):
    by the rewrite, and pinned in the session-state and cache-policy criteria
    respectively.
 
+Recorded 2026-11-08 during reconciliation of BUNDLE-42 (REQ-223):
+
+8. **The read-only rule gains exactly one declared exception** (settled at
+   ladder level 1). REQ-223 §3.1: *"This ticket amends that for exactly one path
+   and one method. Everything else must still answer `405`, and a UAT must prove
+   it — the amendment is a doorway, not a change of character"*. §8.13: *"Every
+   method other than the one POST, on every other path of `public-site`, still
+   answers `405`."* Body, code and plan agree. AC-912 is amended. Its earlier
+   "any writing method is refused" wording is superseded by REQ-223 for the lead
+   path only.
+9. **The refusal still names only the read methods, and a no-apex `POST
+   /api/lead` is a 405** (decided at reconciliation, 2026-11-08). REQ-223 is
+   silent on the `allow` header and on a deployment with no apex site. The code
+   keeps `allow: GET, HEAD` on every refusal, because the doorway is one path and
+   not a method the surface admits in general. It answers an apex lead `POST`
+   with no configured apex site with the ordinary 405, the same "nothing here"
+   an unpublished site gives. Both are pinned in AC-912.
+10. **`GET` or `HEAD` on the lead path is not a special case** (decided at
+    reconciliation, 2026-11-08). The code routes it like any other read, so it
+    gets the ordinary not-found unless a published page sits at that path. No
+    criterion singles it out.
+
 ## Dependencies
 
 - The operator half of the same capability — hard: this story serves the storage
@@ -258,6 +294,8 @@ Recorded 2026-11-06 during reconciliation of BUNDLE-38 (REQ-200):
   session criteria: the server rewrites the state attribute that module emits.
 - REQ-134 (lagrange-framework) sessions — soft: absent session tables read as
   signed out.
+- The REQ-223 lead-capture story (BUNDLE-42 plan item 7) — the handler behind
+  the one write doorway.
 
 ## Story Points
 
