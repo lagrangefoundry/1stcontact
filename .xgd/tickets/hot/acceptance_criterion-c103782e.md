@@ -6,10 +6,10 @@ title: Clicking the same picture in the chat opens the same image modal, includi
   for the business-scoped addresses the builder itself forms
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T18:43:25.792623+00:00'
-updated_at: '2026-11-09T18:43:25.792623+00:00'
+updated_at: '2026-11-09T19:53:53.262753+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
