@@ -6,10 +6,10 @@ title: 'Public forms accept a submission: lead capture, asset delivery, and the 
   that keep it safe'
 created_by: BUG-78
 created_at: '2026-09-10T22:59:48.855411+00:00'
-updated_at: '2026-11-08T20:38:18.696678+00:00'
-completed_at: null
+updated_at: '2026-11-09T02:43:31.542571+00:00'
+completed_at: '2026-11-09T02:43:31.542571+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
