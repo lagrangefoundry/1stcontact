@@ -5,10 +5,10 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-11-08T20:38:15.571362+00:00'
-completed_at: null
+updated_at: '2026-11-09T02:43:32.203918+00:00'
+completed_at: '2026-11-09T02:43:32.203918+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
