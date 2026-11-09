@@ -64,5 +64,9 @@ export default defineConfig({
     // `.workers` marker belongs to the node project — including every test that
     // touches a filesystem, which workerd does not have.
     include: ['tests/**/*.workers.test.ts'],
+    // The control app's generated shims (`src/generated/`, written by `1c assets`)
+    // must exist before workerd collects any suite that imports the control app.
+    // The same setup as the node project, so a workers-only run generates them too.
+    globalSetup: ['./tests/global-setup-generated.ts'],
   },
 })
