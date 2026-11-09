@@ -5,10 +5,10 @@ type: bug
 title: Sixteen tests fail on a clean tree, and the suite's red masks new breakage
 created_by: REQ-220
 created_at: '2026-09-11T21:46:08.377325+00:00'
-updated_at: '2026-09-11T23:47:57.152344+00:00'
+updated_at: '2026-11-09T20:58:22.299501+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
@@ -25,6 +25,7 @@ fields:
     working_sha_history: []
   version: 0.2.170
   story_points: 5
+  bundled_in: bundle-374f88d6
 ---
 
 ## The gap

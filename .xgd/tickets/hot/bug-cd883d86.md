@@ -6,10 +6,10 @@ title: A capture-mirrored picture can reach a site's assets with no catalogue ti
   and no rights record
 created_by: BUG-80
 created_at: '2026-09-11T22:27:15.822174+00:00'
-updated_at: '2026-09-12T00:28:21.298711+00:00'
+updated_at: '2026-11-09T20:58:23.691036+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   severity: medium
@@ -23,6 +23,7 @@ fields:
     working_sha_history: []
   version: 0.2.174
   story_points: 3
+  bundled_in: bundle-374f88d6
 ---
 
 ## What is wrong

@@ -5,10 +5,10 @@ type: bug
 title: 'Sign-in modal: three defects that made a working component look broken'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:28:05.411826+00:00'
-updated_at: '2026-09-16T02:48:50.714946+00:00'
+updated_at: '2026-11-09T20:58:22.762622+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -25,6 +25,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.172
+  bundled_in: bundle-374f88d6
 ---
 
 # Sign-in modal: three defects that made a working component look broken
