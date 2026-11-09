@@ -19,11 +19,13 @@ fields:
   - REQ-223
   commits:
   - working_sha: 1bcc94e51f28d81dbb016662dc0a77df2b13331c
-    reconcile_sha: null
+    reconcile_sha: 556cd05dcbcf7f56a15c6197db8208af8b69eb7d
     main_sha: null
+    working_sha_history: []
   - working_sha: 9a10d34f659fdf3fbb69cd9fd63dadf715964337
-    reconcile_sha: null
+    reconcile_sha: d7661e84149d61da7398129e24c32a254251a877
     main_sha: null
+    working_sha_history: []
   version: 0.2.167
 ---
 
