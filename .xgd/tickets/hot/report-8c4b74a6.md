@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T08:07:40.509296+00:00'
-updated_at: '2026-11-09T08:07:40.509296+00:00'
+updated_at: '2026-11-09T08:15:19.996873+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -44,6 +44,7 @@ fields:
         blocker is a missing browser install plus gate defect BUG-1696, not code.'
       files:
       - tests/reconciliation-l1-substrate.test.ts
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 12
