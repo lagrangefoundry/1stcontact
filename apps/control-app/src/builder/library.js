@@ -627,9 +627,8 @@ export function createLibraryPanel(options = {}) {
         // the list, or the client closes the modal onto the old name.
         onSaved: (saved) => adoptSaved(saved),
         // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
-        // exit — the Close button, Escape, the backdrop — through one `close`
-        // whose `onClose` the editor forwards here, so the pane learns the editor
-        // is gone however the client left it, and the picture can be reopened.
+        // way out through one `close` whose `onClose` the editor forwards here,
+        // so the pane learns the editor is gone and the picture can be reopened.
         onClose: () => {
           editor = null
         },
@@ -766,17 +765,14 @@ export function createLibraryPanel(options = {}) {
      * A name that changed elsewhere, arriving on the change feed ([[REQ-220]]).
      *
      * THE TITLE TRAVELS ON THE EVENT'S ROW, so unlike the description it needs no
-     * read: it is pushed into the pane's field, the picture's alt text and an open
-     * modal. EXCEPT WHILE THE CLIENT IS TYPING A NAME — the cell, not `isDirty()`,
-     * for the reason `reload` gives — when what they type wins.
+     * read: it goes through `adoptSaved`, the one place a stored name reaches the
+     * pane's field, the picture and an open modal. EXCEPT WHILE THE CLIENT IS
+     * TYPING A NAME — the cell, not `isDirty()`, for the reason `reload` gives —
+     * when what they type wins.
      */
     function renamed(title) {
       if (nameHost.querySelector('.fields-control-cell')) return
-      const next = title ?? ''
-      nameField?.setName(next)
-      editor?.setName(next)
-      const shownImg = view.querySelector('.builder-library__image')
-      if (shownImg) shownImg.alt = next || row.filename || ''
+      adoptSaved({ title: title ?? '', filename: row.filename })
     }
 
     async function reload() {

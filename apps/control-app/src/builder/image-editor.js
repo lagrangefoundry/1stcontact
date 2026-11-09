@@ -147,9 +147,8 @@ export function mountImageEditor(spec) {
   const shell = createModalShell({
     host,
     title: name || 'Picture',
-    // EVERY ROUTE OUT IS REPORTED — the Close button, Escape and the backdrop all
-    // end in the shell's one `close`, so the caller learns the dialog is gone
-    // however the client left it, and can open the picture again.
+    // EVERY ROUTE OUT IS REPORTED — each one ends in the shell's one `close`, so
+    // the caller learns the dialog is gone and can open the picture again.
     onClose: () => {
       detachDragListeners()
       onClose()

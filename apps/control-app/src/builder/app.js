@@ -548,8 +548,8 @@ export function mountBuilder(root, options = {}) {
       recipe: item.edits ?? [],
       host: shell.element,
       transport: { saveName: saveMaterialName, saveRecipe: saveMaterialRecipe },
-      // EVERY EXIT — Close, Escape, the backdrop — reports here through the shell's
-      // one `close`, so the picture can be opened from the chat again.
+      // EVERY WAY OUT reports here through the shell's one `close`, so the
+      // picture can be opened from the chat again.
       onClose: () => {
         chatPicture = null
       },
