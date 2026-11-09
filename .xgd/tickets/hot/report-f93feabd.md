@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-d402710c'
 created_by: xgd
 created_at: '2026-11-09T04:05:41.741444+00:00'
-updated_at: '2026-11-09T04:05:41.741444+00:00'
+updated_at: '2026-11-09T04:24:18.288706+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-d402710c
@@ -120,6 +120,8 @@ fields:
   batch_index: -1
   parent_report_uid: ''
   anchor_ticket: bug-00de1faf
+  ruling: granted
+  ruling_reason: the planner granted an override in its plan
 ---
 
 # Review gaps blocked by `code_frozen`
@@ -227,3 +229,7 @@ Covering UATs for AC-2517–2522 are in `tests/test_reconciliation_builder_flip_
 FAIL. AC-2496 and `test_UAT_AC2496_…` absorb a navigation on a mode switch: View is re-fetched after a followed link even though it already shows the operator's page. This contradicts BUG-79's "Never for a mode switch" and is not covered by any recorded decision. Fix the comparison in `panel.js` so it uses the frame's actual location, rewrite AC-2496 paragraph 3 and its Verification, and update the UAT as described in G1. Everything else is faithful and covered.
 
 **Proposed change**: Apply the production-code remediation items in the review that need a `code_frozen` grant or an operator ruling, and add the UAT each one requires (see evidence).
+
+## Ruling: granted
+
+the planner granted an override in its plan
