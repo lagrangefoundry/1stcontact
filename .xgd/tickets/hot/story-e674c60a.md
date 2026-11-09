@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-08T15:27:25.874922+00:00'
+updated_at: '2026-11-09T00:11:55.158976+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -129,6 +129,23 @@ the surface where an operator *sees* the site instead.
   another. Registering a mode is adding an entry — there is no branch anywhere
   that a new mode must be threaded through — and switching modes changes what is
   displayed without rebuilding the pane around it.
+- **View and Edit are one page with a toggle (REQ-215).** The two channels are
+  two renders of the same page, and switching between them shows the same page
+  in the same state. The page within the site, the scroll offset, and which L1
+  panels are open are taken from the document just before the pane replaces it,
+  and put back into the document that arrives. Switching back returns to the
+  page as it was. The carried state belongs to the builder, not to the
+  document, so it is re-applied on every load of the same page. That is what
+  lets an operator edit the copy inside an open panel without the post-save
+  reload closing it. It answers "the same page in the same state" and nothing
+  wider: changing site opens the new site's channel at its root with nothing
+  carried, and following a link to another page arrives with no panel open and
+  at the top. Edit, and only Edit, offers a **panel selector** in its toolbar.
+  It reads the panels off the loaded document, names each by what is written
+  in it rather than by its id, is absent on a page that declares none, and
+  applies a pick to the document already loaded without reloading it. It is
+  both the way out of a panel whose own Close is inert in Edit and the way into
+  a panel never opened in View.
 - **A toolbar the active mode declares, re-derived from what is displayed.** The
   strip renders exactly the controls the active mode names, so a mode showing
   something other than a document simply does not offer "open in a new tab" and
@@ -301,6 +318,13 @@ the surface where an operator *sees* the site instead.
 - Editing of any kind: clicking a segment, the field modal, and the write path
   behind it are separate stories. The editable *mode* is registered here and
   shows the editable rendering; the gesture that changes anything is not.
+- **How a page is put into a state (REQ-215).** Reading which panels are open,
+  opening and closing them in each channel (the page's own opener and Close in
+  View, the open markers in Edit), and the edit render emitting the dialog
+  shell it needs for that are the framework's page-state and the edit render's.
+  This story owns that the workspace carries the state across a switch and a
+  reload and drops it on a site change or navigation. A behaviour module's own
+  panel has no L1 dialog id, is not carried, and keeps its settled state.
 - **The gate itself.** That an unadmitted caller is refused is asserted here,
   because it qualifies every criterion below it; how an identity is verified,
   which identities are granted, and the shape of the gate's own refusals belong
@@ -583,6 +607,22 @@ the surface where an operator *sees* the site instead.
   No behaviour differs from what the criteria assert, and reconciliation changes
   no runtime code — recorded so the stale comment is on the record rather than
   read as a second opinion about how long a store handle lives.
+- **The carry is the builder's, between two documents (REQ-215).** Swapping the
+  frame's address destroys the document, so the state is held in the chrome.
+  It is read just before every re-derivation of the pane, including ones that
+  change nothing, rather than predicting which ones navigate. It is put back on
+  every load. The site is part of the carried value, so a stale carry cannot
+  reach another site. What "open" means is the framework's page-state module,
+  served to the browser as a framework bridge, not a second copy here. The
+  carried value is a list because a page may have several panels open; the
+  selector offers one at a time. The URL the pane shows is still built in one
+  place: the channel root plus the path within the channel.
+- **Divergence noted, in commentary only.** The comment on the workspace's
+  page-state option says that without the module "the carry keeps the page and
+  the scroll offset". The code keeps the page but not the scroll offset, because
+  the offset is read and applied through the same module. Every real host
+  supplies it. Reconciliation changes no runtime code; this is recorded so the
+  comment is not read as a claim about behaviour.
 
 ## Reconciliation Decisions
 
@@ -833,6 +873,33 @@ REQ-180 §1/§3).*
     not claimed.
   *Rationale:* each follows from the BUG-70 and BUG-71 bodies. No contradiction
   between the code and either intent was found.
+- **REQ-215 builder half (reconcile BUNDLE-42, item 6, 2026-11-08): the channel
+  toggle keeps the page, and Edit gains a panel selector.** AC-1029 and AC-1036
+  are modified. Four criteria are added: page and scroll carry (AC-2496), the
+  open panel surviving the switch and the post-save reload (AC-2497), the carry
+  dropped on site change or navigation (AC-2498), and the Edit-only panel
+  selector (AC-2499).
+  - *AC-1029 and AC-1036 are restated, not retired.* Both pinned the toggle
+    landing on the channel root. REQ-215 §1 says that was a gap ("the toggle
+    recomputed the channel root and threw the rest away"), not a design. The
+    guarantees they carried still hold: which channel a mode shows, that a mode
+    change rebuilds nothing, and that a channel address never answers from
+    outside its channel. Only the address now carries the reader's page.
+  - *The framework half is not claimed here.* REQ-215 acceptance 3-8 and 12
+    (the edit render's shell, reading and applying a state per channel, the
+    round trip, and module panels keeping their settled state) belong to the
+    framework render and page-state (plan item 5). This story claims what the
+    workspace does with them.
+  - *Formalised where the intent is silent:* (a) the selector is labelled
+    "Panel" and its empty choice reads "No panel"; (b) a panel without an id is
+    not offered, since nothing could address it; (c) text labels are cut to 40
+    characters plus an ellipsis; (d) if the page no longer declares the carried
+    panel, the selector falls to "No panel" and the carry follows it, so the
+    two never disagree; (e) a pick in the selector is carried like an opened
+    panel, so it survives the post-save reload and a switch to View; (f) a path
+    carried across the switch is not percent-encoded a second time.
+  *Rationale:* each follows from REQ-215 §6-§7 and none contradicts it. No
+  contradiction between the code and REQ-215 was found.
 
 ## Dependencies
 
