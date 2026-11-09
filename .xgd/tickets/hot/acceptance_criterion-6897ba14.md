@@ -6,10 +6,10 @@ title: Edit alone offers a panel selector naming the page's panels by their text
   a page with none shows no control; a pick applies without reloading
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T00:11:01.720588+00:00'
-updated_at: '2026-11-09T00:11:01.720588+00:00'
+updated_at: '2026-11-09T00:26:45.416764+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
