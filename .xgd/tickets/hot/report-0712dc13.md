@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-1500b111'
 created_by: xgd
 created_at: '2026-11-09T19:09:41.069624+00:00'
-updated_at: '2026-11-09T19:37:00.038101+00:00'
+updated_at: '2026-11-09T19:37:48.810057+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-1500b111
@@ -73,19 +73,22 @@ fields:
   - item: 5
     reason: 'planner misjudged trust boundary: trust_boundary_mismatch is true because
       the planner declared planner_trust_boundary false while the production diff
-      matches the trust-boundary patterns; the escaping is preserved and now tested
-      (test_UAT_AC2556_a_name_carrying_markup_stays_inert_text_through_the_feed_the_modal_and_the_chat_opener),
-      but the mismatch alone fails this item.'
+      matches the trust-boundary patterns (the removed library.js comment naming the
+      Escape exit); the escaping itself is preserved and tested by test_UAT_AC2556_a_name_carrying_markup_stays_inert_text_through_the_feed_the_modal_and_the_chat_opener,
+      but the checklist fails this item on the mismatch alone, and the planner must
+      declare trust_boundary true for this batch.'
     added_lines:
-    - '      // EVERY EXIT — Close, Escape, the backdrop — reports here through the
-      shell''s'
-    - '    // EVERY ROUTE OUT IS REPORTED — the Close button, Escape and the backdrop
-      all'
-    - '        // exit — the Close button, Escape, the backdrop — through one `close`'
-    - '      if (shownImg) shownImg.alt = next || row.filename || '''''
+    - '      // EVERY WAY OUT reports here through the shell''s one `close`, so the'
+    - '    // EVERY ROUTE OUT IS REPORTED — each one ends in the shell''s one `close`,
+      so'
+    - '        // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes
+      every'
+    - '      adoptSaved({ title: title ?? '''', filename: row.filename })'
     absent_tip_lines:
     - '"planner_trust_boundary": false'
     - '"trust_boundary_mismatch": true'
+    - 'apps/control-app/src/builder/library.js: -      // exit — the button, Escape,
+      the backdrop — through one `close`, and this'
     files:
     - apps/control-app/src/builder/app.js
     - apps/control-app/src/builder/image-editor.js
