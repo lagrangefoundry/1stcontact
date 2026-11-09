@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-58b2cec4'
 created_by: xgd
 created_at: '2026-11-09T22:13:45.661902+00:00'
-updated_at: '2026-11-09T22:13:45.661902+00:00'
+updated_at: '2026-11-09T22:33:40.234079+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -162,6 +162,7 @@ fields:
         about the setup.
       rung3: 'Decides: the AC2025/AC2372 UATs stand and the test infrastructure that
         loads them must generate every shim the control app imports.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 13 (re-plan after validation refusal)
