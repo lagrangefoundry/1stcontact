@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-09T03:53:12.919760+00:00'
+updated_at: '2026-11-09T04:53:29.034220+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -652,8 +652,14 @@ the surface where an operator *sees* the site instead.
   selector offers one at a time. The URL the pane shows is still built in one
   place: the channel root plus the path within the channel.
 - **The frame-per-mode panel (BUG-79).** The panel keeps one record per document
-  mode: its frame, the address that frame was last pointed at, and whether its
-  content is out of date. Every frame carries the pane geometry class
+  mode: its frame, the address that frame actually holds, and whether its
+  content is out of date. The address held is the one the pane last pointed the
+  frame at, or the one the frame reached through a link the operator followed
+  inside it. It is refreshed from the frame's own location on every load
+  (`follow()` in `panel.js`). `show()` and `prime()` compare against that held
+  address, so a frame the operator moved by following a link is judged by where
+  it arrived. A frame already holding the operator's page is revealed and not
+  re-pointed. Every frame carries the pane geometry class
   (`.builder-panel__pane`). The shown one also carries `.builder-panel__frame`,
   which is the address the browser suites, the viewport-fill measurement and the
   edit-loop drivers already used for "the frame on screen", so they keep meaning
@@ -957,7 +963,8 @@ REQ-180 §1/§3).*
 - **BUG-79: the View/Edit flip happens in place, one frame per document mode.**
   Two criteria are rewritten and six are added. Settled at level 1 of the
   resolution ladder: the BUG-79 body, its transcript and `panel.js`/`app.js`
-  agree on every point below. The operator's words were "It needs to flip
+  agree on every point below, once the `follow()` fix recorded at the end of
+  this entry is in. The operator's words were "It needs to flip
   in-place".
   - *AC-968 is restated, not retired.* It pinned "the display surface" as one
     element whose source changes. Under the frame-per-mode model there is one
@@ -982,18 +989,29 @@ REQ-180 §1/§3).*
     therefore modified rather than marked superseded, and AC-2497 and AC-2498
     are unchanged.
   - *Formalised where the intent is silent (decided 2026-11-08):* (a) if the
-    operator followed a link to another page in the channel they are leaving,
-    the channel they flip to navigates to that page. Its address now differs, so
-    the same-page promise of REQ-215 wins over not navigating. (b) Only a load
+    operator followed a link to another page in the shown channel, the idle
+    channel is primed at that page behind it once the link's document has
+    loaded, and the flip reveals it in place. A frame is re-pointed only when
+    the page it actually holds differs from the operator's page (for example, a
+    flip made before the prime has landed). (b) Only a load
     in the shown frame is announced. A primed or idle frame loading behind the
     page announces nothing, so nothing downstream binds to a document the
     operator cannot see. (c) Addresses are compared after resolving them, so the
     same address written two ways does not trigger a fetch. (d) A write with no
     reachable window in the shown frame re-points it at its last address.
-  *Rationale:* (a) keeps "the same page in the same state" true across a flip;
-  (b) to (d) follow from the BUG-79 body's own reasoning (bind to what is on
-  screen; navigate only when really out of date). No contradiction between the
-  code and BUG-79 was found.
+  *Rationale:* (a) keeps "the same page in the same state" true across a flip
+  without navigating, which is what BUG-79 asks for ("the first flip is in place
+  as well as every one after it"); (b) to (d) follow from the BUG-79 body's own
+  reasoning (bind to what is on screen; navigate only when really out of date).
+  - *Divergence found in review, and fixed in the code.* `show()` and `prime()`
+    compared against the record's address, and the record tracked only the
+    addresses the pane had set. After a link followed inside a frame, a flip
+    therefore re-navigated a frame that already held the page. That is the
+    BUG-79 symptom by another route. The intent wins: `panel.js` gained
+    `follow()`, which refreshes the record from the frame's live location on
+    every load. This was done under mode_override report-569fb9d5 (code_frozen,
+    rung 1, `panel.js` only). AC-2496 and AC-2517 were rewritten to cover the
+    follow-a-link round trip.
 
 ## Dependencies
 
