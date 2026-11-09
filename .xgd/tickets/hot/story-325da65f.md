@@ -6,9 +6,9 @@ title: 'Handing A File To The Platform: One Overlay, Two Entry Points, And The O
   Question It Asks'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:31:10.902566+00:00'
-updated_at: '2026-11-09T17:49:12.004412+00:00'
+updated_at: '2026-11-09T17:49:12.281222+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -17,6 +17,7 @@ fields:
   story_points: 3
   updated_by:
   - bundle-5607a08d
+  - bundle-0881342c
 ---
 
 ## Story
