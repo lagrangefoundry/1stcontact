@@ -6,10 +6,10 @@ title: A HEIC/HEIF upload, recognised by its ftyp brand whatever its declared ty
   is stored as a JPEG image named with a .jpg extension
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T17:45:58.990523+00:00'
-updated_at: '2026-11-09T17:45:58.990523+00:00'
+updated_at: '2026-11-09T18:22:55.088908+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-6ccaedd5
   kind: behavior
