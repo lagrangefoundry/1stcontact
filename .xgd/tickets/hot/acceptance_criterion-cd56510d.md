@@ -6,10 +6,10 @@ title: Renditions are stored through the store port identically on every store; 
   measured-dimension manifest feeds the render and is never stored in the document
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T06:20:52.516275+00:00'
-updated_at: '2026-11-09T06:20:52.516275+00:00'
+updated_at: '2026-11-09T06:30:48.202090+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
