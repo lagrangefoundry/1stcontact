@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-11-08T22:52:28.731169+00:00'
+updated_at: '2026-11-09T05:45:59.328508+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -25806,5 +25806,61 @@ This needs changes in two repos. The host side (stop putting the time in the tex
 BUG-371, which tightened the estimates, is built (`free_coded`). It changed how the numbers are calculated but not this display.
 
 Shall I file it, as one bug here plus the matching framework ticket? And would you rather see the elapsed time for the build only ("running 6:12"), or since you asked ("17:48 since you asked")?
+
+<!-- xgd-turn id="ad1cf699-5798-446b-8324-2dc3d6a27b02-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T05:38:34.851706+00:00" -->
+#### You
+I'm seeing a weird effect on Laura Owen's Jewelry on first open the text in the Hero/title is a heavy weight and as the page loads this changes - super janky can you take a look?
+
+<!-- xgd-turn id="ad1cf699-5798-446b-8324-2dc3d6a27b02-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T05:42:09.882751+00:00" -->
+#### Claude
+This sounds like the web font arriving late, with the page drawn in a stand-in font until then. Checking how published pages load their fonts.
+
+No existing ticket covers this. Checking the site's own fonts to confirm what the title draws in before its font arrives.
+
+I can't confirm this exact site from here, because its page definition isn't in the local database I can read. But the code produces exactly what you describe, on every site.
+
+**What's happening:**
+1. **The page is drawn before its font arrives.** The site's fonts are declared with `font-display: swap` (`packages/framework/src/l1/render.ts:323`), so the browser shows the title straight away in a stand-in font while the real font downloads, then swaps.
+2. **The font is found late.** Nothing in the page's `<head>` tells the browser to fetch it early, so it only starts once the CSS has been read. That makes the stand-in phase long enough to see on a first, uncached visit.
+3. **The stand-in doesn't resemble the real font.** No fallback is tuned to its size or spacing, and the browser's default font often has no light weight. A light or thin display face therefore first appears heavier and a different width. When the real font lands, the weight, width and line breaks all change at once. That's the jank.
+
+On later visits the font is cached, so it mostly disappears, which is why it shows "on first open".
+
+**The fix I'd propose:**
+1. **Preload the fonts the first screen uses** from `<head>`, as is already done for the hero image (REQ-649), so they arrive almost with the HTML.
+2. **Tune the fallback to the real font's size and spacing.** The stand-in is set to the real font's width and line height, so if a swap still happens nothing moves, and only the letterforms change.
+3. **For the hero title, block briefly instead of swapping.** Hide its text for at most about 100 ms while the preloaded font arrives (`font-display: optional`/`block` with a short limit), so a fast connection never sees the stand-in. A slow one still gets readable text.
+4. **Keep the Python peer in step,** since framework changes land in JS and Python together.
+
+To see it yourself: open the site in a private window with DevTools → Network → "Slow 4G" and reload. The title will visibly draw, then change.
+
+Shall I file this as a bug? It's separate from the existing font tickets: BUG-16 is about capture, BUG-227 about fonts not rendering at all.
+
+<!-- xgd-turn id="7a02a8f6-a719-41d1-96f5-759936265c7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T05:44:48.220531+00:00" -->
+#### You
+Yes this is super unprofessional - we cannot load hero title before fonts
+
+<!-- xgd-turn id="7a02a8f6-a719-41d1-96f5-759936265c7d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T05:45:53.224452+00:00" -->
+#### Claude
+I've filed **BUG-397**, "Published sites: the hero title draws in a stand-in font, then jumps when the real font arrives" (high, `draft`, under EPIC-19). Your rule is written into it as a decision: **the hero title is never shown in a stand-in font.**
+
+What it requires:
+1. **Real font or nothing.** The hero title, including any text over the hero image or slideshow, stays hidden until its font has loaded, then appears once in the right font. Its space is kept, so nothing below it moves.
+2. **Fonts load early.** The fonts the first screen uses are preloaded from the page's `<head>`, alongside the hero image, so the wait is normally too short to notice. Only those faces are preloaded, not every font on the site.
+3. **A font that fails can't blank the title.** After about 3 seconds the title shows in the stand-in font. That's the only case where one may appear.
+4. **Text below the first screen** still shows straight away, using a stand-in tuned to the real font's size, spacing and weight. When the real font arrives only the letterforms change, and nothing moves.
+5. **It applies everywhere:** every published site, the preview and the draft, at their next build.
+
+The tests run in a real browser with the font deliberately delayed. They check that no frame shows the title in another font, that nothing moves when it appears, that a failed font still shows the title, and that the preloads are exactly the first screen's fonts.
+
+It still needs a session to build it.
 
 <!-- xgd-chat-end -->

@@ -2,13 +2,13 @@
 uid: bug-b2aecde6
 id: BUG-396
 type: bug
-title: 'Checkout: choosing a region hides Continue but no payment form appears (empty
-  box, can''t pay)'
+title: 'Checkout: one page that fills in on region choice — no Continue, Cancel as
+  a back link, payment form always appears'
 created_by: EPIC-31
 created_at: '2026-11-09T02:11:26.171071+00:00'
-updated_at: '2026-11-09T02:11:26.977308+00:00'
+updated_at: '2026-11-09T05:46:52.119323+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: draft
 fields:
   severity: high
@@ -20,7 +20,7 @@ fields:
 
 ## Symptom (production, 2026-11-08)
 
-A business has payments, shipping and Terms of sale set up, and is deliberately not published. The owner opens a product's checkout page in the builder preview and chooses a delivery region. The "Continue to payment" button then loses its label and shrinks to a small empty box, and clicking it does nothing. Stripe's payment form never appears, so the buyer cannot pay.
+A business has payments, shipping and Terms of sale set up, and is deliberately not published. The owner opens a product's checkout page in the builder preview and chooses a delivery region, **without clicking anything else**. The "Continue to payment" button immediately loses its label and shrinks to a small empty box, which does nothing when clicked. Since BUG-375, choosing a region is what starts payment: the page opens the session by itself and is meant to swap Continue for Stripe's form. So the owner never gets to press Continue; the swap happens with no form to show. Stripe's payment form never appears, so the buyer cannot pay.
 
 Production Workers Logs for the session show the server side working. Every region change ran `quote` → `start` (200) → `cancel` (200) on the next change. So a Stripe session is opened each time, and the failure is in the page.
 
@@ -35,15 +35,30 @@ This is a fix to landed work (BUG-375, BUG-368).
 
 ## Fix
 
-1. **Every checkout page has somewhere for the payment form**, whatever shape its template is. If no standard actions row is found, the mount goes straight after the Continue control's row/box, or failing that at the end of the page. A checkout page is never published without one.
-2. **Continue is hidden only once Stripe's form is actually on the page.** If there is no mount, or mounting fails, or the form doesn't appear, Continue stays visible with its label and works as the retry. Any open session is cancelled, which releases its hold. The buyer sees "Payment could not be started. Nothing was charged; please try again."
-3. **When Continue is hidden, it is hidden completely.** The box styled around it goes too, so no empty, label-less shape is left on the page.
+**The checkout page is one page that fills in as the buyer goes** (operator, 2026-11-08). The buyer clicks [Buy] on the product detail page and lands on the checkout page, which asks for a delivery region. Choosing a region fills in the rest of the **same page**: the shipping, the total, then Stripe's payment form. Nothing on the page suggests a further step. This changes part of BUG-367/BUG-368's checkout layout (explicit supersession: the Continue/Cancel actions row).
+
+1. **No Continue button.** "Continue to payment" is no longer drawn on the checkout page, disabled or otherwise.
+   - Before a region is chosen, the page shows the item, the region choice and the prices it can already show.
+   - Choosing a region (or arriving, when the business ships at one rate) fills in the shipping and total, and the payment form appears below them.
+   - If the payment form can't be started, the page shows "Payment could not be started. Nothing was charged; please try again." with a **Try again** button in the form's place. That is the only time a button is drawn there. Any session already opened is cancelled, so its hold is released.
+2. **Cancel is a quiet way back, never in the primary-action position.** It's a text link, not a button, at the top of the page above the item: "← Back to <item name>", or "← Back to the shop" when the item has no product page.
+   - It never sits where a primary call to action would: not beside or below the region choice, the total or the payment form.
+   - It does what Cancel does today. With a session open, it goes through the order-cancelled page, which releases the hold. Otherwise it goes straight back.
+   - A page's own `cancelLabel` still sets its wording.
+3. **Every checkout page has the payment form's place**, whatever shape its template is: directly after the total, or at the end of the page when the template has no total. A checkout page is never drawn without one. With no actions row, the mount no longer depends on finding one (the BUG-375 `withPayment`/`isStandardRow` dependency goes).
+4. **Nothing empty is left behind.** No label-less box or leftover styled wrapper appears at any stage: before the region, while the form loads, once it is shown, or after a failure.
+5. **The consultant's guidance (DOC-47) describes this layout**: no Continue, Cancel as the top "back" link, and the payment form after the total. The consultant must not style a Cancel or Continue into a primary-button position.
 
 ## Test plan
 
 UATs `tests/test_UAT_FC_BUG-396_*.test.ts`, in real Chromium against the rendered checkout page, with a stand-in for Stripe's script:
-- A checkout template whose Continue is **not** in the standard Continue/Cancel row still renders a `payment` mount. Choosing a region shows the form in it, and Continue is hidden with no visible leftover box.
-- With the mount removed or mounting made to fail, choosing a region leaves Continue visible, labelled and clickable, shows the "could not be started" message, and posts `cancel` for the opened order.
-- Regression: the BUG-375, BUG-367 and BUG-368 checkout suites.
+- A checkout page draws no Continue control. Its Cancel is a link placed before the item, with the "← Back to <item name>" wording, and is not a button.
+- Choosing a region fills in the shipping and total on the same page, and mounts the payment form after the total. The URL doesn't change and no new tab opens.
+- A one-rate business's checkout page shows the form on arrival.
+- A checkout template of any shape (no standard actions row, no total) still renders a `payment` mount.
+- When mounting fails, "Payment could not be started…" and a Try again button appear in the form's place, and `cancel` is posted for the opened order. Try again starts a new session.
+- At no stage is there a visible element with no text and no content inside the checkout's action/payment area.
+- With a session open, Cancel goes through order-cancelled and releases the hold.
+- Regression: the BUG-375, BUG-367, BUG-368 and REQ-666 checkout suites. Their Continue/actions-row assertions are updated as superseded by this ticket.
 
-Done: on production, the affected business's preview checkout shows Stripe's form after a region is chosen.
+Done: on production, the affected business's preview checkout fills in on region choice and shows Stripe's form, with Cancel as the top back link.

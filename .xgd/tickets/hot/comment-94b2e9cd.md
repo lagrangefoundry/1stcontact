@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-31
 created_by: xgd
 created_at: '2026-11-02T17:24:17.509637+00:00'
-updated_at: '2026-11-09T02:11:39.248623+00:00'
+updated_at: '2026-11-09T05:47:05.302568+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2071,5 +2071,94 @@ I've filed **BUG-396**, "Checkout: choosing a region hides Continue but no payme
 It's done when your preview's checkout on production shows Stripe's form after you choose a region.
 
 **To confirm the cause quickly:** open the browser console on the checkout page (in the preview frame) and choose a region. If nothing is logged, it's the missing slot above. If a Stripe or Content-Security-Policy error appears, it's the other possibility in the ticket: Stripe's form loads but stays invisible inside the preview. Pasting whatever shows up there would settle it, and I'll update the ticket to match.
+
+<!-- xgd-turn id="288d77b9-eeef-4982-b53c-9da908e289a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T05:35:35.554326+00:00" -->
+#### You
+Just to be clear I dod not get to push the button
+
+<!-- xgd-turn id="288d77b9-eeef-4982-b53c-9da908e289a3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T05:36:19.408597+00:00" -->
+#### Claude
+That fits. Since BUG-375, you're not meant to press the button: **choosing the region starts the payment by itself**. The page opens the Stripe session straight away, which is the "start" call in the logs, and is supposed to replace Continue with Stripe's payment form. The button disappears at that moment, but no form appears to take its place. You're left with the empty box around the button.
+
+I've updated BUG-396 to say the box appears on choosing a region alone, with no click. The diagnosis and fix are unchanged:
+- every checkout page gets a place for the form;
+- Continue is only hidden once the form is really on the page;
+- nothing empty is left behind.
+
+The console check would still confirm which of the two causes it is. If nothing is logged when you pick a region, it's the missing slot for the form. If a Stripe or Content-Security-Policy error shows up, Stripe's form is loading but staying invisible inside the preview.
+
+<!-- xgd-turn id="e73cce6d-db51-47ab-9ca1-d6db6409f43f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T05:41:12.332279+00:00" -->
+#### You
+I actually thought we agreed to have a single checkout page not two?
+
+<!-- xgd-turn id="e73cce6d-db51-47ab-9ca1-d6db6409f43f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T05:41:59.755326+00:00" -->
+#### Claude
+Yes, we agreed on a single checkout page, and that's what BUG-375 built. The flow is meant to be:
+
+1. **Product page:** the buyer clicks Buy.
+2. **Checkout page, the only one:** it shows the item and the total, and asks for the delivery region. When the buyer picks a region, the total updates and **Stripe's payment form appears on that same page, below it**. The buyer pays there and never leaves the business's site. If there's only one shipping rate, the form appears straight away.
+
+So "Continue to payment" isn't meant to go to another page. It's only on screen until the form loads, and again as a retry if the form fails to start. That's why it disappears when you pick a region: the form is supposed to take its place. On your page the form never appears, which is BUG-396, so what you see is the button vanishing and nothing replacing it. That would look like a step towards a second page that never arrives.
+
+When BUG-396 is fixed, the form will appear on the checkout page as soon as you pick a region. You won't need to press anything to see it.
+
+If by "single page" you meant the product page itself, with region and payment on it and no separate checkout page, that wasn't the agreement in BUG-375. It would be a design change to make in a new ticket, so tell me if that's what you want.
+
+<!-- xgd-turn id="60667a0a-b4ab-4610-bc59-be06a4f3d7fa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T05:43:43.014847+00:00" -->
+#### You
+no I mean Product detail page, [BUY] -> checkout page "Select region" -> selection drives population of the rest of the SAME PAGE
+
+<!-- xgd-turn id="60667a0a-b4ab-4610-bc59-be06a4f3d7fa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T05:44:02.783673+00:00" -->
+#### Claude
+Yes, that's what we agreed, and it's what BUG-375 specified. The flow is:
+
+1. On the product detail page, the buyer clicks **[Buy]**.
+2. They land on the checkout page, which asks them to **select a region**.
+3. Choosing a region fills in **the rest of the same page**: shipping, the total, then Stripe's payment form below.
+
+That's built, apart from the last part: on your page the payment form never appears. That's BUG-396.
+
+The "Continue to payment" button doesn't fit your description, though. It sits on the page, disabled, before a region is chosen, so it looks like a step leading to another page. Then it disappears when the region is picked. In this design it does nothing except act as a retry if the payment form fails to start.
+
+I suggest adding this to BUG-396: **no Continue button on the checkout page while things are working**. Before a region is chosen, the page shows only the region choice. Choosing one fills in the rest. A "Try again" button appears only if the payment form fails to start. Cancel stays. Shall I add that?
+
+<!-- xgd-turn id="60cfd327-5e40-4281-ba23-40c690db7468-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-09T05:46:15.811659+00:00" -->
+#### You
+It should also show no Cancel button - ok it can show a Cancel button but we need to figure out where - right now it would be in the position of the primary CTA (bad!)
+
+<!-- xgd-turn id="60cfd327-5e40-4281-ba23-40c690db7468-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-09T05:47:00.271903+00:00" -->
+#### Claude
+I've updated BUG-396 with the new layout and renamed it to match: "Checkout: one page that fills in on region choice — no Continue, Cancel as a back link, payment form always appears".
+
+**Cancel becomes a back link at the top of the page.** It reads "← Back to <item name>", or "← Back to the shop" when the item has no product page. It's a plain text link above the item, not a button. It never sits beside or below the region choice, the total or the payment form, so nothing competes with the payment form. This is where most shops put "back", and it's the behaviour Cancel has today:
+- If a payment session is open, it ends it and releases the reserved stock.
+- If not, it just goes back.
+
+**The rest of what BUG-396 now says:**
+- **No Continue button.** The page shows the item and the region choice. Choosing a region fills in the shipping and total, then the payment form, all on the same page. With one shipping rate, the form appears straight away.
+- **Try again** is drawn only if the payment form fails to start. It appears in the form's place, under the "Payment could not be started. Nothing was charged" message.
+- **The payment form always has a place on the page**, directly after the total, whatever the template looks like. That fixes the empty box you saw.
+- **Nothing empty is ever left on screen**, at any stage.
+- **The consultant's guidance (DOC-47) is updated**, so it never styles Cancel or a button into the main-button position.
+
+This replaces the Continue/Cancel button row from BUG-367 and BUG-368, and the ticket says so explicitly so the matrix updates rather than enforcing the old row.
+
+If you'd rather have Cancel somewhere else, for example as a small link under the payment form, tell me and I'll change it.
 
 <!-- xgd-chat-end -->

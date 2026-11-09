@@ -6,7 +6,7 @@ title: 'Shop: businesses already set up before BUG-393 still get no Terms of sal
   until something changes'
 created_by: EPIC-29
 created_at: '2026-11-09T00:21:27.809831+00:00'
-updated_at: '2026-11-09T01:18:03.042111+00:00'
+updated_at: '2026-11-09T05:36:46.922703+00:00'
 completed_at: null
 last_field_updated: status
 status: wont_fix
