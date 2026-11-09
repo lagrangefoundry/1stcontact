@@ -6,9 +6,9 @@ title: 'Handing A File To The Platform: One Overlay, Two Entry Points, And The O
   Question It Asks'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:31:10.902566+00:00'
-updated_at: '2026-10-26T01:40:27.576768+00:00'
+updated_at: '2026-11-09T17:48:01.627655+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -69,23 +69,34 @@ opens the file chooser with the same role attached, because dragging is a gestur
 cannot perform and some devices do not offer. A drag carrying no files — text dragged inside the
 page — never raises the overlay over the builder.
 
+**The chooser says what it takes.** The file chooser an area opens lists the formats the
+platform reads, including the HEIC an iPhone produces (which the platform converts at the door,
+STORY-140), and does not use the `image/*` wildcard, whose meaning varies by operating system.
+It is a hint, not a gate: a drag never consults it, and *All Files* is always available, so the
+platform's own refusals remain the only enforcement.
+
 **What the client is told afterwards depends on where they were.** A handover made in the
 conversation appears there as the client's own turn, naming the file and reporting what actually
 happened — including the parts that went wrong: a file that did not upload, a placement that did
 not land, material stored but not yet searchable. A handover made in the Library does not put a
 line into a conversation it was not part of; it reaches the assistant by the same path either
-way. And the site currently open travels with the handover, so a *Site asset* file is on
-that site immediately rather than after some later step nobody has specified.
+way. **A refusal reaches the client from both drop areas.** A file the platform refuses on the
+Library route is reported in the Library itself, naming the file and giving the platform's own
+reason, rather than simply never appearing in the list. The next handover clears that notice.
+And the site currently open travels with the handover, so a *Site asset* file is on that site
+immediately rather than after some later step nobody has specified.
 
 **In scope**: the overlay and its two role areas; the copy that states what each role means,
 and its being the one definition every surface naming an area reads;
-raising it from either entry point; committing a role by dropping or by activating an area;
-refusing to create anything from an ambiguous drop; what the conversation is told afterwards;
-and the site the handover is made against travelling with it.
+raising it from either entry point; the file chooser's list of accepted types; committing a role
+by dropping or by activating an area; refusing to create anything from an ambiguous drop; what
+the conversation is told afterwards, and what the Library is told when the platform refuses a
+handover made there; and the site the handover is made against travelling with it.
 
-**Out of scope**: the pipeline that stores, classifies, describes and indexes the file; the
-promotion gate that decides whether material may become a site asset and picks a free name; the
-declared `role` field and the rights it narrows; and the Library tab itself.
+**Out of scope**: the pipeline that stores, classifies, describes, converts and indexes the file,
+and the wording of its refusals (STORY-140); the promotion gate that decides whether material may
+become a site asset and picks a free name; the declared `role` field and the rights it narrows;
+and the Library tab itself, apart from the refusal notice raised into it.
 
 ## Technical Context
 
@@ -111,6 +122,12 @@ declared `role` field and the rights it narrows; and the Library tab itself.
   word. Sibling criteria that refer to the roles by their meaning (*put it on the site*, *just
   for you to read*) describe the role, not the button text, and assert role values; they are
   unaffected by the relabel.
+- REQ-221 (bundle-0881342c) added the accept list and the Library refusal notice. The accept list
+  is one shared definition used by the single file input every area opens. The builder host,
+  which drives both entry points and is the only part that sees a refusal, raises the notice;
+  the Library panel only owns the place it is shown. The notice relays the origin's sentence,
+  prefixed with the file's name. The builder writes its own fallback only when there is nothing
+  to relay.
 
 ## Reconciliation Decisions
 
@@ -136,6 +153,19 @@ declared `role` field and the rights it narrows; and the Library tab itself.
   facts that decide how a row reads — whether the file could be described, whether it reached the
   site — are settled after the bytes leave the browser, so a list redrawn from what the handover
   returned would show a different state than the one that exists. Formalized as AC-1735.
+
+- **A conversational refusal is not repeated in the Library** (decided at reconciliation,
+  2026-11-09): REQ-221 says *"the sentence has to reach them from both drop areas"* and is silent
+  on whether a chat-route refusal should also appear in the Library. The landed builder reports it
+  only in the conversation. Formalized in AC-2539, because the same failure shown on two surfaces
+  would read as two separate failures.
+- **The notice is cleared at the start of the next handover, whatever its outcome** (decided at
+  reconciliation, 2026-11-09): REQ-221 says *"A refusal is cleared by the next drop that
+  succeeds"*. The landed builder clears it at the start of every Library or conversation
+  handover and raises a new notice if that handover is refused. So a later successful drop always
+  leaves no notice, which is what the intent asks for. A later refused drop shows that drop's own
+  refusal and not the stale one. This does not contradict the intent, and AC-2539 is written to
+  the intent's wording plus that outcome.
 
 ## Dependencies
 
