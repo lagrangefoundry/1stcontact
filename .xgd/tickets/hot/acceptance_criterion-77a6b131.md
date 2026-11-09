@@ -6,10 +6,10 @@ title: A role correction on fetched or captured material is refused 403 and the 
   offers no role control for it
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T13:55:12.683801+00:00'
-updated_at: '2026-11-08T13:55:12.683801+00:00'
+updated_at: '2026-11-09T19:53:56.238948+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
