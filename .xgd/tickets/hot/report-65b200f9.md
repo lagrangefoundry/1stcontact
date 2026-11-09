@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-44: BUG-80, REQ-217, BUG-83, BUG
   REQ-228, BUG-84, REQ-229)'
 created_by: xgd
 created_at: '2026-11-09T21:52:17.681797+00:00'
-updated_at: '2026-11-09T21:57:03.508834+00:00'
+updated_at: '2026-11-09T22:41:29.832001+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -93,7 +93,7 @@ fields:
         to the pane's width.
       modify: []
       remove: []
-    story_uid: null
+    story_uid: story-39c992d3
   - index: 3
     component: 'Behavior modules: account-chrome v2, strict config/slots, slot error
       localisation (BUG-76)'
