@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-0758e7c5'
 created_by: xgd
 created_at: '2026-11-09T01:28:29.565117+00:00'
-updated_at: '2026-11-09T01:28:29.565117+00:00'
+updated_at: '2026-11-09T01:40:27.369270+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-0758e7c5
@@ -168,6 +168,8 @@ fields:
   batch_index: -1
   parent_report_uid: ''
   anchor_ticket: bundle-7ba3af93
+  ruling: granted
+  ruling_reason: the planner granted an override in its plan
 ---
 
 # Review gaps blocked by `code_frozen`
@@ -260,3 +262,7 @@ PASS.
 - REQ-215 supersedes 
 
 **Proposed change**: Apply the production-code remediation items in the review that need a `code_frozen` grant or an operator ruling, and add the UAT each one requires (see evidence).
+
+## Ruling: granted
+
+the planner granted an override in its plan
