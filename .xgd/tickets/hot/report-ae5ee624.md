@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T07:38:24.583629+00:00'
-updated_at: '2026-11-09T07:38:24.583629+00:00'
+updated_at: '2026-11-09T07:42:36.255298+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: story-d0a8cfad
@@ -40,6 +40,10 @@ fields:
   batch_index: 0
   parent_report_uid: report-35a5eb9d
   anchor_ticket: bundle-0881342c
+  ruling: declined
+  ruling_reason: 'Rung 2 decides: the reference pins playwright ^1.61.1 at tools/generate/package.json:21
+    and no intent in scope moves it; the latest builder block is environmental (BUG-1695),
+    so the batch makes no production edit.'
 ---
 
 # Builder blocked by `code_frozen`
@@ -68,3 +72,7 @@ blocked_by:
 ```
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: declined
+
+Rung 2 decides: the reference pins playwright ^1.61.1 at tools/generate/package.json:21 and no intent in scope moves it; the latest builder block is environmental (BUG-1695), so the batch makes no production edit.
