@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T10:24:31.060520+00:00'
-updated_at: '2026-11-09T10:24:31.060520+00:00'
+updated_at: '2026-11-09T10:31:43.335994+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -41,6 +41,7 @@ fields:
         has only firefox-1538/webkit-2336 as of iteration 23), excluded from batches
         per BUG-1067.'
   fix_iteration: 23
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 23
