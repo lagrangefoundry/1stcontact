@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-11-08T21:40:04.427980+00:00'
+updated_at: '2026-11-09T01:27:26.723694+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -530,6 +530,15 @@ behavior components resolved through the same path as a catalog module, and they
 still discriminate — and does not claim credit for the browser becoming
 available.
 
+**2026-11-08 (BUNDLE-42 / BUG-75): the composed asset is loaded as a module, not pattern-matched.**
+The intent (BUG-75's "What must change"), the code and these ACs agree on every
+point: own-block scoping, `export` stripped, behavior marker kept, and a UAT that
+parses the composed asset as an ES module. The resolution ladder stopped at level
+1, and no transcript was needed. One choice was left to reconciliation: BUG-75
+asks the UAT to "parse" the asset. AC-702 sharpens that to *load it as an ES
+module*, because parsing as a module is the behaviour the browser applies, and
+pattern-matching the text would not have caught this defect.
+
 ### Reconciliation UAT file
 This story's reconciliation UATs (AC-697…AC-704) live in
 `tests/reconciliation-behavior-modules.test.ts`. The file was renamed and
@@ -537,17 +546,7 @@ repaired in the same reconciliation as the contract rename itself: imports
 resolve `modules/behavior`, identifiers use the `Behavior*` names, and fixtures
 declare `kind: 'behavior'`. The repair was test-only — no runtime code changed.
 
-## Dependencies
-- Plan item 1 — L1 Layout Substrate + Safety Envelope (STORY-83 / CAP-70): slot
-  content is validated and rendered as L1 subtrees, and the `control` node kind
-  and its emitter live there.
-
-## Story Points
-3
-
-
-
-## Technical Context — composing the client asset (BUG-75, BUNDLE-42)
+### Composing the client asset (BUG-75, BUNDLE-42)
 
 The shipped client asset (`capabilities.js`) is built by composing every
 catalogued behavior's `client.js`, in catalog order. Each behavior goes into
@@ -575,12 +574,10 @@ that a future behavior author sees it.
 **Out of scope:** REQ-212's L1 dialog emits its own inline `<script>` and does not
 go through `capabilities.js`. This change leaves that path alone.
 
-### Reconciliation Decisions (2026-11-08, BUNDLE-42 / BUG-75)
+## Dependencies
+- Plan item 1 — L1 Layout Substrate + Safety Envelope (STORY-83 / CAP-70): slot
+  content is validated and rendered as L1 subtrees, and the `control` node kind
+  and its emitter live there.
 
-The intent (BUG-75's "What must change"), the code and these ACs agree on every
-point: own-block scoping, `export` stripped, behavior marker kept, and a UAT that
-parses the composed asset as an ES module. The resolution ladder stopped at level
-1, and no transcript was needed. One choice was left to reconciliation: BUG-75
-asks the UAT to "parse" the asset. AC-702 sharpens that to *load it as an ES
-module*, because parsing as a module is the behaviour the browser applies, and
-pattern-matching the text would not have caught this defect.
+## Story Points
+3
