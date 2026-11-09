@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-f2e5032c'
 created_by: xgd
 created_at: '2026-11-09T00:43:08.698100+00:00'
-updated_at: '2026-11-09T00:43:08.698100+00:00'
+updated_at: '2026-11-09T00:49:47.031777+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-f2e5032c
@@ -18,6 +18,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: test_UAT_AC2503
+  batches_pending: false
 ---
 
 {
