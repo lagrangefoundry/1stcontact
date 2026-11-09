@@ -6,9 +6,9 @@ title: 'The Assistant Can Compare And Judge: Perceptual Comparison And Fidelity 
   Over Any Two Pictures'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T20:46:16.482074+00:00'
-updated_at: '2026-11-08T23:04:14.154977+00:00'
+updated_at: '2026-11-09T01:26:22.033689+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_points
 status: updated
 fields:
   intent_uid: bundle-5607a08d
@@ -38,13 +38,13 @@ Out of scope: `capture_site` and the egress guard (plan item 6); `screenshot`, p
 - `compare` uses the same crop-then-diff core as `1c diff`, so the two agree by construction. It resolves both sides through `resolvePicture` and `decodePng`s both; REQ-218's `image` kind needed no change in `compare` because resolution always hands back PNG.
 - Both operations are declared `effect: read` with `provenance: untrusted` returns. Neither can change a site (asserted under story-58b2cec4).
 - The surface is bound to one site at construction, so no picture names a slug.
-- Evidence: `tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts`, describe blocks "REQ-157 AC4" and "REQ-157 AC5"; REQ-218 stored-image UATs for the `image`-side comparison.
+- Evidence: `tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts`, describe blocks "REQ-157 AC4" and "REQ-157 AC5"; for the `image`-side comparison (AC-2490), `tests/reconciliation-assistant-sees-a-stored-picture.test.ts` `test_UAT_AC2490_stored_jpeg_against_a_reference_either_way_crops_to_the_common_top_left_rectangle_and_a_png_against_itself_is_identical`, which drives `compare` through the real Toolbox with a stored JPEG against a captured reference both ways round, a Library image, and a stored PNG against itself.
 
 ## Reconciliation Decisions
 - **Regions as coordinates instead of crop pairs** (decided at reconciliation, 2026-10-27): REQ-157's operations table is marked *provisional* and lists `compare` returning "perceptual verdict, ranked regions, crop pairs". The binding AC 4 asks only that the verdict equal `1c diff`'s. The landed code returns ranked regions (rank, area, mean difference) and deliberately omits the heatmap and crop-triptych files, because they are operator files with no meaning on this surface and no filesystem exists in a Worker. Formalized as AC-2036. This is not a contradiction: the provisional table was superseded by the AC.
 - **Unknown reference refused by name before any browser is used** (decided at reconciliation, 2026-10-27): intent is silent. The code refuses `check_fidelity` against a reference name that holds no capture, before any gate or browser work runs. The error is the bundle reader's `Bundle '<name>' has no capture.json.`, which names the reference. It does not point at `list_references`: check_fidelity's own not-found wording is shadowed because the bundle reader throws first. Formalized as AC-2043 because a metered browser lease for a typo is a real cost and the error is what the model acts on.
 - **The `pass` next step still points at outstanding value deltas** (decided at reconciliation, 2026-10-27): intent says each verdict has its own next step. The code's `pass` next step says nothing is outstanding when there are no value deltas. When deltas remain, it names their count and directs the reader to work them. Formalized within AC-2040.
-- **A stored image is compared at its own size** (decided at reconciliation, 2026-11-08): REQ-218 says `compare` gains the kind and that a stored picture takes no viewport. The code crops the pair to the common top-left rectangle exactly as for two pages, so an image against a desktop reference is compared over the smaller of the two. Formalized in the REQ-218 compare AC.
+- **A stored image is compared at its own size** (decided at reconciliation, 2026-11-08): REQ-218 says `compare` gains the kind and that a stored picture takes no viewport. The code crops the pair to the common top-left rectangle exactly as for two pages, so an image against a desktop reference is compared over the smaller of the two. Formalized in AC-2490, whose UAT asserts the compared size is the common top-left rectangle (narrower than either side alone), that swapping sides changes the labels but not the numbers, and that a stored PNG against itself gives zero difference.
 
 ## Dependencies
 - Plan item 4: story-58b2cec4 (fidelity surface: the assistant can see — picture vocabulary, surface composition and the stored-image kind).
