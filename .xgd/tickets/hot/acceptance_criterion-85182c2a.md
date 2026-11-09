@@ -6,10 +6,10 @@ title: A recipe impossible for this picture's real pixels (enlarging resize, sub
   crop) is refused before any write
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T18:25:53.780141+00:00'
-updated_at: '2026-11-09T18:25:53.780141+00:00'
+updated_at: '2026-11-09T18:39:16.408388+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ed976856
   kind: behavior
