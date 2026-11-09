@@ -6,10 +6,10 @@ title: Assistant reads the client's Library as one catalogue and places an item 
   the site
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T23:17:49.567233+00:00'
-updated_at: '2026-11-09T23:17:49.567233+00:00'
+updated_at: '2026-11-09T23:29:50.644871+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-374f88d6
   capability_uid: capability-e9324eb7
