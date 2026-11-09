@@ -6,10 +6,10 @@ title: A revealed document is announced like a loaded one, and the edit loop, Ma
   Points and the carry bind to the panel's announcement
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T03:11:37.438614+00:00'
-updated_at: '2026-11-09T03:11:37.438614+00:00'
+updated_at: '2026-11-09T03:53:13.715071+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
