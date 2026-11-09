@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-1500b111'
 created_by: xgd
 created_at: '2026-11-09T19:09:41.069624+00:00'
-updated_at: '2026-11-09T19:37:48.810057+00:00'
+updated_at: '2026-11-09T19:47:43.891385+00:00'
 completed_at: null
-last_field_updated: conformance_verdict
+last_field_updated: files_touched
 fields:
   report_kind: mode_override
   subject_uid: story-1500b111
@@ -56,10 +56,8 @@ fields:
   - tests/reconciliation-library-role-correction.test.ts
   - tests/reconciliation-library-tab.test.ts
   unnamed_files_touched: []
-  trust_boundary_touched: true
-  trust_boundary_matches:
-  - 'apps/control-app/src/builder/library.js: -      // exit — the button, Escape,
-    the backdrop — through one `close`, and this'
+  trust_boundary_touched: false
+  trust_boundary_matches: []
   trust_boundary_notes:
   - 'tests/reconciliation-library-image-modal.test.ts: +  // A TITLE IS UNTRUSTED
     TEXT: the describer wrote it from bytes that may be'
@@ -67,7 +65,7 @@ fields:
     closed by Escape (the reported exit), and opened again:'
   - 'tests/reconciliation-library-image-modal.test.ts: +      document.dispatchEvent(new
     KeyboardEvent(''keydown'', { key: ''Escape'' }))'
-  trust_boundary_mismatch: true
+  trust_boundary_mismatch: false
   conformance_verdict: fail
   conformance_findings:
   - item: 5
@@ -172,24 +170,21 @@ index 9716ed716d..a33cf5c253 100644
  
    // THE BOX IS WHAT WIDENS THE PANEL. `builder.css` keys the wide panel on the
 diff --git a/apps/control-app/src/builder/library.js b/apps/control-app/src/builder/library.js
-index f3ffa9c0aa..520d356e00 100644
+index f3ffa9c0aa..a901ff35e2 100644
 --- a/apps/control-app/src/builder/library.js
 +++ b/apps/control-app/src/builder/library.js
-@@ -626,16 +626,13 @@ export function createLibraryPanel(options = {}) {
+@@ -626,16 +626,14 @@ export function createLibraryPanel(options = {}) {
          // rename in the dialog has to reach the pane's own box and the row in
          // the list, or the client closes the modal onto the old name.
          onSaved: (saved) => adoptSaved(saved),
-+        // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
-+        // way out through one `close` whose `onClose` the editor forwards here,
-+        // so the pane learns the editor is gone and the picture can be reopened.
 +        onClose: () => {
 +          editor = null
 +        },
        })
--      // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
--      // exit — the button, Escape, the backdrop — through one `close`, and this
--      // is how the pane learns the editor is gone rather than holding a handle
--      // to a dialog that has left the document.
+       // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
+       // exit — the button, Escape, the backdrop — through one `close`, and this
+       // is how the pane learns the editor is gone rather than holding a handle
+       // to a dialog that has left the document.
 -      const closed = editor.close
 -      editor.close = () => {
 -        editor = null
@@ -198,7 +193,7 @@ index f3ffa9c0aa..520d356e00 100644
      }
  
      // DESTROYED WITH THE DETAIL, because it owns an in-flight fetch and possibly
-@@ -764,6 +761,20 @@ export function createLibraryPanel(options = {}) {
+@@ -764,6 +762,20 @@ export function createLibraryPanel(options = {}) {
       * component expresses edit mode by replacing its read cell with a control
       * cell, which is where the fact actually lives.
       */
@@ -219,7 +214,7 @@ index f3ffa9c0aa..520d356e00 100644
      async function reload() {
        // AND THE NAME BOX COUNTS ([[REQ-220]]). `setValues` rebuilds a read cell,
        // so a background re-describe landing while somebody is half-way through
-@@ -852,7 +863,7 @@ export function createLibraryPanel(options = {}) {
+@@ -852,7 +864,7 @@ export function createLibraryPanel(options = {}) {
        // it. Before this line the pane is still fetching its first copy, and a
        // body event arriving in that window needs no help: the fetch already in
        // flight will bring the new text.
@@ -228,7 +223,7 @@ index f3ffa9c0aa..520d356e00 100644
      })()
  
      return {
-@@ -1102,6 +1113,12 @@ export function createLibraryPanel(options = {}) {
+@@ -1102,6 +1114,12 @@ export function createLibraryPanel(options = {}) {
      }
      if (!change.row) return
  
@@ -241,7 +236,7 @@ index f3ffa9c0aa..520d356e00 100644
      if (at === -1) {
        // NEWEST FIRST, which is `listMaterial`'s own order — so a material that
        // arrives by event lands where the same material would have landed had the
-@@ -1117,6 +1134,8 @@ export function createLibraryPanel(options = {}) {
+@@ -1117,6 +1135,8 @@ export function createLibraryPanel(options = {}) {
      }
      apply()
  
