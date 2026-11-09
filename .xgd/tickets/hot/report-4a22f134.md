@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T10:12:07.125678+00:00'
-updated_at: '2026-11-09T10:12:07.125678+00:00'
+updated_at: '2026-11-09T10:19:15.966183+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -39,6 +39,7 @@ fields:
         tooling defect BUG-1696 plus a sandbox-refused browser install, excluded from
         batches per BUG-1067.'
   fix_iteration: 22
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 22
