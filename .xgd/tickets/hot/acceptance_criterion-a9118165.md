@@ -6,10 +6,10 @@ title: A preview submission skips Turnstile and the rate limiter; a public submi
   cannot obtain that bypass by anything in the request
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T19:56:42.190689+00:00'
-updated_at: '2026-11-09T19:56:42.190689+00:00'
+updated_at: '2026-11-09T20:04:36.741885+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f2e5032c
   kind: behavior
