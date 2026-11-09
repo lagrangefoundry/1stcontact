@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T16:30:13.193992+00:00'
-updated_at: '2026-11-09T16:30:13.193992+00:00'
+updated_at: '2026-11-09T16:38:42.691046+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -43,6 +43,7 @@ fields:
         pnpm --filter ./tools/generate exec playwright install webkit firefox, or
         a sandbox allowance if the error shows a denial).'
   fix_iteration: 53
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 53 (attempt 2)
