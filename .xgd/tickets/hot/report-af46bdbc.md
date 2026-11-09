@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-11-09T07:43:18.224320+00:00'
-updated_at: '2026-11-09T07:43:18.224320+00:00'
+updated_at: '2026-11-09T07:57:37.927352+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: story-d0a8cfad
@@ -50,6 +50,9 @@ fields:
   batch_index: 0
   parent_report_uid: report-e67249b4
   anchor_ticket: bundle-0881342c
+  ruling: denied
+  ruling_reason: 'no valid ruling after a re-plan: the `code_frozen` request cannot
+    be declined: blocked_by_ruling.files must list every file the batch edits'
 ---
 
 # Builder blocked by `code_frozen`
@@ -88,3 +91,7 @@ edits: none
 ```
 
 **Proposed change**: (none stated: the builder made no edits and gave no verdict; see evidence)
+
+## Ruling: denied
+
+no valid ruling after a re-plan: the `code_frozen` request cannot be declined: blocked_by_ruling.files must list every file the batch edits
