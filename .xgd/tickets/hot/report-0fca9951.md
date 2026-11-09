@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for report-0758e7c5'
 created_by: xgd
 created_at: '2026-11-09T01:40:31.173931+00:00'
-updated_at: '2026-11-09T01:57:10.191800+00:00'
+updated_at: '2026-11-09T01:58:49.127106+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: report-0758e7c5
@@ -46,6 +46,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
