@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-09T00:26:44.838292+00:00'
+updated_at: '2026-11-09T03:14:26.939167+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -129,11 +129,43 @@ the surface where an operator *sees* the site instead.
   another. Registering a mode is adding an entry — there is no branch anywhere
   that a new mode must be threaded through — and switching modes changes what is
   displayed without rebuilding the pane around it.
+- **A View/Edit flip happens in place: one frame per document mode, kept alive
+  (BUG-79).** Every mode that shows a document owns its own frame. The frame is
+  created when the mode is registered and kept for the panel's lifetime, so a
+  switch only changes which frame is visible. Neither channel navigates. The
+  document being left is not destroyed, and the one revealed is not re-fetched.
+  So the pane does not blank, the render does not restart, and the operator's
+  place is still there when they come back. A hidden frame is hidden by
+  visibility and never taken out of layout, because an iframe out of layout
+  loses its scroll offset. It stays laid out, unpainted and untouchable. Only the
+  frame on screen carries the "shown frame" address the rest of the builder
+  already uses.
+
+  A frame navigates only when what it holds is really out of date:
+  - it has never been pointed anywhere;
+  - the site changed, or the pane was explicitly refreshed (a business switch).
+    Every frame is then out of date: the shown one re-renders at once and each
+    idle one when it is next shown;
+  - a write landed (a palette change, an assistant change, a segment save). The
+    document on screen reloads where it is, so a link the operator followed is
+    kept. Every other frame is marked out of date, so the next flip to it
+    fetches instead of showing the pre-write page. No hidden frame is
+    re-rendered at write time.
+
+  Once the visible frame has loaded, **the idle channel is primed** behind it,
+  so the first flip is in place too, not just every flip after it. Priming only
+  fetches a frame that points at a different address. A frame that is merely
+  stale (the same page with newer content) is left until it is shown, because
+  re-rendering a page nobody is looking at is a cost nobody asked for. Revealing
+  a frame that already holds a current document fires no load, so the panel
+  announces the revealed document itself. The edit loop, Marked Points and the
+  carried state below bind to the panel's announcement, never to one frame's.
 - **View and Edit are one page with a toggle (REQ-215).** The two channels are
   two renders of the same page, and switching between them shows the same page
   in the same state. The page within the site, the scroll offset, and which L1
-  panels are open are taken from the document just before the pane replaces it,
-  and put back into the document that arrives. Switching back returns to the
+  panels are open are read from the document being left and applied to the
+  document being revealed. That document is already laid out, so the offset
+  lands exactly. Switching back returns to the
   page as it was. The carried state belongs to the builder, not to the
   document, so it is re-applied on every load of the same page. That is what
   lets an operator edit the copy inside an open panel without the post-save
@@ -607,16 +639,35 @@ the surface where an operator *sees* the site instead.
   No behaviour differs from what the criteria assert, and reconciliation changes
   no runtime code — recorded so the stale comment is on the record rather than
   read as a second opinion about how long a store handle lives.
-- **The carry is the builder's, between two documents (REQ-215).** Swapping the
-  frame's address destroys the document, so the state is held in the chrome.
-  It is read just before every re-derivation of the pane, including ones that
-  change nothing, rather than predicting which ones navigate. It is put back on
-  every load. The site is part of the carried value, so a stale carry cannot
+- **The carry is the builder's, between two documents (REQ-215, BUG-79).** The
+  two channels are two documents in two frames, so the state is held in the
+  chrome. It is read from the outgoing document just before every re-derivation
+  of the pane, including ones that change nothing, rather than predicting which
+  ones navigate. It is put back every time the panel announces a document: on a
+  load of the shown frame, and on the reveal of a frame that is already current.
+  The site is part of the carried value, so a stale carry cannot
   reach another site. What "open" means is the framework's page-state module,
   served to the browser as a framework bridge, not a second copy here. The
   carried value is a list because a page may have several panels open; the
   selector offers one at a time. The URL the pane shows is still built in one
   place: the channel root plus the path within the channel.
+- **The frame-per-mode panel (BUG-79).** The panel keeps one record per document
+  mode: its frame, the address that frame was last pointed at, and whether its
+  content is out of date. Every frame carries the pane geometry class
+  (`.builder-panel__pane`). The shown one also carries `.builder-panel__frame`,
+  which is the address the browser suites, the viewport-fill measurement and the
+  edit-loop drivers already used for "the frame on screen", so they keep meaning
+  what they meant. Hiding is a visibility and pointer-events rule on the pane
+  class, never `display`. `panel.frame` stays a property, now a getter for the
+  frame on screen, so its readers did not change. A write goes through
+  `panel.reloadDocument()`, which replaced the three
+  `frame.contentWindow.location.reload()` call sites (palette, assistant,
+  segment save). It is still the document's own `location.reload()`, so it
+  reloads where the frame is rather than where it was sent. Re-pointing at the
+  last address is only the fallback for a frame with no reachable window. Mode
+  switching invalidates nothing: that omission is the fix. Addresses are compared
+  after resolving them against the document base, so a frame is not called out
+  of date over a difference in how the same address was written.
 - **Divergence noted, in commentary only.** The comment on the workspace's
   page-state option says that without the module "the carry keeps the page and
   the scroll offset". The code keeps the page but not the scroll offset, because
@@ -900,6 +951,49 @@ REQ-180 §1/§3).*
     carried across the switch is not percent-encoded a second time.
   *Rationale:* each follows from REQ-215 §6-§7 and none contradicts it. No
   contradiction between the code and REQ-215 was found.
+
+*Recorded 2026-11-08, reconciling BUG-79 (bug-00de1faf), plan item 1.*
+
+- **BUG-79: the View/Edit flip happens in place, one frame per document mode.**
+  Two criteria are rewritten and six are added. Settled at level 1 of the
+  resolution ladder: the BUG-79 body, its transcript and `panel.js`/`app.js`
+  agree on every point below. The operator's words were "It needs to flip
+  in-place".
+  - *AC-968 is restated, not retired.* It pinned "the display surface" as one
+    element whose source changes. Under the frame-per-mode model there is one
+    frame per channel. The guarantee still holds: nothing is rebuilt, and the
+    displayed address changes with each switch. So it is restated per channel,
+    and a mount mode hides the frames by class, not by `hidden`, as the BUG-79
+    test plan says.
+  - *AC-2496 keeps its outcome and drops its mechanism.* "Just before the pane
+    replaces its document" described the navigation BUG-79 removes. The same
+    page and the same offset are still the criterion. The offset now holds
+    because neither document is navigated, and the carry lands on a document
+    that is already laid out.
+  - *Added:* AC-2517 (a switch navigates neither channel), AC-2518 (the channel
+    left behind stays laid out, hidden by visibility), AC-2519 (the idle channel
+    is primed; a merely stale frame is not), AC-2520 (a revealed document is
+    announced, and the edit loop, Marked Points and the carry bind to the
+    panel), AC-2521 (a write reloads the shown page in place and stales the
+    others) and AC-2522 (a site change or explicit refresh invalidates every
+    channel). Each matches one of the six UATs the BUG-79 test plan names.
+  - *Nothing is superseded.* BUG-79 replaces a mechanism (one frame, re-pointed),
+    not a behaviour any criterion pinned as such. AC-968 and AC-2496 are
+    therefore modified rather than marked superseded, and AC-2497 and AC-2498
+    are unchanged.
+  - *Formalised where the intent is silent (decided 2026-11-08):* (a) if the
+    operator followed a link to another page in the channel they are leaving,
+    the channel they flip to navigates to that page. Its address now differs, so
+    the same-page promise of REQ-215 wins over not navigating. (b) Only a load
+    in the shown frame is announced. A primed or idle frame loading behind the
+    page announces nothing, so nothing downstream binds to a document the
+    operator cannot see. (c) Addresses are compared after resolving them, so the
+    same address written two ways does not trigger a fetch. (d) A write with no
+    reachable window in the shown frame re-points it at its last address.
+  *Rationale:* (a) keeps "the same page in the same state" true across a flip;
+  (b) to (d) follow from the BUG-79 body's own reasoning (bind to what is on
+  screen; navigate only when really out of date). No contradiction between the
+  code and BUG-79 was found.
 
 ## Dependencies
 
