@@ -7,10 +7,10 @@ title: With no model key configured, the status endpoint says so, the builder sh
   nothing
 created_by: xgd
 created_at: '2026-11-01T03:16:55.869646+00:00'
-updated_at: '2026-11-01T03:16:55.869646+00:00'
+updated_at: '2026-11-09T18:22:55.855973+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-6ccaedd5
   kind: behavior
