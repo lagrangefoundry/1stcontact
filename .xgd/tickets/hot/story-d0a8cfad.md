@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-11-09T06:32:58.029318+00:00'
+updated_at: '2026-11-09T06:32:58.327598+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -742,3 +742,96 @@ behavioural duplicate of AC-684 and was reassigned here; the AC-level dedup pass
 provenance note folded into AC-684, and its duplicate test file
 (tests/reconciliation-responsive-keyframes.test.ts) retired. That behaviour remains
 covered by tests/reconciliation-l1-substrate.test.ts.
+
+
+
+## Delivery ladder: responsive pictures from what the publish rendered (REQ-222)
+
+**As a** site owner, **I want** each picture on my published site offered at the
+widths the publish actually rendered, with the right one chosen for each
+visitor's screen, **so that** a phone visitor downloads a phone-sized photograph
+and the page does not jump while it loads.
+
+The renderer takes an optional **delivery manifest** as a render input. Only a
+publish supplies it. It is keyed by the asset's store name (`hero.jpg`). Each
+entry records the source's measured `width` and `height` and its renditions in
+ascending order, with the original as the last entry. The draft and edit
+channels never receive a manifest, so their output is byte-identical to the
+output before the ladder existed. **The site document is unchanged**:
+`assetRefSchema` stays `{id, src, alt, focalPoint?}` and the L1 image node's
+`src` is untouched. Which renditions exist is a property of the publish, not of
+the document.
+
+**Which pictures it applies to.** A `src` (or `backgroundImageUrl`) refers to a
+manifest entry when it names a flat site asset in any of three spellings:
+`/assets/x`, `assets/x` or `./assets/x`. Anything else is emitted exactly as
+before: an absolute or protocol-relative URL, a data URI, a subdirectory path, or
+a reference carrying a query or fragment. The lookup is an own-property lookup,
+so a name such as `__proto__` cannot resolve to a non-entry.
+
+**The `<img>` sink.**
+- `src` stays the authored (full) picture. With a manifest entry, `srcset` lists
+  every rendition as `<url> <width>w`, ascending.
+- Each candidate passes the URL-scheme allowlist and a separate character
+  allowlist that excludes commas and whitespace (the list's own syntax). A
+  candidate that fails either check, or has a non-positive width, is dropped.
+- If fewer than two candidates survive, no `srcset` is emitted.
+- `sizes` is emitted only beside a `srcset`, and comes from the width L1 already
+  pins for the node, in the same precedence as the geometry CSS:
+  1. **Column anchor:** one `(max-width: Wpx) Npx` condition per document ladder
+     width, then the saturated width.
+  2. **Keyframe track:** one condition per segment at that segment's upper bound
+     (`snap` holds the lower frame; `interpolate` takes the larger end), then the
+     last frame's width.
+  3. **Fixed px width:** that length.
+  4. **Capped fluid width:** `(max-width: Mpx) 100vw, Mpx`.
+- An uncapped fluid or hug width gets no `sizes`. The browser then over-fetches,
+  which is the safe direction.
+- With a manifest entry, the `<img>` also carries `width` and `height` from the
+  source's measured intrinsic dimensions, so the browser reserves the box before
+  the bytes arrive. Without an entry, or with non-positive dimensions, the
+  attributes are absent.
+
+**The background sink.** A `backgroundImageUrl` takes the same ladder through
+per-breakpoint `background-image` rules, not `image-set()`.
+- At each document ladder width, the renderer takes the node's box width: column
+  anchor, then keyframes at the segment upper bound, then fixed px, then capped
+  fluid. A box whose width the renderer does not own is taken as the viewport
+  width.
+- The chosen rendition is the smallest that covers the box at a device pixel
+  ratio of 2, or the original when none does.
+- The base rule takes the choice at the smallest ladder width. A
+  `(min-width: Wpx)` override is emitted only at a width where the choice
+  changes, and it restates only `background-image`.
+- The override is built by the same layer-stack function as the base rule
+  (scrim, then texture, then gradient, then image), with only the image layer's
+  URL swapped. A scrim or gradient is never dropped at a breakpoint.
+- A rendition URL that the `url()` sink would reject falls back to the authored
+  URL. A rejected candidate never removes the layer.
+- With no manifest entry, a single-entry manifest, or no document ladder, the
+  surface emits exactly as before.
+
+### Reconciliation Decisions (REQ-222, 2026-11-08)
+
+Settled at level 1: the REQ-222 body ("How it works", "The second sink", "The
+two adjacent wins") and the code agree. These are decisions made now where the
+intent is silent:
+
+- **`width`/`height` follow the manifest entry, not the `srcset`.** A picture with
+  a manifest entry is stamped even when fewer than two `srcset` candidates
+  survive. The publish measured it either way, and the body ties the attributes
+  to "no manifest, no dimensions".
+- **A capped fluid width yields `sizes`** (`(max-width: M) 100vw, M`), though the
+  body lists only anchor, keyframes and fixed px. It overstates and never
+  understates, which is the error direction the body accepts.
+- **Unsafe candidates are dropped individually.** The `srcset` is then emitted
+  only if at least two survive. This matches the body's two-candidate rule for
+  `srcset`.
+
+**Code-issue, flagged and not formalised here:** the REQ-222 body ("Answered by
+the operator, 2026-09-11"; "Built, 2026-09-12") says the `<img>` sink emits
+`<picture style="display:contents">` with a WebP `<source>` ahead of the `<img>`.
+The renderer in this bundle emits no `<picture>` or `<source>` at all. This plan
+item's AC set does not cover typed sources, so no AC is added for them. They
+remain outstanding intent for follow-up, and nothing here should be read as
+retracting them.
