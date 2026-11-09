@@ -5,9 +5,9 @@ type: bundle
 title: BUG-73 + BUG-75 + REQ-216 + REQ-215 + REQ-223 + 1 more
 created_by: xgd
 created_at: '2026-11-08T20:38:01.654591+00:00'
-updated_at: '2026-11-09T02:50:05.062963+00:00'
+updated_at: '2026-11-09T02:51:18.833224+00:00'
 completed_at: '2026-11-09T02:43:30.288706+00:00'
-last_field_updated: status
+last_field_updated: session_assessor
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
@@ -22,8 +22,8 @@ fields:
   session_planner_started_at: '2026-11-09T01:35:09.911618+00:00'
   session_builder: 71a2507f-cea4-4194-a042-98724241a0f4
   session_builder_started_at: '2026-11-09T02:20:16.118585+00:00'
-  session_assessor: 63105d84-6691-4d9c-b985-a80de47dac91
-  session_assessor_started_at: '2026-11-09T01:58:31.459302+00:00'
+  session_assessor: 6cba058b-6757-4cec-8e15-2cf9fbef6cbc
+  session_assessor_started_at: '2026-11-09T02:51:18.479106+00:00'
   merged_at_commit: 9b4bf16e21ad91c89cb757230a07f3ef21fc7567
 ---
 
