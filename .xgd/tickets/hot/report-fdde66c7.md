@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-42: BUG-73, BUG-75, REQ-216, REQ
   REQ-223, REQ-218)'
 created_by: xgd
 created_at: '2026-11-08T21:02:09.509063+00:00'
-updated_at: '2026-11-09T00:12:37.886269+00:00'
+updated_at: '2026-11-09T00:31:12.454599+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -285,7 +285,7 @@ fields:
       contact events (AC-2258/2263/2264) and route grammar (AC-2244/2333) unchanged.
       Checkbox/Turnstile are folded in as the consent/anti-spam half of the same capability
       per REQ-223 §7.'
-    story_uid: null
+    story_uid: story-f2e5032c
   - index: 8
     component: Outgoing message record & public serving — consequences of lead capture
       (REQ-223)
