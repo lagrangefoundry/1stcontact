@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T15:14:55.681184+00:00'
-updated_at: '2026-11-10T15:16:13.586377+00:00'
+updated_at: '2026-11-10T15:16:13.937635+00:00'
 completed_at: null
-last_field_updated: ruling
+last_field_updated: body
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-4ada51a8
@@ -148,3 +148,8 @@ evidence: "npx vitest run tests/reconciliation-marked-points.test.ts -t 'AC2413|
 ## Intent resolution (resolution ladder)
 
 Unsettled: nobody decided this point. Cite `"unsettled"` as the level in an `intent_basis`.
+
+
+## Ruling: declined
+
+Rung 2: the code at HEAD (4f5f1975dd) already meets AC-2413 and AC-2594 and both pass (14/14 in tests/reconciliation-marked-points.test.ts); hand-off report-efe5bb07 proposes no change (no edits, status fixed, blocked_by null), so code_frozen stands and the batch is verification only. This is a further duplicate of report-d0425a7a, produced by xgd BUG-1706 (the builder's no-op result is filed as a hand-off although none was raised). No planner action can end the loop: it ends when BUG-1706 is fixed in xgd or BUNDLE-44 is moved to merge-back by hand.
