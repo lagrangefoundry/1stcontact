@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-44: BUG-80, REQ-217, BUG-83, BUG
   REQ-228, BUG-84, REQ-229)'
 created_by: xgd
 created_at: '2026-11-09T21:52:17.681797+00:00'
-updated_at: '2026-11-10T00:05:20.401619+00:00'
+updated_at: '2026-11-10T00:15:17.688902+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -320,7 +320,7 @@ fields:
         message (both wire shapes: string content and content blocks) rather than
         in the system field.'
       remove: []
-    story_uid: null
+    story_uid: story-3cf3d57b
 ---
 
 # Reconciliation Plan
