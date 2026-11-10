@@ -6,10 +6,10 @@ title: A recorded asset name no longer on the site is reported as not replaced a
   never re-added; the edit still lands and other placements still update
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-10T00:04:53.811412+00:00'
-updated_at: '2026-11-10T00:04:53.811412+00:00'
+updated_at: '2026-11-10T00:13:23.837086+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ed976856
   kind: behavior
