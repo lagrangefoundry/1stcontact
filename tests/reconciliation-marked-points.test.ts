@@ -328,8 +328,26 @@ describe('story-44d0a572 — Marked Points on the edit render', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
     toggle.click()
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
-    // Leaving Edit mode, then returning: the rebuilt toggle reports the mode off.
+    // jsdom loads no subresources, so a frame given a `src` holds a document with
+    // no root element at all. A browser's frame always has `<html>`, `<head>` and
+    // `<body>` (about:blank included), and the overlay installs into exactly that
+    // — so each frame is given the skeleton a browser would already hold.
+    for (const frame of root.querySelectorAll('iframe')) {
+      const fd = frame.contentDocument
+      if (fd && !fd.documentElement) {
+        fd.open()
+        fd.write('<!doctype html><html><head></head><body></body></html>')
+        fd.close()
+      }
+    }
+    // Leaving Edit mode: the mode is off, and the channel shown carries no trace
+    // of it — no mode marker, no overlay — so View behaves as published.
     app.panel.setMode('view')
+    const viewDoc = (app.panel as never as { frame: HTMLIFrameElement | null }).frame
+      ?.contentDocument
+    expect(viewDoc?.body?.hasAttribute('data-fc-points') ?? false).toBe(false)
+    expect(viewDoc?.querySelector('.fc-points') ?? null).toBeNull()
+    // Returning to Edit: the rebuilt toggle reports the mode off.
     app.panel.setMode('edit')
     expect((app.toolbar.get('mark-points') as HTMLElement).getAttribute('aria-pressed')).toBe(
       'false',
