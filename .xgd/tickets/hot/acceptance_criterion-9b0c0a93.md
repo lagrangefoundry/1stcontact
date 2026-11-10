@@ -6,9 +6,9 @@ title: A written drawing's result carries the line that shows it in the conversa
   addressed under the business's own path
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T22:39:49.753781+00:00'
-updated_at: '2026-11-10T00:54:47.730465+00:00'
+updated_at: '2026-11-10T00:54:48.045738+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-b3de4571
@@ -29,3 +29,10 @@ A drawing has no Library entry, so clicking it opens nothing. That is the intend
 
 ## Verification
 Through the Worker's route table, over real D1 and R2, with the model scripted: draw a mark in a session for a known business. Assert that `display` is exactly one markdown image line whose URL is `/b/<businessId>/preview/<slug>/draft/assets/<file>`. Split its business prefix the way the production router does, fetch it, and assert that the drawing's bytes come back. Redraw the same name with `replace: true` and assert that the line is identical. Pass the line through the chat's sanitiser and assert that an `<img>` with that `src` survives.
+
+
+
+## UATs
+- `tests/reconciliation-assistant-picture-in-the-turn.workers.test.ts` — `test_UAT_AC2569_a_drawing_the_turn_made_is_fetchable_from_the_turn`: a scripted turn through the Worker's route table over real D1/R2; the line's URL is exactly `/b/<businessId>/preview/<slug>/draft/assets/wordmark.svg`, its prefix is split by the production `splitBusinessPrefix`, the drawing's bytes come back, and a `replace: true` redraw hands back the identical line, which then serves the new drawing.
+- `tests/reconciliation-assistant-picture-in-the-turn.test.ts` — `test_UAT_AC2569_write_image_hands_back_a_business_scoped_line_that_a_redraw_keeps`: the line names the written file, not the typed name; alt text drops the extension and square brackets; the business prefix round-trips; a redraw keeps the line.
+- That the line renders as an `<img>`: the line is ordinary `![alt](url)` markdown, the chat's sanitiser is stock DOMPurify (loaded from a CDN, not runnable under the suite), which keeps `<img src>` for a relative URL. The UATs assert the markdown shape and not DOMPurify's behaviour.
