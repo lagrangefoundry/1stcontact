@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T16:38:47.062068+00:00'
-updated_at: '2026-11-10T16:38:47.062068+00:00'
+updated_at: '2026-11-10T17:02:56.742429+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-4ada51a8
@@ -128,6 +128,10 @@ fields:
       - comment-baba73ad#42
       - comment-baba73ad#43
       outcome: silent
+  ruling: unresolved
+  ruling_reason: 'no valid ruling after a re-plan: the `code_frozen` request cannot
+    be declined: intent_basis.quote does not appear verbatim in the hand-off''s intent
+    resolution'
 ---
 
 # Builder blocked by `code_frozen`
@@ -154,3 +158,7 @@ blocked_by: null
 ## Intent resolution (resolution ladder)
 
 Unsettled: nobody decided this point. Cite `"unsettled"` as the level in an `intent_basis`.
+
+## Ruling: unresolved
+
+no valid ruling after a re-plan: the `code_frozen` request cannot be declined: intent_basis.quote does not appear verbatim in the hand-off's intent resolution
