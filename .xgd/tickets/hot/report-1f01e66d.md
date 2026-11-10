@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T09:08:28.970567+00:00'
-updated_at: '2026-11-10T09:08:28.970567+00:00'
+updated_at: '2026-11-10T09:09:27.278150+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-4ada51a8
@@ -130,6 +130,13 @@ fields:
       - comment-baba73ad#42
       - comment-baba73ad#43
       outcome: silent
+  ruling: declined
+  ruling_reason: 'Rung 2: the code at HEAD 74e04afa3f already meets AC-2413 and AC-2594,
+    and both pass (2/2 by name, 14/14 for the whole file). This hand-off proposes
+    no change: the builder made no edits, reported status fixed and blocked_by null.
+    So code_frozen stands and the batch is only a check. This is the third time the
+    same batch has come back (after report-4c48a55e and report-909ef501), because
+    of xgd BUG-1706 and not anything in this repository.'
 ---
 
 # Builder blocked by `code_frozen`
