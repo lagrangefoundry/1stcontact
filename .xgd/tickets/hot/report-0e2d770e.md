@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T01:15:18.471677+00:00'
-updated_at: '2026-11-10T01:15:18.471677+00:00'
+updated_at: '2026-11-10T01:34:52.983772+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-4ada51a8
@@ -129,6 +129,9 @@ fields:
       - comment-baba73ad#42
       - comment-baba73ad#43
       outcome: silent
+  ruling: unresolved
+  ruling_reason: 'no valid ruling after a re-plan: the `code_frozen` request cannot
+    be declined: blocked_by_ruling.files must list every file the batch edits'
 ---
 
 # Builder blocked by `code_frozen`
@@ -156,3 +159,7 @@ notes: "Fix from the first attempt still in place and passing; full file 14/14. 
 ## Intent resolution (resolution ladder)
 
 Unsettled: nobody decided this point. Cite `"unsettled"` as the level in an `intent_basis`.
+
+## Ruling: unresolved
+
+no valid ruling after a re-plan: the `code_frozen` request cannot be declined: blocked_by_ruling.files must list every file the batch edits
