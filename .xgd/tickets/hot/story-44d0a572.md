@@ -5,9 +5,9 @@ type: story
 title: 'Marked Points: point at the edit preview and send the pointing as text'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:45:21.261082+00:00'
-updated_at: '2026-11-10T00:14:49.318585+00:00'
+updated_at: '2026-11-10T00:14:49.628739+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-0d00566a
@@ -60,3 +60,24 @@ Out of scope:
 
 ## Story Points
 3
+
+
+
+## Reconciliation Decisions (BUNDLE-44)
+
+- **The dimmed hover names the hot-segment marker and nothing else** (decided at
+  reconciliation, 2026-11-09, BUNDLE-44 / BUG-83 cause 5). BUG-83 found the
+  overlay's dimmed-hover rule restating the renderer's region-stamp attribute and
+  judged it drift: "the overlay restating the renderer's markup contract in its
+  own CSS is a real second reader of it: rename the attribute upstream and the
+  dimmed-hover rule silently stops matching". Its fix: "the selector drops it and
+  takes `!important` to keep winning over the renderer's own hot treatment, which
+  it previously won by specificity." The code matches: the injected rule selects
+  the renderer's hot-segment class under the mode's body flag, with `!important`
+  on the outline. Formalized as AC-2594 (hover is dimmed, a click still places a
+  point on the hovered segment, and the injected stylesheet carries no copy of the
+  region stamp). The reconciliation plan's note "(no !important)" is not adopted:
+  BUG-83 states the override is won with `!important`, and the code agrees. What
+  the overlay must not carry is a copy of the renderer's stamp, not the
+  `!important`. AC-1006's static guard (one address resolution, served from the
+  renderer's own source) was left as it was, as BUG-83 records.
