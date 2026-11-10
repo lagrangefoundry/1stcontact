@@ -5,9 +5,9 @@ type: bundle
 title: BUG-80 + REQ-217 + BUG-83 + BUG-76 + REQ-228 + 2 more
 created_by: xgd
 created_at: '2026-11-09T20:58:20.844971+00:00'
-updated_at: '2026-11-10T16:15:41.236591+00:00'
+updated_at: '2026-11-10T16:19:29.000002+00:00'
 completed_at: null
-last_field_updated: session_builder
+last_field_updated: session_planner
 status: reconciling
 fields:
   bundle_type: reconcile
@@ -67,8 +67,8 @@ fields:
   regression_anchor_uid: report-4ada51a8
   session_builder: d73608e5-5e5d-4ed8-a83f-aceb1ca0ad45
   session_builder_started_at: '2026-11-10T16:15:41.189702+00:00'
-  session_planner: c71b5975-fefd-4f64-8de5-858081c3907a
-  session_planner_started_at: '2026-11-10T16:09:47.328312+00:00'
+  session_planner: ae3b9ebf-ef80-4512-8b5e-d3569081430e
+  session_planner_started_at: '2026-11-10T16:19:28.931764+00:00'
 ---
 
 # Bundle
