@@ -7,10 +7,10 @@ title: Every host actually sends the model the system prompt, landscape, purpose
   user message
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T02:33:23.545180+00:00'
-updated_at: '2026-11-10T00:14:24.178710+00:00'
+updated_at: '2026-11-10T00:23:16.943581+00:00'
 completed_at: null
-last_field_updated: title
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
