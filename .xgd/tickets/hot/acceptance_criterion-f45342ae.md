@@ -6,10 +6,10 @@ title: Promoting an already-placed picture again overwrites at its recorded name
   mints no suffixed duplicate
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-10T00:04:51.254812+00:00'
-updated_at: '2026-11-10T00:04:51.254812+00:00'
+updated_at: '2026-11-10T00:13:24.137055+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ed976856
   kind: behavior
