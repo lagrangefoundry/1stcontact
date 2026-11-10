@@ -6,9 +6,9 @@ title: 'Site-Asset Promotion: Only Material The Client May Publish Reaches Their
   Site'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:02:09.778452+00:00'
-updated_at: '2026-11-09T23:59:51.621267+00:00'
+updated_at: '2026-11-10T00:04:04.236063+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -66,44 +66,50 @@ publish.
 Promotion is a **copy across the storage boundary**, not a reference to the private bytes. The
 site's asset library and the client's private material live in separate stores precisely
 because one of them is reachable by the public internet and the other is not; a promoted asset
-is a second copy that lives on the public side, while the original stays private. That copy is
-the act: taking something private and making it publishable is a real decision, and the byte
-copy is that decision made honest.
+is a second copy that lives on the public side, while the material stays private. What is
+copied is **the picture as it currently stands**: the material's original with its edit recipe
+applied (STORY-178, REQ-229). For a material nobody has edited, which is nearly all of them,
+that is the original bytes unchanged. That copy is the act: taking something private and making
+it publishable is a real decision, and the byte copy is that decision made honest.
 
 Promotion lands an asset **by the same add path every other asset takes** — an operator import,
 an assistant edit — under one set of rules about names, and leaves the same note in the site's
 draft change journal that every other asset write leaves. The assistant is therefore told, on
 its next turn, that a picture arrived, rather than having to notice it.
 
-Two properties protect what is already live. Promotion **never overwrites** an asset already on
+Two properties protect what is already live. Promotion **never overwrites another picture** on
 the site — a picture the visitor sees today cannot be silently replaced by a client dropping a
 second file of the same name — so a free name is chosen and the name actually used is reported
-back. And a promotion that cannot complete **does not lose the file**: by the time placement
-runs the material is already stored, described and findable, so a failure to place is reported
-as a named placement failure on an otherwise successful hand-over rather than as "your upload
-failed", which would be both untrue and unrecoverable.
+back. The one name a promotion writes over is the name this same material is already recorded
+under on that site: that asset *is* this material's picture, and replacing it in place is
+STORY-178's re-placement, not a collision. And a promotion that cannot complete **does not lose
+the file**: by the time placement runs the material is already stored, described and findable,
+so a failure to place is reported as a named placement failure on an otherwise successful
+hand-over rather than as "your upload failed", which would be both untrue and unrecoverable.
 
 **Placement is a recorded fact, written only when it is true.** A material carries the list of
-the client's sites it has been placed on. A site is added to that list only once a promotion
-onto it has actually landed — never because a site happened to be open when the file was handed
-over, never for a file handed over as background, and never for a promotion that failed. Placing
-the same material on the same site again records it once; placing it on two of the client's
-sites records both, because one file may legitimately back several of a client's sites. The
-site that was open at hand-over is an instruction to promotion, not a label stored on the
-material.
+the client's sites it has been placed on, and, for each, the asset name it was written under.
+A site is added only once a promotion onto it has actually landed — never because a site
+happened to be open when the file was handed over, never for a file handed over as background,
+and never for a promotion that failed. Placing the same material on the same site again records
+it once; placing it on two of the client's sites records both, because one file may legitimately
+back several of a client's sites, under a different name on each if one was taken. The site
+that was open at hand-over is an instruction to promotion, not a label stored on the material.
 
 **In scope**: the rights gate, the byte copy into the site's asset library through the ordinary
 asset-add path and its journal note, free-name selection and the reported name, the immediate
-placement of a file handed over for a selected site, the placement record that promotion writes,
-what the client is told when placement fails, and the capture-mirrored-bytes gate on the
-seed/push door (`1c push` and `POST /api/import`).
+placement of a file handed over for a selected site, the placement record that promotion writes
+(sites and the name on each), what the client is told when placement fails, and the
+capture-mirrored-bytes gate on the seed/push door (`1c push` and `POST /api/import`).
 
 **Out of scope**, each covered by its own story: the ingestion pipeline that creates the
 material and its bytes (STORY-140); how the file is described (STORY-141); the declared field
 vocabulary the rights record is written in, including the role the client supplies (STORY-128);
 the browser overlay whose two areas are where a client states what a file is for (STORY-145);
-what a site's asset library contains and how it is listed (STORY-102); and how the Library
-displays placement (STORY-144). Also out of scope, per BUG-84: whether the seed/push door,
+what a site's asset library contains and how it is listed (STORY-102); how the Library
+displays placement (STORY-144); and the edit recipe, which bytes it renders to, and how a
+recipe change or a second promotion replaces an already-placed picture at its recorded name
+(STORY-178, REQ-229). Also out of scope, per BUG-84: whether the seed/push door,
 `write_image` or `add_asset` mint catalogue items, and whether capture-bundle members become
 catalogue items (REQ-228 Halves B and D); BUG-51's builder-change conflict on the import route,
 which this story only keeps distinct; and cleanup of the already-landed dev-fixture row, which
@@ -122,12 +128,18 @@ is an operator task.
   of rules about names, and makes the same draft-journal entry (BUG-45). The asset carries only
   its bytes: the site keeps no registry and no alt text for an asset (BUG-44, STORY-102); the
   material's description stays on the material, where the assistant reads it to write alt text
-  onto the image element that places the picture.
+  onto the image element that places the picture. A re-placement of an already-recorded name
+  goes through the add path's sibling, `editAssetReplace`, which writes at an existing name and
+  journals `asset.replace` (STORY-178).
 - Placement is the material's `placed_on` field — a list of site slugs, declared as part of the
   material/reference vocabulary and not required. It replaced the retired `site_slug`, which
   recorded the site open at upload and was misread as placement (BUG-47). Hand-overs, whether
   dropped or fetched on the client's behalf, write no site field at all; a fetch forwards no
   site, since fetched material is never republishable and can never be promoted.
+- Beside it, `placed_as` records `{ slug, name }` per site (REQ-229). Both are written in one
+  patch by the promotion that lands. `placed_on` is unioned and never derived from `placed_as`,
+  so a material placed before REQ-229 keeps its placement and reads as "placed, no recorded
+  name"; its next promotion to that site takes a free name and records it.
 - The rights record promotion reads is written at ingestion from provenance and never from a
   question put to the client (STORY-140, STORY-128). The rights question is answered once,
   where it can be answered, and the dangerous action is forbidden outright instead.
@@ -166,6 +178,21 @@ is an operator task.
   the earlier one, so the criteria assert a copy. Stated as an observable property (the asset
   reads back from the site, the material remains private) rather than as a storage mechanism,
   so a reimplementation that honours the boundary another way still satisfies it.
+
+- **The copy is of the current render, not of the original** (decided at reconciliation,
+  2026-11-09, BUNDLE-44): REQ-229 and its EPIC-1 answer of 2026-09-11 (§1) state that promotion
+  writes the material's current render ("the recipe is applied at promotion, not at publish").
+  This story's wording said a promoted asset was a copy of the private bytes. It now says a copy
+  of the picture as it currently stands. AC-1709 still holds as written: a freshly handed-over
+  file has no recipe, so its render is the handed-over bytes. The edited-picture case is
+  asserted under STORY-178.
+
+- **"Never overwrites" is scoped to another picture** (decided at reconciliation, 2026-11-09,
+  BUNDLE-44): REQ-229 keeps the free-name rule for a different material arriving under a taken
+  name, and has a second promotion of an already-placed material overwrite at its recorded
+  name ("A material that already records one is a re-placement: it overwrites that name and
+  mints nothing"). AC-1711 is narrowed to match. The re-placement itself is asserted under
+  STORY-178.
 
 - **Material with no bytes attached is refused** (decided at reconciliation, 2026-09-10): the
   intent names only the rights refusal. The landed gate also refuses a material that has no
@@ -216,7 +243,7 @@ is an operator task.
 
 STORY-140 (Ingestion) — promotion reads a material record and its bytes, which ingestion
 creates. Plan item 7. The seed/push gate reads capture bundles through the reference store
-port, which the capture pipeline populates.
+port, which the capture pipeline populates. STORY-178 supplies the recipe promotion renders.
 
 ## Story Points
 
