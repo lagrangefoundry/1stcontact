@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T11:07:09.911804+00:00'
-updated_at: '2026-11-10T11:07:58.608145+00:00'
+updated_at: '2026-11-10T11:07:58.969500+00:00'
 completed_at: null
-last_field_updated: ruling
+last_field_updated: body
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-4ada51a8
@@ -157,3 +157,9 @@ blocked_by: null
 ## Intent resolution (resolution ladder)
 
 Unsettled: nobody decided this point. Cite `"unsettled"` as the level in an `intent_basis`.
+
+
+
+## Ruling: declined
+
+Rung 2: the code at HEAD already meets AC-2413 and AC-2594. The builder ran `tests/reconciliation-marked-points.test.ts` and all 14 tests passed, the two batch tests among them. Hand-off report-1e9e8c43 proposes no change (no edits, status fixed, blocked_by null), so code_frozen stands and the batch is verification only. This repeats report-563102b4 (also declined). The repetition is xgd BUG-1706, outside this repository, and needs no action here.
