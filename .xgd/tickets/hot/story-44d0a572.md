@@ -5,9 +5,9 @@ type: story
 title: 'Marked Points: point at the edit preview and send the pointing as text'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T12:45:21.261082+00:00'
-updated_at: '2026-11-10T00:15:17.402710+00:00'
+updated_at: '2026-11-10T00:54:04.345466+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-0d00566a
@@ -44,7 +44,7 @@ Out of scope:
 - **The pill's expansion is the whole channel.** `screenshot kind:'edit'` renders on the server, so marks never appear in any render the assistant sees. They also cannot pollute `compare` or the fidelity gates.
 - **Implementation contract:** point capture assumes the preview iframe is not scaled. Any future fit-to-pane zoom must un-scale click coordinates.
 - **Coordinates go through two stages.** First `object-fit` (the box the drawing is painted into), then the drawing's own `preserveAspectRatio`. The SVG is never inlined.
-- UATs: `tests/reconciliation-marked-points.test.ts` (AC-2413..AC-2425, on the edit render in jsdom) and `tests/reconciliation-marked-points-served-modules.test.ts` (AC-2421: the served-module graph and parity, plus the un-injected measure path in a real browser, skipped visibly where none launches). Also `tests/test_UAT_FC_REQ-210_marked_points.test.ts`, `tests/test_UAT_FC_BUG-72_marked_point_chrome.test.ts`.
+- UATs: `tests/reconciliation-marked-points.test.ts` (AC-2413..AC-2425 and AC-2594, on the edit render in jsdom; AC-2594's `test_UAT_AC2594_the_dimmed_hover_selects_a_stamped_segment_by_the_hot_class_alone_and_off_restores_the_render` drives the real `mountL1EditBridge` hover, asserts the injected overlay stylesheet names the hot class and not the region-stamp attribute, that its `!important` dimmed outline reaches the hot segment, that a click places a point and opens no editor, and that turning the mode off removes the overlay so the render's own stamp-and-class outline is what reaches the segment; it replaces BUG-83's free-coded hover test) and `tests/reconciliation-marked-points-served-modules.test.ts` (AC-2421: the served-module graph and parity, plus the un-injected measure path in a real browser, skipped visibly where none launches). Also `tests/test_UAT_FC_REQ-210_marked_points.test.ts`, `tests/test_UAT_FC_BUG-72_marked_point_chrome.test.ts`.
 
 ## Reconciliation Decisions
 - **Atomic pill deferred** (decided at reconciliation, 2026-11-08): REQ-210 §"The pill behaves like a pill" asks for an atomic chip with undoable deletion. BUG-72 §3 then scoped that out explicitly: the shared composer has no atom-node seam, and the work was filed in `lagrange-framework`. The operator's own later decision governs, so no AC requires atomicity. The ACs cover what the operator kept: cut/paste keeps the pill, re-typing `Point A` resolves to it, and `+` restores it.
