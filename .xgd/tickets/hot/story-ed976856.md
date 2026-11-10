@@ -6,17 +6,16 @@ title: 'Image editing: an edit is a revisable recipe over a kept original, appli
   by one renderer, and editable by the assistant'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T18:24:47.938665+00:00'
-updated_at: '2026-11-10T00:05:19.833414+00:00'
+updated_at: '2026-11-10T00:13:23.409051+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-0881342c
   capability_uid: capability-2d32662d
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-374f88d6
+  updated_by: bundle-374f88d6
 ---
 
 ## Story
