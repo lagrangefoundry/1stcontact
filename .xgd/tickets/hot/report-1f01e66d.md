@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T09:08:28.970567+00:00'
-updated_at: '2026-11-10T09:09:27.278150+00:00'
+updated_at: '2026-11-10T09:09:27.612310+00:00'
 completed_at: null
-last_field_updated: ruling
+last_field_updated: body
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-4ada51a8
@@ -162,3 +162,5 @@ evidence: "npx vitest run tests/reconciliation-marked-points.test.ts -t 'AC2413|
 ## Intent resolution (resolution ladder)
 
 Unsettled: nobody decided this point. Cite `"unsettled"` as the level in an `intent_basis`.
+
+## Ruling: declined
