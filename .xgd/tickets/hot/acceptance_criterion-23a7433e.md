@@ -6,9 +6,9 @@ title: On a host with nowhere to show a picture (the 1c CLI) a drawing is writte
   with no display line
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T22:39:53.036946+00:00'
-updated_at: '2026-11-10T00:54:50.012401+00:00'
+updated_at: '2026-11-10T00:54:50.358339+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-b3de4571
@@ -21,3 +21,8 @@ On a host that supplies no way to address a site asset, such as the `1c` command
 
 ## Verification
 Run `write_image` through the toolbox with no asset-URL factory (the CLI host's configuration). Assert that the drawing is written and that the result has no `display` key.
+
+
+
+## UATs
+- `tests/reconciliation-assistant-picture-in-the-turn.test.ts` — `test_UAT_AC2571_with_no_asset_url_factory_the_drawing_is_written_with_no_display`: with no asset-URL factory (the CLI host's configuration) the drawing is written as `mark.svg` and the result has no `display` key.
