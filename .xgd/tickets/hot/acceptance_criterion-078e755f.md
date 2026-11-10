@@ -7,9 +7,9 @@ title: Every host actually sends the model the system prompt, landscape, purpose
   user message
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T02:33:23.545180+00:00'
-updated_at: '2026-11-10T00:23:16.943581+00:00'
+updated_at: '2026-11-10T00:54:16.392278+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-3cf3d57b
@@ -57,3 +57,8 @@ string) and the last user message of the request (joining any text blocks):
 - with no knowledge base built, the system prompt and the manual are present and
   no landscape or how-to-search section is;
 - the assertions pass whichever shape (string or blocks) the turn produced.
+
+
+
+## Evidence note (BUNDLE-44 fix, review report-0ddcefe6 G3)
+BUG-83's free-coded reader tests are folded in as `test_UAT_AC2364_the_tail_is_read_in_both_wire_shapes_and_a_quiet_turn_reads_as_absent` (`tests/reconciliation-assistant-reminder-channel.test.ts`). It pins the reader the channel claim is asserted through: in both wire shapes (string content and cache-marked content blocks) the reminder is found at the tail of the last user message only and not in the system field; a quiet turn reads as absent; a request with no trailing user message reads as empty rather than throwing.
