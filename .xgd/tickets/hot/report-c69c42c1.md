@@ -5,9 +5,9 @@ type: report
 title: 'Report: blocked_by_handoff for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T07:11:10.244016+00:00'
-updated_at: '2026-11-10T07:11:10.244016+00:00'
+updated_at: '2026-11-10T07:27:56.167787+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ruling
 fields:
   report_kind: blocked_by_handoff
   subject_uid: report-4ada51a8
@@ -126,6 +126,10 @@ fields:
       - comment-baba73ad#40
       - comment-baba73ad#41
       outcome: silent
+  ruling: declined
+  ruling_reason: 'Rung 2: production code at HEAD already satisfies AC-2413 and AC-2594
+    and both pass; hand-off report-c69c42c1 proposes no change (builder reported status
+    fixed, blocked_by null), so code_frozen stands and the batch is verification only.'
 ---
 
 # Builder blocked by `code_frozen`
@@ -152,3 +156,7 @@ evidence: "At HEAD 311c16429e: npx vitest run tests/reconciliation-marked-points
 ## Intent resolution (resolution ladder)
 
 Unsettled: nobody decided this point. Cite `"unsettled"` as the level in an `intent_basis`.
+
+## Ruling: declined
+
+Rung 2: production code at HEAD already satisfies AC-2413 and AC-2594 and both pass; hand-off report-c69c42c1 proposes no change (builder reported status fixed, blocked_by null), so code_frozen stands and the batch is verification only.
