@@ -523,6 +523,28 @@ describe('the conversation is stored with the workspace', () => {
   })
 
   /**
+   * AC-2570's reload half (story-b3de4571, REQ-217). A picture the model pasted
+   * is part of the ASSISTANT'S OWN TURN TEXT, not of a tool result, so the
+   * ordinary transcript replay brings it back with no change to the replay path.
+   */
+  it('test_UAT_AC2570_a_turn_that_pasted_a_display_line_replays_it_after_a_restart', async () => {
+    const LINE = `![wordmark](/b/biz-one/preview/${SLUG}/draft/assets/wordmark.svg)`
+    setModelClient(scriptedClient([says(`Here is the mark:\n\n${LINE}\n\nTell me if it is close.`)]))
+    await speak(base, SLUG, 'Draw us a mark')
+
+    resetAiHost()
+    const replayed = await open(base, SLUG)
+    expect(replayed.ready).toBe(true)
+    expect(replayed.turns.map((t) => t.role)).toEqual(['user', 'assistant'])
+    // The line comes back verbatim — ordinary markdown image syntax the chat's
+    // stock sanitiser keeps as an `<img>` carrying that URL.
+    expect(replayed.turns[1].markdown).toContain(LINE)
+    expect(/!\[wordmark\]\(([^)]+)\)/.exec(replayed.turns[1].markdown)?.[1]).toBe(
+      `/b/biz-one/preview/${SLUG}/draft/assets/wordmark.svg`,
+    )
+  })
+
+  /**
    * AC-1057's junction BOUND, which the case above does not reach because it only
    * ever restarts between completed turns.
    *

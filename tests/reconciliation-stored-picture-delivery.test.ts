@@ -346,6 +346,32 @@ describe('a browser failure on the stored-picture path comes back as a sentence'
       expect(eyes.log.closed, `${c.label}: browser released`).toBe(1)
     }
 
+    // (e) the lease itself rejects, its message carrying a multi-MB data: URL and
+    //     a base64 run. No driver exists, so there is nothing to release, but what
+    //     escapes is the same bounded sentence with the driver's own code kept.
+    {
+      const failingLease = async (): Promise<BrowserDriver> => {
+        throw new Error(
+          `browserType.launch: Target page, context or browser has been closed (E_LAUNCH) ` +
+            `while opening data:text/html;base64,${hugePayload} ${hugePayload}`,
+        )
+      }
+      const err = await rasterizeImage(bytes, 'image/jpeg', failingLease, "'DSC_7975.jpg'").catch(
+        (e: unknown) => e,
+      )
+      expect(err, 'lease').toBeInstanceOf(ImageNotRenderableError)
+      const message = (err as Error).message
+      expect(message, 'lease').toContain('DSC_7975.jpg')
+      expect(message, 'lease').toContain('There is no picture to show you')
+      expect(message, 'lease').toContain('E_LAUNCH')
+      expectNoPayload(message)
+      const diagnosis = /could not be put in front of the browser: ([\s\S]*)\. There is no picture/.exec(
+        message,
+      )?.[1]
+      expect(diagnosis, 'lease: diagnosis present').toBeDefined()
+      expect(diagnosis!.length, 'lease: diagnosis capped').toBeLessThanOrEqual(MAX_DRIVER_ERROR_CHARS)
+    }
+
     // (d) a novel multi-KB message with no data: and no base64 is still cut.
     const novel = `Target closed unexpectedly: ${'the renderer went away, '.repeat(400)}`
     const cut = safeDriverMessage(new Error(novel))

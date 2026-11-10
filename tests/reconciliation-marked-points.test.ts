@@ -31,8 +31,13 @@ import { mountL1EditBridge, resolveEditTarget } from '../packages/framework/src/
 import * as markedPoints from '../packages/framework/src/l1/marked-points'
 import * as anchors from '../packages/site-schema/src/anchors'
 import { measureScript } from '../tools/generate/src/cli/capture/measure-svg'
-import { L1_EDIT_PAGE_ATTR } from '../packages/site-schema/src/l1/edit'
+import {
+  L1_EDIT_HOT_CLASS,
+  L1_EDIT_PAGE_ATTR,
+  L1_EDIT_SEGMENT_ATTR,
+} from '../packages/site-schema/src/l1/edit'
 import type { L1Node } from '@1stcontact/site-schema'
+import { cssRules } from './support/css-rules'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const HEADLINE = 'A painted band.'
@@ -267,6 +272,67 @@ describe('story-44d0a572 — Marked Points on the edit render', () => {
     controller.destroy()
     vi.useRealTimers()
     rmSync(cwd, { recursive: true, force: true })
+  })
+
+  // ── AC-2594 ─────────────────────────────────────────────────────────────────
+
+  it('test_UAT_AC2594_the_dimmed_hover_selects_a_stamped_segment_by_the_hot_class_alone_and_off_restores_the_render', () => {
+    // The real click-to-edit bridge decides which segment is hot.
+    const opened: string[] = []
+    const bridge = mountL1EditBridge(doc, (hit) => opened.push(hit.kind))
+    const styleTexts = () => [...doc.querySelectorAll('style')].map((s) => s.textContent ?? '')
+    const overlaySheets = () => styleTexts().filter((t) => t.includes('.fc-point'))
+
+    // The render's own hot treatment: the stamp-and-class pair, in the bytes the
+    // edit render wrote. Asserted through the rule's own selector.
+    const renderHot = styleTexts()
+      .filter((t) => !t.includes('.fc-point'))
+      .flatMap((t) => cssRules(t))
+      .filter(
+        (r) => r.selector.includes(`[${L1_EDIT_SEGMENT_ATTR}].${L1_EDIT_HOT_CLASS}`),
+      )
+    expect(renderHot, 'the edit render declares no hot-segment treatment').toHaveLength(1)
+
+    // ON, and the pointer over a stamped segment.
+    controller.setActive(true)
+    copy.dispatchEvent(new dom.window.MouseEvent('pointerover', { bubbles: true }))
+    const segment = doc.querySelector(`.${L1_EDIT_HOT_CLASS}`)
+    expect(segment, 'hovering a stamped segment marked nothing hot').not.toBeNull()
+    expect(segment!.hasAttribute(L1_EDIT_SEGMENT_ATTR)).toBe(true)
+
+    // THE OVERLAY STYLESHEET NAMES THE HOT CLASS AND NOT THE REGION STAMP, so it
+    // is not a second reader of the renderer's markup contract.
+    const injected = overlaySheets()
+    expect(injected, 'the overlay injected no stylesheet').toHaveLength(1)
+    expect(injected[0]).not.toContain(L1_EDIT_SEGMENT_ATTR)
+    expect(injected[0]).toContain(L1_EDIT_HOT_CLASS)
+
+    // Its dimmed hover reaches the hot segment, thin and translucent, and wins
+    // over the render's own treatment explicitly rather than by sheet order.
+    const dimmed = cssRules(injected[0]).filter((r) => r.selector.includes(`.${L1_EDIT_HOT_CLASS}`))
+    expect(dimmed, 'the overlay declares no dimmed-hover rule').toHaveLength(1)
+    expect(segment!.matches(dimmed[0].selector)).toBe(true)
+    expect(dimmed[0].body).toMatch(/outline:\s*1px solid rgba\(\s*99,\s*102,\s*241,\s*0\.4\s*\)\s*!important/)
+    expect(renderHot[0].body).not.toMatch(/0\.4\s*\)/)
+
+    // A click on it places a point against that segment and opens no editor.
+    clickAt(copy, 10, 10)
+    expect(opened).toEqual([])
+    expect(controller.list()).toHaveLength(1)
+    expect(markOf('A')).not.toBeNull()
+
+    // OFF gives the render's own hover treatment back: the overlay rule is gone,
+    // the segment is still hot, and the render's stamp-and-class rule is the one
+    // that reaches it.
+    controller.setActive(false)
+    expect(overlaySheets()).toHaveLength(0)
+    expect(doc.body.hasAttribute('data-fc-points')).toBe(false)
+    expect(segment!.classList.contains(L1_EDIT_HOT_CLASS)).toBe(true)
+    expect(segment!.matches(dimmed[0].selector)).toBe(false)
+    expect(segment!.matches(renderHot[0].selector)).toBe(true)
+    expect(renderHot[0].body).toMatch(/outline:\s*2px solid rgba\(\s*99,\s*102,\s*241,\s*0\.9\s*\)/)
+
+    bridge.destroy()
   })
 
   // ── AC-2413 ─────────────────────────────────────────────────────────────────

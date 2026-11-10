@@ -31,6 +31,7 @@ import {
   calls,
   says,
   scriptedClient,
+  sentText,
   systemText,
   turnTailText,
   type ModelRequest,
@@ -233,5 +234,77 @@ describe('AC-2364 — the Node host carries the reminder at the tail of the last
     // assertions above held for whichever it was (the host currently sends blocks).
     expect(shapes.has('none'), `tail shapes seen: ${[...shapes].join(', ')}`).toBe(false)
     expect(shapes.size, `tail shapes seen: ${[...shapes].join(', ')}`).toBeGreaterThan(0)
+  })
+
+  /**
+   * THE READER THE CHANNEL CLAIM IS ASSERTED THROUGH (BUG-83). Both wire shapes
+   * are production — a message a cache marker touched is a list of blocks, one no
+   * marker touched is the string it always was — and a reader that handled one of
+   * them would report the other as empty, which every negative assertion above
+   * would read as "the reminder did not fire". So the reader is pinned here, in
+   * both shapes, against requests built in exactly those shapes: the reminder is
+   * found at the tail of the LAST user message only, it is not in the system
+   * field, a quiet turn reads as absent, and a request ending on no user message
+   * reads as empty rather than throwing.
+   */
+  it('test_UAT_AC2364_the_tail_is_read_in_both_wire_shapes_and_a_quiet_turn_reads_as_absent', () => {
+    const PRIMING = '# The site you look after\n\nYou look after one website.'
+    const SAID = 'make the heading bigger'
+    const TAIL = 'You are working on the site "studio". Every tool you have acts on that site and no other.'
+
+    const plain = (tail: string): ModelRequest => ({
+      system: PRIMING,
+      messages: [
+        { role: 'user', content: 'an earlier turn' },
+        { role: 'assistant', content: 'an earlier answer' },
+        { role: 'user', content: `${SAID}\n\n${tail}` },
+      ],
+      tools: [],
+    })
+    const blocks = (tail: string): ModelRequest => ({
+      system: [
+        { type: 'text', text: PRIMING, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: '' },
+      ],
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'an earlier turn' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'an earlier answer' }] },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: SAID, cache_control: { type: 'ephemeral' } },
+            { type: 'text', text: tail },
+          ],
+        },
+      ],
+      tools: [],
+    })
+
+    for (const req of [plain(TAIL), blocks(TAIL)]) {
+      // Found at the tail of the LAST user message, and not any earlier one.
+      expect(turnTailText(req)).toContain(TAIL)
+      expect(turnTailText(req)).not.toContain('an earlier turn')
+      // Not in the system field, which holds the priming in either shape.
+      expect(systemText(req)).toContain(PRIMING)
+      expect(systemText(req)).not.toContain(TAIL)
+      // Everything sent is read across both channels.
+      expect(sentText(req)).toContain(TAIL)
+      expect(sentText(req)).toContain(PRIMING)
+    }
+
+    // A turn that really carries nothing says so through the same reader.
+    for (const quiet of [plain(''), blocks('')]) {
+      expect(sentText(quiet)).not.toContain('acts on that site and no other')
+      expect(sentText(quiet)).toContain(SAID)
+    }
+
+    // A request with no trailing user message reads as empty, not as a throw.
+    const noUser: ModelRequest = {
+      system: PRIMING,
+      messages: [{ role: 'assistant', content: 'still talking' }],
+      tools: [],
+    }
+    expect(turnTailText(noUser)).toBe('')
+    expect(sentText(noUser)).toBe(PRIMING)
   })
 })

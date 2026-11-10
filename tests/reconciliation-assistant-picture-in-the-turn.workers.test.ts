@@ -6,9 +6,8 @@ import {
   type RouterDeps,
   type RouterEnv,
 } from '../apps/control-app/src/router'
-import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { splitBusinessPrefix, type Scope } from '../apps/control-app/src/scope'
-import { IMAGE_SECRET, imageSurface } from '../apps/control-app/src/imagegen'
+import { IMAGE_SECRET } from '../apps/control-app/src/imagegen'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
@@ -16,39 +15,25 @@ import { calls, says, scriptedClient } from './support/scripted-model-client'
 import type { ModelStep, ScriptedClient } from './support/scripted-model-client'
 
 /**
- * [[REQ-217]] — **an image a turn produced appears in the conversation**, proved
- * end to end.
+ * story-b3de4571 (STORY-107), AC-2569 — **a drawing a turn made appears in that
+ * turn**, proved end to end (REQ-217, `write_image`'s half).
  *
- * WHAT MAKES THIS EVIDENCE, AND WHY IT IS HERE RATHER THAN BESIDE THE UNIT FILE.
- * The claim is not *"a tool returns a string"* — it is *"the client sees the
- * picture"*, and the only honest form of that is: take a real turn through the
- * Worker's own route table, over a real D1 database and real R2 buckets, read
- * the line the model was actually handed, and then FETCH IT. If those bytes come
- * back, the picture is in the conversation; if they do not, no amount of string
- * assertion would have said so.
+ * WHAT MAKES THIS EVIDENCE. The claim is not *"a tool returns a string"* — it is
+ * *"the client sees the picture"*, and the only honest form of that is: take a
+ * real turn through the Worker's own route table, over a real D1 database and
+ * real R2 buckets, read the line the model was actually handed, and then FETCH
+ * IT. If those bytes come back, the picture is in the conversation.
  *
  * THE ADDRESS IS READ BACK BY THE PRODUCTION READER. The line is scoped
  * (`/b/<businessId>/…`) because an unscoped one resolves against the first
  * admissible business, so the round trip goes through `splitBusinessPrefix` —
- * the same function `index.ts` uses — rather than through a regular expression
- * written here. A suite that stripped the prefix its own way could pass against
- * a prefix the origin cannot read.
+ * the same function `index.ts` uses.
  *
- * ONE DOUBLE, at a boundary that is genuinely external: the Anthropic client,
- * which is the network and the seam the library's backend exists to have
- * injected. Nothing between it and the behaviour under test is faked — no image
- * provider is needed, because both halves' addresses are asserted against what
- * this deployment actually serves.
+ * ONE DOUBLE, at a boundary that is genuinely external: the Anthropic client.
  *
- * THE CLAIMS:
- *
- *   1. A DRAWING APPEARS IN THE TURN THAT DREW IT. `write_image` hands the model
- *      a markdown line, and the line fetches the drawing.
- *   2. A GENERATED PICTURE DOES TOO. `create_image`'s host display sentence
- *      carries a markdown line, and the line fetches the material's bytes.
- *   3. THE ADDRESS NAMES THIS BUSINESS AND NOT WHICHEVER ONE IS FIRST.
- *   4. NOWHERE TO SHOW IT MEANS NO LINE, which is the plugin's own account of
- *      what absence means.
+ * `create_image`'s line (story-39c992d3) is proved in
+ * `reconciliation-consultant-image-generation-display.workers.test.ts`
+ * (AC-2567, AC-2568).
  */
 
 const APPLIED = applySchema()
@@ -181,15 +166,15 @@ async function fetchScoped(url: string): Promise<{ businessId: string | null; re
   return { businessId, res }
 }
 
-describe('REQ-217 — the picture is in the conversation that made it', () => {
+describe('story-b3de4571 — the drawing is in the conversation that made it', () => {
   beforeAll(async () => {
     await APPLIED
   })
 
-  it('test_UAT_FC_REQ-217_a_drawing_the_turn_made_is_fetchable_from_the_turn', async () => {
+  it('test_UAT_AC2569_a_drawing_the_turn_made_is_fetchable_from_the_turn', async () => {
     resetAiHost()
     resetChatHost()
-    const { scope, slug } = await business('req217-draw')
+    const { scope, slug } = await business('ac2569-draw')
 
     const client = await turn(scope, slug, [
       calls('write_image', { name: 'wordmark', svg: MARK }),
@@ -198,89 +183,29 @@ describe('REQ-217 — the picture is in the conversation that made it', () => {
 
     const [alt, url] = pictureIn(toolResults(client))
     expect(alt).toBe('wordmark')
+    expect(url).toBe(`/b/${scope.businessId}/preview/${slug}/draft/assets/wordmark.svg`)
 
-    // THE ADDRESS NAMES THIS BUSINESS. Unscoped is not a smaller version of
-    // this — it resolves against the first admissible business, which is the
-    // crossing `scope.ts` exists to prevent.
+    // THE ADDRESS NAMES THIS BUSINESS. Unscoped resolves against the first
+    // admissible business, which is the crossing `scope.ts` exists to prevent.
     const { businessId, res } = await fetchScoped(url)
     expect(businessId).toBe(scope.businessId)
 
-    // AND IT IS THE DRAWING. Serving the bytes is the whole claim: a line that
-    // parses and 404s is a broken picture in the client's conversation.
+    // AND IT IS THE DRAWING. A line that parses and 404s is a broken picture in
+    // the client's conversation.
     expect(res.status).toBe(200)
-    expect(await res.text()).toContain('<rect')
-  })
+    expect(await res.text()).toContain('#1a3a6b')
 
-  it('test_UAT_FC_REQ-217_a_generated_picture_carries_a_line_that_fetches_its_bytes', async () => {
-    await APPLIED
-    await ensureTenant('req217-gen')
-    const scope: Scope = { businessId: 'req217-gen' }
-    const tickets = await ticketStoreFor(
-      { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
-      scope,
-    )
-
-    // THE REAL PLUGIN, WIRED THE WAY `router.ts` WIRES IT, with this product's
-    // own display sentence. Only the provider's HTTP endpoint is substituted —
-    // a second vendor's REST API that miniflare has none of, and the seam the
-    // imagegen component opens precisely so a plugin is demonstrable with no key
-    // and no spend.
-    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAMAAAACCAYAAAAAAAAA'
-    const provider = (async () => ({
-      status: 200,
-      ok: true,
-      json: async () => ({ data: [{ b64_json: png }] }),
-    })) as unknown as typeof fetch
-
-    const built = imageSurface({ OPENAI_API_KEY: 'k' }, tickets, null, {
-      fetch: provider,
-      materialUrl: (uid: string) => `/b/${scope.businessId}/api/material/file?uid=${uid}`,
-    })
-    expect(built).toBeTruthy()
-
-    const record = (await built!.surface.create_image({ prompt: 'a shopfront at dusk' })) as {
-      ticket: string
-      display?: string
-    }
-
-    // THE SENTENCE IS OURS AND THE SEAM IS THE PLUGIN'S. It has to TELL the
-    // model what to do with the line, because the plugin wraps it in no prose of
-    // its own.
-    expect(record.display).toBeTruthy()
-    expect(record.display!.toLowerCase()).toContain('exactly as written')
-
-    const [, url] = pictureIn([record.display!])
-    expect(url).toContain(record.ticket)
-
-    const { businessId, res } = await fetchScoped(url)
-    expect(businessId).toBe(scope.businessId)
-    expect(res.status).toBe(200)
-    expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(0)
-  })
-
-  it('test_UAT_FC_REQ-217_nowhere_to_show_it_means_no_line', async () => {
-    await APPLIED
-    await ensureTenant('req217-none')
-    const tickets = await ticketStoreFor(
-      { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
-      { businessId: 'req217-none' },
-    )
-    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAMAAAACCAYAAAAAAAAA'
-    const provider = (async () => ({
-      status: 200,
-      ok: true,
-      json: async () => ({ data: [{ b64_json: png }] }),
-    })) as unknown as typeof fetch
-
-    // NO `materialUrl`, which is the deployment that has nowhere to put a
-    // picture. The plugin's own prose says what absence means — *"the id is the
-    // whole of what you can pass on"* — so the field must be ABSENT rather than
-    // empty, and the manual must not describe one that never arrives.
-    const built = imageSurface({ OPENAI_API_KEY: 'k' }, tickets, null, { fetch: provider })
-    const record = (await built!.surface.create_image({
-      prompt: 'a shopfront at dusk',
-    })) as Record<string, unknown>
-    expect('display' in record).toBe(false)
-    expect(record.ticket).toBeTruthy()
+    // A REDRAW WITH `replace: true` HANDS BACK THE IDENTICAL LINE, and that line
+    // now serves the new drawing — the accepted consequence of naming a live
+    // asset.
+    const redraw = await turn(scope, slug, [
+      calls('write_image', { name: 'wordmark', svg: MARK.replace('#1a3a6b', '#e76f51'), replace: true }),
+      says('Redrawn.'),
+    ])
+    const [, again] = pictureIn(toolResults(redraw))
+    expect(again).toBe(url)
+    const refetched = await fetchScoped(again)
+    expect(refetched.res.status).toBe(200)
+    expect(await refetched.res.text()).toContain('#e76f51')
   })
 })
