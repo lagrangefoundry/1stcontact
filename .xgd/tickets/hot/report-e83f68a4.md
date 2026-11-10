@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T00:28:10.341296+00:00'
-updated_at: '2026-11-10T00:28:10.341296+00:00'
+updated_at: '2026-11-10T00:35:33.675829+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-4ada51a8
@@ -19,6 +19,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: AC-2413 (orphaned acceptance criterion) or test_UAT_AC2413
+  batches_pending: false
 ---
 
 {
