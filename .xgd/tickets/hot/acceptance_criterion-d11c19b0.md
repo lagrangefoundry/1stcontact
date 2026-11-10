@@ -6,10 +6,10 @@ title: A recipe change from the Library editor or edit_image replaces the placed
   bytes at its recorded name in one operation, reported per placement in republished
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-10T00:04:48.877483+00:00'
-updated_at: '2026-11-10T00:04:48.877483+00:00'
+updated_at: '2026-11-10T00:13:24.411549+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ed976856
   kind: behavior
