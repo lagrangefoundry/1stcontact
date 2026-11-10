@@ -2,13 +2,13 @@
 uid: acceptance_criterion-98f8f69e
 id: AC-1711
 type: acceptance_criterion
-title: 'Promotion never replaces an asset already live: a free name preserving the
-  extension is used and reported'
+title: 'Promotion never replaces another picture already live: a material with no
+  recorded name there takes a free name preserving the extension, used and reported'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:02:55.046508+00:00'
-updated_at: '2026-11-10T00:04:12.400639+00:00'
+updated_at: '2026-11-10T00:04:15.307914+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-aacb7060
