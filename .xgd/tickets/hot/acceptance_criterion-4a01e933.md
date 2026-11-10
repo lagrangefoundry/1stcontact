@@ -7,9 +7,9 @@ title: In Mark Points mode the hovered segment is outlined dimmed, a click still
   stamp
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-10T00:14:39.988403+00:00'
-updated_at: '2026-11-10T00:54:52.257288+00:00'
+updated_at: '2026-11-10T00:54:52.559281+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-44d0a572
@@ -41,3 +41,13 @@ On the edit render, turn Mark Points on and hover a stamped segment:
 - turning the mode off restores the render's own hover outline;
 - the overlay stylesheet injected into the preview document does not contain
   the renderer's region-stamp attribute name.
+
+
+
+## UATs
+- `tests/reconciliation-marked-points.test.ts` — `test_UAT_AC2594_the_dimmed_hover_selects_a_stamped_segment_by_the_hot_class_alone_and_off_restores_the_render`, on the bytes `1c render --edit` wrote, with the real `mountL1EditBridge`:
+  - a pointer over a stamped segment marks it hot; the overlay stylesheet's dimmed rule (`1px` outline at `0.4` alpha, `!important`) is the one that reaches it;
+  - a click places Point A and opens no editor;
+  - turning the mode off removes the overlay, so the dimmed rule no longer matches and the render's own `[stamp].hot` rule (`2px` at `0.9`) does;
+  - the injected overlay stylesheet contains the hot class and not the region-stamp attribute name.
+- Computed outline: jsdom has no layout or cascade engine, so "its computed outline is the dimmed overlay outline" is asserted as which declared rule reaches the hot segment, using each rule's own selector, together with the `!important` that makes the overlay win.
