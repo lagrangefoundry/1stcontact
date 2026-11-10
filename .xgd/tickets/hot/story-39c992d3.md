@@ -6,9 +6,9 @@ title: The consultant can generate a raster picture that lands as an ordinary, l
   piece of the client's material
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-08T06:41:24.865738+00:00'
-updated_at: '2026-11-09T22:48:33.161897+00:00'
+updated_at: '2026-11-10T00:53:39.510993+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-c0301347
@@ -41,7 +41,7 @@ The image credential (`OPENAI_API_KEY`) is optional. Without it there is no imag
 - The per-session cap is the framework default of 10. It is a stop for runaway loops, not a cost control. An attempt counts even if it fails, and hitting the cap refuses only image generation.
 - **Display line (REQ-217).** `ImageSurfaceOptions.materialUrl` (`(uid) => string`) is passed to the plugin through upstream's `display` construction option (lagrange-framework REQ-149's seam), as `generatedDisplay(materialUrl)`. This is product vocabulary supplied through the plugin's seam, not the local workaround `imagegen.ts`'s header forbids. `router.ts` supplies `materialUrl` from `scope.businessId` via `scope.ts`'s `businessPath()`, the inverse of `splitBusinessPrefix`. The markdown is composed by `displayLine(name, url)` in `toolbox-core.ts`, the same composer `write_image` uses (STORY-107), so the chat pane reads one address shape. REQ-220's `materialUidFromUrl` exact-matches `/api/material/file` and does not yet read the `/b/<id>` prefix; per REQ-217 that is REQ-220's to fix, and this story emits the scoped form deliberately.
 - Architecture: AI is limited to structured changes (DOC-5 rule 29). Material a client puts on their public site may go to the disclosed AI/media providers (rule 26). The prompt is the client's own site-description text, not private lead data. The display URL is same-origin and business-scoped and never reaches a published page.
-- Existing evidence: `tests/test_UAT_FC_REQ-208_the_assistant_can_make_pictures.workers.test.ts` (12 UATs through `route()` in workerd over real D1/R2; only the Anthropic client and the image provider's HTTP endpoint are doubled); `tests/test_UAT_FC_REQ-217_a_picture_in_the_conversation.workers.test.ts` (material URL fetched back through the route table; no display field without a factory).
+- Existing evidence: `tests/test_UAT_FC_REQ-208_the_assistant_can_make_pictures.workers.test.ts` (12 UATs through `route()` in workerd over real D1/R2; only the Anthropic client and the image provider's HTTP endpoint are doubled); `tests/reconciliation-consultant-image-generation-display.workers.test.ts` (AC-2567: the material URL is business-scoped and fetched back through the route table; AC-2568: no display field without a factory). REQ-217's free-coded `create_image` cases were dropped at reconciliation as redundant with those two UATs.
 - Related: CAP-112/CAP-113 (material ingestion and Library, which render `origin` under "Where it came from"); CAP-106 (material store); promote-to-site is unchanged; STORY-107 (`write_image`'s half of REQ-217, the surface prose and the chat pane's image bounds).
 
 ## Reconciliation Decisions
