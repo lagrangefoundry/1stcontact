@@ -6,9 +6,9 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-11-08T05:12:58.296809+00:00'
+updated_at: '2026-11-10T00:14:25.786439+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-8e1807f6
@@ -250,3 +250,26 @@ not against what the host constructed.
 ## Story Points
 
 3
+
+
+
+## Reconciliation Decisions (BUNDLE-44)
+
+- **The per-turn reminder travels at the tail of the last user message, not in
+  the system field** (decided at reconciliation, 2026-11-09, BUNDLE-44 / BUG-83).
+  BUG-83's investigation states that the reminder "still reaches the model" but
+  that upstream `@lagrangefoundry/ai` now "appends it to the **last user
+  message** instead" of folding it into `system`, "for cache-prefix stability — a
+  marker on the reminder would put a block guaranteed to differ next turn inside
+  the prefix the next request has to match", and that "the distinction is
+  load-bearing for REQ-182, whose subject is *where* the reminder sits relative to
+  the cache boundary". The "priming actually reaches the model" bullet above is
+  read with that placement: the system prompt carries the priming, and the
+  turn's reminder (site line, change signal, arrival notice) rides the tail of
+  the last user message, in either wire shape (string content or content
+  blocks). AC-2364 is amended to state this. No production code in this
+  repository changed for it; BUG-83 records the move as upstream drift that left
+  the test double's documentation stale, and the shared double now reads the
+  system field and the turn tail separately. AC-1807 (arrival notice last in the
+  turn's context) and AC-2376 (one trailing cache boundary over the priming) are
+  consistent with this placement and stand unchanged.
