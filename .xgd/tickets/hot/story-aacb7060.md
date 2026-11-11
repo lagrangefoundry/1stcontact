@@ -6,9 +6,9 @@ title: 'Site-Asset Promotion: Only Material The Client May Publish Reaches Their
   Site'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:02:09.778452+00:00'
-updated_at: '2026-11-10T00:05:20.101037+00:00'
+updated_at: '2026-11-11T03:27:13.042759+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -60,8 +60,10 @@ anything is uploaded. This half catches a capture taken on a laptop, which never
 storage. The import route checks against the requesting business's own cloud capture bundles
 and answers 403 before any draft exists, so a request posted by hand is refused too. That 403
 stays distinct from the 409 the same route gives for "you would replace builder changes",
-which `--force` answers. One business's captures never decide what another business may
-publish.
+which `--force` answers. When the route's 403 reaches `1c push`, the CLI reports it as what it
+is: it names the asset and the bundle it mirrors, says nothing was written, and gives no
+Cloudflare Access or `--force` advice, because neither can help. One business's captures never
+decide what another business may publish.
 
 Promotion is a **copy across the storage boundary**, not a reference to the private bytes. The
 site's asset library and the client's private material live in separate stores precisely
@@ -100,7 +102,8 @@ that was open at hand-over is an instruction to promotion, not a label stored on
 asset-add path and its journal note, free-name selection and the reported name, the immediate
 placement of a file handed over for a selected site, the placement record that promotion writes
 (sites and the name on each), what the client is told when placement fails, and the
-capture-mirrored-bytes gate on the seed/push door (`1c push` and `POST /api/import`).
+capture-mirrored-bytes gate on the seed/push door (`1c push` and `POST /api/import`), including
+how `1c push` reports the route's refusal.
 
 **Out of scope**, each covered by its own story: the ingestion pipeline that creates the
 material and its bytes (STORY-140); how the file is described (STORY-141); the declared field
@@ -163,6 +166,13 @@ is an operator task.
   with no captures costs one empty listing. A deployment with no `BLOBS` binding has no
   reference store and the route proceeds unchecked. `PushOptions.references` is required, so a
   caller cannot forget the gate. A caller with no bundles passes a store that lists none.
+- **How `1c push` reads the route's refusal (BUG-84).** `pushSite` in
+  `tools/generate/src/cli/push.ts` tells the rights 403 apart by its body: a 403 whose body
+  parses as JSON with a string `asset` field is the route's `MirroredAssetError` answer
+  (`router.ts`, `json(403, { error, slug, asset, bundle, member })`). Cloudflare Access's 403 is
+  a login page and carries no such field. The parse is defensive (`rightsRefusal()` never
+  throws), so any other 403, a 401 or a redirect keeps the Access service-token advice, and a
+  409 keeps the `--force` advice.
 - **Known consequence accepted by BUG-84's operator:** `bin/publish` with no slugs named now
   stops at any `1c repro` reproduction in `storage/sites/`, naming the file and its bundle,
   because a reproduction was never publishable. The reproduction keeps rendering locally.
@@ -228,16 +238,18 @@ is an operator task.
   refuses while reading the draft, before `--force` is even put on the request, so the CLI
   criterion asserts it as well.
 
-- **Code issue: the CLI reports the import route's 403 with Cloudflare Access advice**
-  (flagged at reconciliation, 2026-11-09, BUNDLE-44, for `fix_uat_coverage`): BUG-84 says the
-  rights refusal and BUG-51's conflict "must stay distinguishable". It also says the operator is
-  to be told which file and where it came from, "rather than that the push was refused". When
-  the Worker half refuses (a capture that lives only in the business's cloud bundles), the
-  push client lumps every 403 in with Access refusals. It appends advice to set an Access service
-  token, which tells the operator to fix credentials that are fine. The response body still
-  names the asset and bundle, so the criteria are met. The appended advice misleads, and the
-  client should tell the rights 403 apart from an Access 403, e.g. by the body's `asset` field.
-  This is not formalized as a criterion. It is recorded so the CLI message can be corrected.
+- **RESOLVED: `1c push` no longer reports the import route's 403 as a Cloudflare Access
+  refusal** (decided at reconciliation, 2026-11-10, BUNDLE-44; planner grant COMMENT-8317,
+  mode_override report-d8f8a034, review report-e87a1fe5 G1). BUG-84 says the rights refusal
+  and BUG-51's conflict "must stay distinguishable", and that the operator is told which file
+  and where it came from, "rather than that the push was refused". `push.ts` used to append
+  Access service-token advice to every 403, including the Worker half's rights refusal. That
+  sent the operator to fix credentials that were fine. Under a code_frozen rung-1 override
+  confined to `push.ts`, the CLI now recognises the route's rights body (a JSON 403 with a
+  string `asset`). It names the asset, the bundle and the member, says nothing was written, and
+  gives no Access or `--force` advice. Every other refusal path is unchanged. Formalized as a
+  clause of AC-2589, with the CLI-side UAT
+  `test_UAT_AC2589_1c_push_reports_the_import_routes_rights_403_by_asset_and_bundle_without_access_advice`.
 
 ## Dependencies
 
