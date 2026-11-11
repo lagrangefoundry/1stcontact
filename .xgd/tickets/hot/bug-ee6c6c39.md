@@ -5,7 +5,7 @@ type: bug
 title: Sixteen tests fail on a clean tree, and the suite's red masks new breakage
 created_by: REQ-220
 created_at: '2026-09-11T21:46:08.377325+00:00'
-updated_at: '2026-11-11T03:58:41.712054+00:00'
+updated_at: '2026-11-11T03:58:46.988578+00:00'
 completed_at: '2026-11-11T03:58:41.712054+00:00'
 last_field_updated: status
 status: free_and_reconciled
