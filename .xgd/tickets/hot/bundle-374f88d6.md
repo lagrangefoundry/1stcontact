@@ -5,10 +5,10 @@ type: bundle
 title: BUG-80 + REQ-217 + BUG-83 + BUG-76 + REQ-228 + 2 more
 created_by: xgd
 created_at: '2026-11-09T20:58:20.844971+00:00'
-updated_at: '2026-11-10T23:12:28.705021+00:00'
+updated_at: '2026-11-11T00:29:54.662074+00:00'
 completed_at: null
-last_field_updated: session_builder
-status: reconciling
+last_field_updated: status
+status: error
 fields:
   bundle_type: reconcile
   commits:
@@ -69,6 +69,9 @@ fields:
   session_builder_started_at: '2026-11-10T23:12:28.645874+00:00'
   session_planner: 5c50d0ca-6356-43ed-b914-90b3cf087560
   session_planner_started_at: '2026-11-10T23:05:57.878160+00:00'
+  reconcile_error: |-
+    reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.mode_overrides.route_blocked_by': Claude Code CLI error (exit code 1)
+    Error: API Error: Connection dropped (ECONNRESET). A VPN, firewall, or security software can cause this. Check those or switch networks, then try again.
 ---
 
 # Bundle
