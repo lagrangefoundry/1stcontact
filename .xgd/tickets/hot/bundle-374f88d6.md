@@ -5,57 +5,16 @@ type: bundle
 title: BUG-80 + REQ-217 + BUG-83 + BUG-76 + REQ-228 + 2 more
 created_by: xgd
 created_at: '2026-11-09T20:58:20.844971+00:00'
-updated_at: '2026-11-11T03:58:35.254083+00:00'
+updated_at: '2026-11-11T04:01:57.664549+00:00'
 completed_at: '2026-11-11T03:58:35.254083+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
   commits:
-  - working_sha: 8559fcd03f3903ff73ad28d5eb5e1f856f5b0dd6
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 95115741c062e252161e7f27603bfd7d60eab311
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 486810a855c16653ab9bc06a82a3776ac48c6dd3
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 0d792658f43652bfd2270e8f7ff313c6d21d0e20
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: c02613b4d78bf8644ef6d44f7f482beba1be1269
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 3ef2b6edabe23d42f9a22039a1d8956e16fb1d86
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: a914d06a65546bcac536bcd8d9b4f9a52fafd86b
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 67eb331ce905b315e271e719a3d5d2913639bbd2
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 3b00fd6ae697c705aa6a5b90aefe084dbc04df32
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 47a302012498ff3ba80e57885fe018a88c7ccb68
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: bcdf278962203b2e93131f89aba23be8cfadb831
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 6d8c6ab4ed3564c027625effd6cc1716c81fd2a7
   bundle_size:
     members: 7
     commits: 11
@@ -72,6 +31,7 @@ fields:
   reconcile_error: |-
     reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.mode_overrides.route_blocked_by': Claude Code CLI error (exit code 1)
     Error: API Error: Connection dropped (ECONNRESET). A VPN, firewall, or security software can cause this. Check those or switch networks, then try again.
+  merged_at_commit: 6d8c6ab4ed3564c027625effd6cc1716c81fd2a7
 ---
 
 # Bundle
