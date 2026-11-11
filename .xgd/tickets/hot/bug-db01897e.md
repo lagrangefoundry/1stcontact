@@ -6,9 +6,9 @@ title: 'screenshot: a failed stored-picture render returns the whole 22MB data U
   to the model'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:24:18.255769+00:00'
-updated_at: '2026-11-11T03:58:47.607285+00:00'
+updated_at: '2026-11-11T04:01:53.543939+00:00'
 completed_at: '2026-11-11T03:58:44.372807+00:00'
-last_field_updated: status
+last_field_updated: commits
 status: free_and_reconciled
 fields:
   auto_merge_back: true
@@ -18,8 +18,8 @@ fields:
   severity: high
   commits:
   - working_sha: 3f1480ce1cc0f0ea97833ad54ac4b7c87cf98456
-    reconcile_sha: bf1d7bc1090143af99141ee0ef5851bdaca913cd
-    main_sha: null
+    reconcile_sha: 9ccf07fe84882e34b0c7a2d3f4fb1d4509fdb1af
+    main_sha: 9ccf07fe84882e34b0c7a2d3f4fb1d4509fdb1af
     working_sha_history: []
   version: 0.2.168
   story_points: 3
