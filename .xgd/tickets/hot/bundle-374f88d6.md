@@ -5,9 +5,9 @@ type: bundle
 title: BUG-80 + REQ-217 + BUG-83 + BUG-76 + REQ-228 + 2 more
 created_by: xgd
 created_at: '2026-11-09T20:58:20.844971+00:00'
-updated_at: '2026-11-11T02:05:10.149333+00:00'
+updated_at: '2026-11-11T02:28:49.822615+00:00'
 completed_at: null
-last_field_updated: session_builder
+last_field_updated: regression_anchor_uid
 status: error
 fields:
   bundle_type: reconcile
