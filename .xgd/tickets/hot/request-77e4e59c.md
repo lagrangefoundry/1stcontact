@@ -6,7 +6,7 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-11-11T03:58:39.123682+00:00'
+updated_at: '2026-11-11T03:58:46.380487+00:00'
 completed_at: '2026-11-11T03:58:39.123682+00:00'
 last_field_updated: status
 status: free_and_reconciled
