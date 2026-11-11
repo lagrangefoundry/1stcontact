@@ -6,7 +6,7 @@ title: The surface (version 9) tells the model to paste a drawing's line verbati
   so the picture is part of the turn and survives reload
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T22:39:51.459979+00:00'
-updated_at: '2026-11-10T00:54:49.247901+00:00'
+updated_at: '2026-11-11T03:23:48.310577+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -22,12 +22,12 @@ The served l1 surface declaration is `surface_version` 9, and it tells the model
 - `write_image`'s description tells the model to paste the line word for word. It must not retype it, rename the file in it, or describe the picture instead of including it;
 - the surface's `absences` include "Showing a picture any way but pasting the line", which says a tool result is never shown to the user and that only the model's own reply reaches them.
 
-Because the picture is part of the assistant's turn text and not of the tool result, reloading the conversation shows it again. Replaying the transcript replays the picture, and the chat's replay path needs no change for that.
+Because the line is part of the assistant's turn text and not of the tool result, reloading the conversation replays it: the replayed turn holds the markdown line verbatim, and the chat's replay path needs no change for that.
+
+This criterion claims the markdown line in the stored and replayed turn. It does not claim how the chat pane renders that line as an `<img>`: that is done by the chat's stock DOMPurify sanitiser, loaded from a CDN, which is an external boundary (see story-b3de4571, Reconciliation Decisions).
 
 ## Verification
-Read the declaration the toolbox serves. Assert that `surface_version` is 9, that the image shape's `display` text and `write_image`'s description carry the paste-verbatim instruction, and that the named absence is present. Store an assistant turn whose markdown contains a display line, reload the conversation's transcript, and assert that the replayed turn still contains the line, which renders as an `<img>`.
-
-
+Read the declaration the toolbox serves. Assert that `surface_version` is 9, that the image shape's `display` text and `write_image`'s description carry the paste-verbatim instruction, and that the named absence is present. Store an assistant turn whose markdown contains a display line, restart the host, reload the conversation's transcript, and assert that the replayed turn still contains the line verbatim.
 
 ## UATs
 - `tests/reconciliation-assistant-picture-in-the-turn.test.ts` — `test_UAT_AC2570_surface_v9_tells_the_model_to_paste_the_line_word_for_word`: `surface_version` is 9 in the declaration and in `L1_SURFACE_VERSION`; the image shape's `display` text says "exactly as written" and "absent"; `write_image`'s description names `display` and says "word for word"; the absence "Showing a picture any way but pasting the line" is present.
