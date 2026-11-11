@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-11T02:55:22.537436+00:00'
-updated_at: '2026-11-11T02:55:22.537436+00:00'
+updated_at: '2026-11-11T03:02:12.265591+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-4ada51a8
@@ -39,6 +39,7 @@ fields:
   - 'no ruling on the builder''s blocked_by `code_frozen` report: add an `override`
     for `code_frozen` to the batch with the blocked tests, add a `blocked_by_ruling`
     of `superseded`, `aligned_to_tip` or `declined` to it'
+  batches_pending: false
 ---
 
 {
