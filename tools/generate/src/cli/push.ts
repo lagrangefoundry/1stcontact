@@ -187,6 +187,35 @@ export interface PushOptions {
   fetch?: typeof fetch
 }
 
+/** The import route's 403 for capture-mirrored bytes, as `router.ts` writes it. */
+interface RightsRefusal {
+  asset: string
+  bundle: string
+  member?: string
+}
+
+/**
+ * Read `body` as the import route's rights refusal, or `undefined` for anything
+ * else. Never throws: a body that is not JSON, or JSON without a string `asset`,
+ * is some other 403 and keeps the Access advice.
+ */
+function rightsRefusal(body: string): RightsRefusal | undefined {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return undefined
+  }
+  if (typeof parsed !== 'object' || parsed === null) return undefined
+  const { asset, bundle, member } = parsed as Record<string, unknown>
+  if (typeof asset !== 'string') return undefined
+  return {
+    asset,
+    bundle: typeof bundle === 'string' ? bundle : '(unknown bundle)',
+    member: typeof member === 'string' ? member : undefined,
+  }
+}
+
 /** Read `slug` from `store` and post it to `origin`'s import route. */
 export async function pushSite(
   store: SiteStore,
@@ -218,6 +247,19 @@ export async function pushSite(
   })
   const body = (await res.text()).trim()
   if (!res.ok) {
+    // THE IMPORT ROUTE'S RIGHTS REFUSAL IS NOT ACCESS (BUG-84). The route answers
+    // capture-mirrored bytes with a JSON 403 that names the asset; Access's 403
+    // is a login page and names nothing. Advising credentials or `--force` here
+    // would send the operator after a fix that cannot exist.
+    const rights = res.status === 403 ? rightsRefusal(body) : undefined
+    if (rights) {
+      const source = rights.member ? `${rights.bundle} (${rights.member})` : rights.bundle
+      throw new Error(
+        `Import of '${slug}' was refused: asset '${rights.asset}' carries bytes mirrored ` +
+          `from a captured page (capture bundle ${source}) and cannot be published. ` +
+          `Nothing was written.`,
+      )
+    }
     // ANY redirect belongs with 401/403: it is Access declining, in a redirect's
     // clothing. Status 0 is here too — that is what an unfollowed redirect reads
     // as under a `fetch` that returns an opaque response for one, so the two

@@ -41,13 +41,14 @@ import type { ModelRequest, ModelStep, ScriptedClient } from './support/scripted
 const APPLIED = applySchema()
 const ORIGIN = 'https://app.test'
 
-function routerEnv(): RouterEnv {
+function routerEnv(over: Partial<RouterEnv> = {}): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
     ANTHROPIC_API_KEY: 'test-key-not-a-real-one',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
+    ...over,
   }
 }
 
@@ -149,14 +150,16 @@ async function turn(
   slug: string,
   script: ModelStep[],
   routerDeps: RouterDeps = deps(),
+  envOver: Partial<RouterEnv> = {},
 ): Promise<ScriptedClient> {
+  const workerEnv = routerEnv(envOver)
   const opened = await route(
     new Request(`${ORIGIN}/api/ai/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ slug }),
     }),
-    routerEnv(),
+    workerEnv,
     scope,
     routerDeps,
   )
@@ -170,7 +173,7 @@ async function turn(
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ sessionId: session.sessionId, text: 'Look at my Library.' }),
     }),
-    routerEnv(),
+    workerEnv,
     scope,
     routerDeps,
   )
@@ -483,13 +486,20 @@ describe('AC-2580 — a name that is not exactly one item is refused', () => {
 // ── AC-2581 — the catalogue name is the picture name screenshot takes ────────
 
 describe('AC-2581 — a catalogue item name is a picture name', () => {
-  it('test_UAT_AC2581_catalogue_item_name_and_filename_are_accepted_by_screenshot_as_the_same_picture', async () => {
+  it('test_UAT_AC2581_catalogue_item_is_accepted_by_screenshot_and_edit_image_and_uid_filename_and_title_name_the_same_picture', async () => {
     const { scope, slug } = await business('ac2581')
     const browser = fakeBrowser({ png: await realPng() })
-    const withEyes = deps({ launch: browser.launch })
+    // A known describer title, so the picture can be named by it.
+    const TITLE = 'Shopfront at first light'
+    const withEyes = deps({
+      launch: browser.launch,
+      describeImage: async () => ({ text: `${TITLE}\n\nWhat ${TITLE} shows.`, model: 'stub/vision-1' }),
+    })
     const picture = await realPng()
     const uid = await upload(scope, { bytes: picture, name: 'shopfront.png', type: 'image/png' }, withEyes)
+    const recipe = [{ op: 'rotate', degrees: 90 }]
 
+    // The real Images binding, so this deployment offers the edit surface too.
     const client = await turn(
       scope,
       slug,
@@ -497,13 +507,29 @@ describe('AC-2581 — a catalogue item name is a picture name', () => {
         call('list', 'list_library', { kind: 'image' }),
         call('byItem', 'screenshot', { of: { kind: 'image', image: uid } }),
         call('byFile', 'screenshot', { of: { kind: 'image', image: 'shopfront.png' } }),
+        call('byTitle', 'screenshot', { of: { kind: 'image', image: TITLE } }),
+        call('edit', 'edit_image', { image: uid, edits: recipe }),
+        call('edits', 'list_image_edits', { image: uid }),
       ],
       withEyes,
+      { IMAGES: env.IMAGES as ImagesBinding },
     )
     const listed = itemsOf(resultOf(client, 'list'))
     expect(listed.map((r) => r.item)).toEqual([uid])
+    expect(listed[0].title).toBe(TITLE)
 
-    for (const id of ['byItem', 'byFile']) {
+    // edit_image takes the catalogue's `item` value unchanged and resolves it to
+    // the same stored picture — not refused as unknown, ambiguous or not editable.
+    const editText = resultText(client, 'edit')
+    expect(editText).not.toMatch(/edit_image failed/)
+    const edited = resultOf(client, 'edit')
+    expect(edited.image).toBe(uid)
+    expect(edited.title).toBe(TITLE)
+    expect(edited.edits).toEqual(recipe)
+    expect(edited.original).toEqual({ width: 8, height: 8 })
+    expect(resultOf(client, 'edits').image).toBe(uid)
+
+    for (const id of ['byItem', 'byFile', 'byTitle']) {
       const shot = resultText(client, id)
       expect(shot, id).not.toMatch(/no stored picture called/)
       expect(shot, id).not.toMatch(/names \d+ pictures/)

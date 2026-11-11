@@ -90,6 +90,61 @@ async function push(dir: string, ...argv: string[]): Promise<unknown> {
   }
 }
 
+/** A `fetch` that answers every request with `status` and `body`. */
+function refusingFetch(status: number, body: string) {
+  const calls: string[] = []
+  const impl = ((url: string) => {
+    calls.push(url)
+    return Promise.resolve({ ok: false, status, text: () => Promise.resolve(body) })
+  }) as unknown as typeof fetch
+  return { impl, calls }
+}
+
+it('test_UAT_AC2589_1c_push_reports_the_import_routes_rights_403_by_asset_and_bundle_without_access_advice', async () => {
+  // The operator's laptop holds no capture, so the CLI-side gate lets the draft
+  // through and only the far side's tenant bundles can refuse it.
+  cmdNew('acme', { cwd })
+  draftAssets(cwd, 'acme', { 'banner.jpg': OWN })
+
+  // ── (a) The route's own rights body (router.ts MirroredAssetError shape). ──
+  const rightsBody = JSON.stringify({
+    error: "Asset 'banner.jpg' is byte-identical to a file mirrored from a captured page.",
+    slug: 'acme',
+    asset: 'banner.jpg',
+    bundle: BUNDLE,
+    member: 'assets/AlchemistLab.jpg',
+  })
+  const rights = refusingFetch(403, rightsBody)
+  vi.stubGlobal('fetch', rights.impl)
+  const refused = await push(cwd, 'acme')
+  expect(refused, 'a rights 403 was treated as a landed import').toBeInstanceOf(Error)
+  const message = (refused as Error).message
+  expect(rights.calls, 'the import route was never asked').toHaveLength(1)
+  expect(message).toContain('banner.jpg')
+  expect(message).toContain(BUNDLE)
+  expect(message).toContain('assets/AlchemistLab.jpg')
+  expect(message).toContain('mirrored from a captured page')
+  expect(message).toContain('Nothing was written')
+  expect(message).not.toContain('Cloudflare Access')
+  expect(message).not.toContain('CF_ACCESS_CLIENT_ID')
+  expect(message).not.toContain('--force')
+
+  // ── (b) A plain 403 (Access's HTML page) still gets the Access advice. ──
+  const access = refusingFetch(403, '<!DOCTYPE html><html><body>Forbidden</body></html>')
+  vi.stubGlobal('fetch', access.impl)
+  const accessErr = await push(cwd, 'acme')
+  expect(accessErr).toBeInstanceOf(Error)
+  expect((accessErr as Error).message).toContain('Cloudflare Access')
+  expect((accessErr as Error).message).toContain('CF_ACCESS_CLIENT_ID')
+
+  // ── (c) A JSON 403 without the rights shape is still Access's. ──
+  const other = refusingFetch(403, '{"error":"forbidden"}')
+  vi.stubGlobal('fetch', other.impl)
+  const otherErr = await push(cwd, 'acme')
+  expect(otherErr).toBeInstanceOf(Error)
+  expect((otherErr as Error).message).toContain('Cloudflare Access')
+})
+
 it('test_UAT_AC2588_1c_push_refuses_capture_mirrored_bytes_before_upload_naming_the_asset_and_source_with_no_override', async () => {
   captureInto(cwd, {
     'capture.json': new TextEncoder().encode('{"host":"thirdparty.example"}'),

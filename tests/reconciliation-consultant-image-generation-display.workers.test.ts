@@ -8,7 +8,7 @@ import * as aiLib from '../apps/control-app/src/generated/ai-workers.js'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
-import { calls, says, scriptedClient, systemText } from './support/scripted-model-client'
+import { calls, says, scriptedClient } from './support/scripted-model-client'
 import type { ModelStep, ScriptedClient } from './support/scripted-model-client'
 
 /**
@@ -229,9 +229,19 @@ describe('story-39c992d3 — a generated picture is shown in the turn that made 
     expect(res.status).toBe(200)
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(pngBytes())
 
-    // The manual the model reads in this session describes the display field.
-    const manual = systemText(client.seen[0]) + JSON.stringify(client.seen[0].tools)
-    expect(manual).toContain('display')
+    // The session offered the image tool, and the image surface's OWN manual —
+    // not the whole system text, where write_image's surface also says
+    // `display` — describes the display field when given this business's
+    // material address. Contrast with the same surface without one, so the
+    // mention is the factory's and not boilerplate.
+    expect(client.seen[0].tools.map((t) => t.name)).toContain(IMAGE_TOOL)
+    const withFactory = imageSurface({ OPENAI_API_KEY: 'k' }, tickets, null, {
+      fetch: provider(),
+      materialUrl: (m: string) => `/b/${id}/api/material/file?uid=${m}`,
+    })
+    const without = imageSurface({ OPENAI_API_KEY: 'k' }, tickets, null, { fetch: provider() })
+    expect(manualOf(withFactory!)).toContain('display')
+    expect(manualOf(without!)).not.toContain('display')
   })
 
   it('test_UAT_AC2568_without_a_material_url_factory_the_result_has_no_display_and_generation_still_succeeds', async () => {
