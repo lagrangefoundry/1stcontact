@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-4ada51a8'
 created_by: xgd
 created_at: '2026-11-10T23:08:01.588811+00:00'
-updated_at: '2026-11-10T23:08:01.588811+00:00'
+updated_at: '2026-11-11T02:10:59.156568+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -50,6 +50,7 @@ fields:
         level: unsettled
         quote: Both tests in this batch pass at HEAD, so I made no changes, as the
           planner instructed.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 136
