@@ -6,9 +6,9 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-11-11T03:58:45.760699+00:00'
+updated_at: '2026-11-11T03:59:05.141175+00:00'
 completed_at: '2026-11-11T03:58:36.561744+00:00'
-last_field_updated: status
+last_field_updated: commits
 status: free_and_reconciled
 fields:
   priority: high
@@ -18,12 +18,12 @@ fields:
   chat_comment: comment-c682c825
   commits:
   - working_sha: f49aa3fe2e8c32e86c04add570489675ee321c80
-    reconcile_sha: 9a0ce83a79213373b81f36367c6c9fb97c5abcdc
-    main_sha: null
+    reconcile_sha: ac4d185394e80db1dbe2f8e44013b74c6f87b953
+    main_sha: ac4d185394e80db1dbe2f8e44013b74c6f87b953
     working_sha_history: []
   - working_sha: 8fbe9709392155a7b532985b6460a94bc2b78adc
-    reconcile_sha: fc0ad02b7eee6a2de23aa9539063c15e69371c9a
-    main_sha: null
+    reconcile_sha: 48c18e116be137d39613075f5c8aefb93bd9c56a
+    main_sha: 48c18e116be137d39613075f5c8aefb93bd9c56a
     working_sha_history: []
   version: 0.2.175
   story_points: 5
