@@ -6,10 +6,10 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-11-09T20:58:24.145003+00:00'
-completed_at: null
+updated_at: '2026-11-11T03:58:36.561744+00:00'
+completed_at: '2026-11-11T03:58:36.561744+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   epic_parent: epic-34760bf1
