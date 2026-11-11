@@ -5,7 +5,7 @@ type: bug
 title: 'Sign-in modal: three defects that made a working component look broken'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:28:05.411826+00:00'
-updated_at: '2026-11-11T03:58:40.452118+00:00'
+updated_at: '2026-11-11T03:58:46.675935+00:00'
 completed_at: '2026-11-11T03:58:40.452118+00:00'
 last_field_updated: status
 status: free_and_reconciled
