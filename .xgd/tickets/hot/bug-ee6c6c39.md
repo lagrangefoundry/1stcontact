@@ -5,9 +5,9 @@ type: bug
 title: Sixteen tests fail on a clean tree, and the suite's red masks new breakage
 created_by: REQ-220
 created_at: '2026-09-11T21:46:08.377325+00:00'
-updated_at: '2026-11-11T03:58:46.988578+00:00'
+updated_at: '2026-11-11T04:01:51.834739+00:00'
 completed_at: '2026-11-11T03:58:41.712054+00:00'
-last_field_updated: status
+last_field_updated: commits
 status: free_and_reconciled
 fields:
   priority: high
@@ -16,12 +16,12 @@ fields:
   chat_comment: comment-71f5f2fc
   commits:
   - working_sha: 7cfb242650c320d8d4074f44729b91d4253afb1e
-    reconcile_sha: 59b7eec4e1d79ac8cbcd7f097ec16f32e07bde4d
-    main_sha: null
+    reconcile_sha: 1027380fcd6236e9430fe28122f17fbea64c94e1
+    main_sha: 1027380fcd6236e9430fe28122f17fbea64c94e1
     working_sha_history: []
   - working_sha: 06a726f5cf8a6fd2b9b9197af4275b643da5a5d3
-    reconcile_sha: 32950ceb2c87c1a8145f0613fba140005ecd18ad
-    main_sha: null
+    reconcile_sha: 176ba37ef502fa83f577cd44c20baa9eb64d7829
+    main_sha: 176ba37ef502fa83f577cd44c20baa9eb64d7829
     working_sha_history: []
   version: 0.2.170
   story_points: 5
