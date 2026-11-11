@@ -8,15 +8,14 @@
  *
  * WHAT IS UNDER TEST HERE, AND WHAT IS NOT. This file covers the half that needs
  * no runtime: what `write_image` hands back (AC-2569, AC-2571), what the surface
- * tells the model to do with it (AC-2570), and that the pane bounds a picture it
- * never expected (AC-2572). The half that needs a Worker — a real turn, through
+ * tells the model to do with it (AC-2570). That the pane bounds a picture it
+ * never expected (AC-2572) is measured in a real browser, in
+ * `reconciliation-assistant-picture-in-the-turn-browser.test.ts`. The half that needs a Worker — a real turn, through
  * the real route, over a real store, whose line actually fetches the bytes — is
  * `reconciliation-assistant-picture-in-the-turn.workers.test.ts` (AC-2569).
  * `create_image`'s line is story-39c992d3's (AC-2567, AC-2568).
  */
 
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   L1_DECLARATION,
@@ -27,9 +26,6 @@ import {
 import { businessPath, splitBusinessPrefix } from '../apps/control-app/src/scope'
 import { makeMemorySite } from './support/site-factory'
 import type { SiteFixture } from './support/site-factory'
-
-const repo = (...parts: string[]) => path.resolve(__dirname, '..', ...parts)
-const CSS = readFileSync(repo('apps/control-app/src/builder/builder.css'), 'utf8')
 
 /** A drawing that passes the SVG envelope — shapes only, nothing executable. */
 const MARK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
@@ -132,19 +128,5 @@ describe('story-b3de4571 — a drawing a turn made is a picture the client sees'
     expect('display' in out).toBe(false)
     expect(out.asset).toBeTruthy()
     expect((out.asset as { id: string }).id).toBe('mark.svg')
-  })
-
-  // ── AC-2572 — bounded by the pane ──────────────────────────────────────────
-
-  it('test_UAT_AC2572_an_image_in_a_chat_message_is_bounded_by_the_pane', () => {
-    // `webui-chat` SHIPS NO `img` RULE, because it never expected an image in a
-    // message; without this an unconstrained drawing takes the whole pane.
-    expect(CSS).toContain('.builder-chat img')
-    const rule = CSS.slice(CSS.indexOf('.builder-chat img'))
-    const block = rule.slice(0, rule.indexOf('}'))
-    expect(block).toMatch(/max-width:\s*100%/)
-    expect(block).toMatch(/max-height:\s*260px/)
-    expect(block).toMatch(/(^|[\s;{])width:\s*auto/)
-    expect(block).toMatch(/(^|[\s;{])height:\s*auto/)
   })
 })
