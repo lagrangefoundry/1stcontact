@@ -6,7 +6,7 @@ title: A written drawing's result carries the line that shows it in the conversa
   addressed under the business's own path
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-09T22:39:49.753781+00:00'
-updated_at: '2026-11-10T00:54:48.045738+00:00'
+updated_at: '2026-11-11T03:23:47.483521+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -21,18 +21,17 @@ In a builder session for a business, a successful `write_image` result carries a
 - the URL is the address the builder's own preview serves the drawing at, and it names the current business explicitly;
 - the alt text is the drawing's file name without its extension and without square brackets.
 
-Fetching that URL in the same business's session returns the drawing's bytes. The chat's stock sanitiser renders the line as an `<img>` carrying that URL.
+Fetching that URL in the same business's session returns the drawing's bytes.
 
 Redrawing the same name with `replace: true` returns the same line. The line names the asset as the site now holds it, so an earlier transcript that pasted it now shows the new drawing. This is the accepted behaviour of naming a live asset, not a defect.
 
 A drawing has no Library entry, so clicking it opens nothing. That is the intended outcome.
 
+This criterion claims the markdown line and the bytes its URL serves. It does not claim how the chat pane turns the line into an `<img>`: that is done by the chat's stock DOMPurify sanitiser, loaded from a CDN, which is an external boundary (see story-b3de4571, Reconciliation Decisions).
+
 ## Verification
-Through the Worker's route table, over real D1 and R2, with the model scripted: draw a mark in a session for a known business. Assert that `display` is exactly one markdown image line whose URL is `/b/<businessId>/preview/<slug>/draft/assets/<file>`. Split its business prefix the way the production router does, fetch it, and assert that the drawing's bytes come back. Redraw the same name with `replace: true` and assert that the line is identical. Pass the line through the chat's sanitiser and assert that an `<img>` with that `src` survives.
-
-
+Through the Worker's route table, over real D1 and R2, with the model scripted: draw a mark in a session for a known business. Assert that `display` is exactly one markdown image line whose URL is `/b/<businessId>/preview/<slug>/draft/assets/<file>`. Split its business prefix the way the production router does, fetch it, and assert that the drawing's bytes come back. Redraw the same name with `replace: true` and assert that the line is identical.
 
 ## UATs
 - `tests/reconciliation-assistant-picture-in-the-turn.workers.test.ts` — `test_UAT_AC2569_a_drawing_the_turn_made_is_fetchable_from_the_turn`: a scripted turn through the Worker's route table over real D1/R2; the line's URL is exactly `/b/<businessId>/preview/<slug>/draft/assets/wordmark.svg`, its prefix is split by the production `splitBusinessPrefix`, the drawing's bytes come back, and a `replace: true` redraw hands back the identical line, which then serves the new drawing.
 - `tests/reconciliation-assistant-picture-in-the-turn.test.ts` — `test_UAT_AC2569_write_image_hands_back_a_business_scoped_line_that_a_redraw_keeps`: the line names the written file, not the typed name; alt text drops the extension and square brackets; the business prefix round-trips; a redraw keeps the line.
-- That the line renders as an `<img>`: the line is ordinary `![alt](url)` markdown, the chat's sanitiser is stock DOMPurify (loaded from a CDN, not runnable under the suite), which keeps `<img src>` for a relative URL. The UATs assert the markdown shape and not DOMPurify's behaviour.
