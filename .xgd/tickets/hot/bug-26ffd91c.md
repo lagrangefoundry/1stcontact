@@ -5,9 +5,9 @@ type: bug
 title: 'Sign-in modal: three defects that made a working component look broken'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:28:05.411826+00:00'
-updated_at: '2026-11-11T03:58:46.675935+00:00'
+updated_at: '2026-11-11T03:59:19.127708+00:00'
 completed_at: '2026-11-11T03:58:40.452118+00:00'
-last_field_updated: status
+last_field_updated: commits
 status: free_and_reconciled
 fields:
   auto_merge_back: true
@@ -17,12 +17,12 @@ fields:
   severity: medium
   commits:
   - working_sha: 0b5a32d465a51cf9a9bf083c7596538993c38add
-    reconcile_sha: 03c2ed9ef6146c01a5dc7888af2f258556efb8f5
-    main_sha: null
+    reconcile_sha: ebb4951a987477f6b142d7f8b07fd96a15779cd4
+    main_sha: ebb4951a987477f6b142d7f8b07fd96a15779cd4
     working_sha_history: []
   - working_sha: 1f5abafb663f6497cfb76ccac2a6d93f89621731
-    reconcile_sha: d456857185476f2b1a93eed13e2fe7866ce086ad
-    main_sha: null
+    reconcile_sha: 170aa70189db549606c8658e4486f0d6ff8e69ff
+    main_sha: 170aa70189db549606c8658e4486f0d6ff8e69ff
     working_sha_history: []
   version: 0.2.172
   bundled_in: bundle-374f88d6
