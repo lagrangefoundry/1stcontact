@@ -63,6 +63,42 @@ export const HINTS_MEMBER = 'hints.json'
 /** Every mirrored subresource lives under this prefix. */
 export const ASSETS_PREFIX = 'assets/'
 
+/**
+ * The sha256 of `bytes`, lowercase hex — a mirrored member's identity (BUG-84).
+ * WebCrypto, so it runs on both hosts.
+ */
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource)
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Every mirrored member of `store`, hashed by reading it — the scan the two
+ * LOCAL adapters (filesystem, memory) answer {@link ReferenceStore.findMirrored}
+ * with. It is unbounded in the store's size, which is why the R2 adapter, the
+ * one a Worker serves, never uses it and answers from an index instead.
+ */
+export async function scanMirrored(
+  store: Pick<ReferenceStore, 'bundle' | 'list'>,
+  hashes: readonly string[],
+): Promise<MirroredMember[]> {
+  const wanted = new Set(hashes)
+  if (wanted.size === 0) return []
+  const found = new Map<string, MirroredMember>()
+  for (const name of await store.list()) {
+    const bundle = store.bundle(name)
+    for (const member of await bundle.list(ASSETS_PREFIX)) {
+      const bytes = await bundle.read(member)
+      // A member that lists but will not read is a bundle changing underneath
+      // us — not evidence of anything, so it is skipped rather than matched.
+      if (!bytes) continue
+      const sha256 = await sha256Hex(bytes)
+      if (wanted.has(sha256) && !found.has(sha256)) found.set(sha256, { sha256, bundle: name, member })
+    }
+  }
+  return [...found.values()]
+}
+
 /** The per-width reference screenshot's member key (REQ-61). */
 export function ladderMember(width: number): string {
   return `screenshot-${width}.png`
@@ -99,6 +135,19 @@ export interface ReferenceBundle {
   list(prefix?: string): Promise<string[]>
 }
 
+/**
+ * One mirrored subresource a store holds, found by the sha256 of its bytes —
+ * the answer {@link ReferenceStore.findMirrored} gives (BUG-84).
+ */
+export interface MirroredMember {
+  /** Lowercase hex sha256 of the member's bytes. */
+  sha256: string
+  /** The bundle that mirrored those bytes. */
+  bundle: string
+  /** That bundle's member key, under {@link ASSETS_PREFIX}. */
+  member: string
+}
+
 /** The bundles one tenant holds. */
 export interface ReferenceStore {
   /**
@@ -111,6 +160,20 @@ export interface ReferenceStore {
 
   /** The names of every bundle this store holds, sorted. */
   list(): Promise<string[]>
+
+  /**
+   * Which of `hashes` this store holds as a mirrored subresource (a member
+   * under {@link ASSETS_PREFIX}) of any of its bundles — the BUG-84 rights
+   * gate's one question.
+   *
+   * BOUNDED BY THE QUESTION, NOT BY THE STORE. The cost is a function of how
+   * many hashes are asked about, never of how many captures the store holds:
+   * the R2 adapter answers from an index written when each member is written,
+   * so the import route never lists, reads or hashes a bundle member
+   * (Architecture Policy #2, #31, #35). Answers come back in no particular
+   * order; a hash the store does not hold is simply absent.
+   */
+  findMirrored(hashes: readonly string[]): Promise<MirroredMember[]>
 }
 
 /**

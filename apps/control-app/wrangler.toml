@@ -42,6 +42,15 @@ workers_dev = false
 enabled = true
 head_sampling_rate = 1
 
+# The Cron Trigger (BUG-84). Each tick runs ONE bounded step of the
+# mirrored-subresource index backfill (`src/mirrored-backfill.ts`): at most one
+# R2 list page, cursor kept in R2, a single GET once finished. It exists so the
+# import route's rights gate never indexes old captures inline.
+# `triggers` is on wrangler's inheritable list; repeated under [env.production]
+# anyway, for the reason `observability` is.
+[triggers]
+crons = ["*/5 * * * *"]
+
 # The builder's browser assets (REQ-145), built by `1c assets`.
 #
 # THE HANG IS GONE. This binding was refused before because an [assets] binding
@@ -410,6 +419,10 @@ routes = [
 [env.production.observability]
 enabled = true
 head_sampling_rate = 1
+
+# See the top-level block: the BUG-84 mirrored-index backfill, restated.
+[env.production.triggers]
+crons = ["*/5 * * * *"]
 
 # THE DEPLOYED GATE'S CONFIGURATION. This block — not the top-level one — is
 # where the real Access identifiers belong, because this is the only one

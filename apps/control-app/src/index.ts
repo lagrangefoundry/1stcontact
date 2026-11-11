@@ -13,6 +13,7 @@ import {
   type IdentityEnv,
 } from './identity'
 import { type LeadEnv } from './lead'
+import { runMirroredBackfillTick } from './mirrored-backfill'
 import { route, type RouterEnv } from './router'
 import { handleSignIn, type SignInEnv } from './sign-in'
 import { sessionIdentityFor } from './sessions'
@@ -413,5 +414,15 @@ export default {
         }),
       )
     }
+  },
+
+  /**
+   * The Cron Trigger (`[triggers]` in wrangler.toml). Its one job today is the
+   * BUG-84 mirrored-index backfill: one bounded step per tick, resumable from
+   * the cursor it keeps in R2. See `mirrored-backfill.ts`.
+   */
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    // No `BLOBS`, no captures, nothing to index.
+    if (env.BLOBS) await runMirroredBackfillTick({ BLOBS: env.BLOBS })
   },
 } satisfies ExportedHandler<Env>

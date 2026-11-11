@@ -23,13 +23,13 @@
  * evidence the copy cannot erase — which is also why this is a *stronger* test
  * than the one promotion applies, not a weaker stand-in for it.
  *
- * THE SCAN IS `ASSETS_PREFIX`, NOT THE WHOLE BUNDLE, and that is a deliberate
- * line rather than an oversight. Every subresource the capture pipeline mirrored
- * lives under that prefix, and mirrored subresources are exactly what gets
- * copied into a draft. The bundle's other members — the retained oracle, the
- * screenshot ladder, `rendered.html` — run to tens of megabytes between them,
- * nothing copies them into a draft, and reading them on every import would put a
- * Worker's CPU and memory limits between the operator and their push.
+ * THE GATE COVERS `ASSETS_PREFIX`, NOT THE WHOLE BUNDLE, and that is a
+ * deliberate line rather than an oversight. Every subresource the capture
+ * pipeline mirrored lives under that prefix, and mirrored subresources are
+ * exactly what gets copied into a draft. The bundle's other members — the
+ * retained oracle, the screenshot ladder, `rendered.html` — are never copied
+ * into a draft. On R2 the hashes of those members are recorded when they are
+ * written, so the import route never reads a bundle at all.
  *
  * EVERY MIRRORED SUBRESOURCE, NOT ONLY PICTURES. A third party's stylesheet or
  * licensed webfont republished on a client's domain is the same act as their
@@ -49,7 +49,7 @@
  * enforced at both and written once.
  */
 
-import { ASSETS_PREFIX, type ReferenceStore } from './reference-store'
+import { sha256Hex, type MirroredMember, type ReferenceStore } from './reference-store'
 
 /**
  * Raised when an asset's bytes are ones we mirrored from a captured page.
@@ -84,27 +84,24 @@ export class MirroredAssetError extends Error {
   }
 }
 
-/** The sha256 of `bytes`, lowercase hex. WebCrypto, so it runs on both hosts. */
-export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource)
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
-}
+export { sha256Hex }
 
 /**
  * Refuse any of `assets` whose bytes this store already holds as a mirrored
  * subresource of a capture.
  *
- * THE INCOMING SIDE IS HASHED FIRST AND THE BUNDLES ARE WALKED SECOND, which is
- * the cheap direction: the assets are already in memory, and a bundle member has
- * to be fetched before it can be hashed. So a push carrying nothing returns
- * without touching the store at all, and a tenant holding no captures costs one
- * empty listing.
+ * ONLY THE INCOMING SIDE IS HASHED. The assets are already in memory; the
+ * store's side is answered by {@link ReferenceStore.findMirrored}, which on R2
+ * is one keyed lookup per incoming hash against an index written when each
+ * member was captured. So the cost is bounded by the request — the push's own
+ * assets — and never by how many captures the business has accumulated: no
+ * bundle is listed, no member is read, nothing of theirs is hashed
+ * (Architecture Policy #2, #31, #35). A push carrying nothing returns without
+ * touching the store at all.
  *
- * IT THROWS ON THE FIRST MATCH rather than collecting every offender. One
- * refused asset is enough to refuse the push, the operator has to deal with the
- * capture-derived draft as a whole either way, and stopping early is what keeps
- * the worst case bounded by the first offending member rather than by the size
- * of the reference store.
+ * THE FIRST OFFENDER, IN THE PUSH'S OWN ORDER, is the one named. One refused
+ * asset is enough to refuse the push, and naming them in the order the operator
+ * sent them keeps the refusal deterministic whatever order the store answers in.
  */
 export async function assertNotCaptureMirrored(
   assets: readonly { name: string; bytes: Uint8Array }[],
@@ -112,19 +109,15 @@ export async function assertNotCaptureMirrored(
 ): Promise<void> {
   if (assets.length === 0) return
 
-  const incoming = new Map<string, string>()
-  for (const asset of assets) incoming.set(await sha256Hex(asset.bytes), asset.name)
+  const incoming: { name: string; sha256: string }[] = []
+  for (const asset of assets) incoming.push({ name: asset.name, sha256: await sha256Hex(asset.bytes) })
 
-  for (const name of await references.list()) {
-    const bundle = references.bundle(name)
-    for (const member of await bundle.list(ASSETS_PREFIX)) {
-      const bytes = await bundle.read(member)
-      // A member that lists but will not read is a bundle changing underneath
-      // us. It is not evidence of anything, so it is skipped rather than treated
-      // as a match — this gate refuses on what it can prove, never on a guess.
-      if (!bytes) continue
-      const asset = incoming.get(await sha256Hex(bytes))
-      if (asset !== undefined) throw new MirroredAssetError(asset, name, member)
-    }
+  const held = new Map<string, MirroredMember>()
+  for (const found of await references.findMirrored(incoming.map((a) => a.sha256))) {
+    held.set(found.sha256, found)
+  }
+  for (const asset of incoming) {
+    const match = held.get(asset.sha256)
+    if (match) throw new MirroredAssetError(asset.name, match.bundle, match.member)
   }
 }

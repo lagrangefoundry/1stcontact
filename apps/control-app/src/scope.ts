@@ -223,6 +223,19 @@ export function businessPath(businessId: string, path: string): string {
 }
 
 /**
+ * Where a site's draft asset `handle` can be seen, scoped to `businessId`
+ * ([[REQ-217]]) — the address the builder's own preview pane loads it at.
+ *
+ * A handle that is already absolute (`https:`, `data:`, protocol-relative) is
+ * returned unchanged; anything else is a draft-relative asset name and gets the
+ * business-scoped `/preview/<slug>/draft/<handle>` path via {@link businessPath}.
+ */
+export function draftAssetPath(businessId: string, slug: string, handle: string): string {
+  if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(handle)) return handle
+  return businessPath(businessId, `/preview/${encodeURIComponent(slug)}/draft/${handle.replace(/^\/+/, '')}`)
+}
+
+/**
  * Resolve the business this request operates on.
  *
  * TAKES AN ADMISSION OR NOTHING, and the `null` is not a convenience. `index.ts`

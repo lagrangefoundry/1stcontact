@@ -95,7 +95,13 @@ import { displayNameFrom, NAME_PART_NAMES } from './builder/people-name.js'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
-import { NoBusinessError, businessPath, splitBusinessPrefix, type Scope } from './scope'
+import {
+  NoBusinessError,
+  businessPath,
+  draftAssetPath,
+  splitBusinessPrefix,
+  type Scope,
+} from './scope'
 import {
   findAccount,
   ownsBusiness,
@@ -445,13 +451,7 @@ function chatHost(
         // business and resolve against the first admissible one — which for an
         // operator holding two is the crossing `scope.ts` exists to prevent.
         // Naming the business is what keeps a replayed transcript correct.
-        (slug: string, handle: string) =>
-          /^[a-z][a-z0-9+.-]*:|^\/\//i.test(handle)
-            ? handle
-            : businessPath(
-                scope.businessId,
-                `/preview/${encodeURIComponent(slug)}/draft/${handle.replace(/^\/+/, '')}`,
-              ),
+        (slug: string, handle: string) => draftAssetPath(scope.businessId, slug, handle),
         // THE CLIENT'S CATALOGUE ([[REQ-228]]). Assembled here, like every wire
         // above it, because what it needs is request-scoped and both halves are
         // already open at this point: this business's ticket store, which is

@@ -13,7 +13,7 @@
  * see — which is exactly the property that lets the contract be one body of
  * assertions rather than three that agree by inspection.
  */
-import type { ReferenceBundle, ReferenceStore } from './reference-store'
+import { scanMirrored, type ReferenceBundle, type ReferenceStore } from './reference-store'
 
 /** A bundle handle over a plain map, for tests and for the contract. */
 export function memoryReferenceBundle(
@@ -42,7 +42,7 @@ export function memoryReferenceBundle(
 export function memoryReferenceStore(): ReferenceStore {
   const bundles = new Map<string, Map<string, Uint8Array>>()
 
-  return {
+  const store: ReferenceStore = {
     bundle(name) {
       let members = bundles.get(name)
       if (!members) {
@@ -60,5 +60,10 @@ export function memoryReferenceStore(): ReferenceStore {
         .map(([name]) => name)
         .sort()
     },
+    // In memory the scan is the index: nothing here is a Worker request.
+    findMirrored(hashes) {
+      return scanMirrored(store, hashes)
+    },
   }
+  return store
 }

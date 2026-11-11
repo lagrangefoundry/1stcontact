@@ -28,6 +28,7 @@ import path from 'node:path'
 import {
   bundleNameFor,
   ladderMember,
+  scanMirrored,
   type ReferenceBundle,
   type ReferenceStore,
 } from './reference-store'
@@ -113,10 +114,16 @@ export function fsReferenceBundle(dir: string): ReferenceBundle {
 export function fsReferenceStore(cwd: string): ReferenceStore {
   const root = path.join(cwd, 'storage', 'references')
 
-  return {
+  const store: ReferenceStore = {
     bundle(name) {
       const handle = fsReferenceBundle(bundleDir(cwd, name))
       return { ...handle, name }
+    },
+
+    // The operator's own disk, on their own laptop (`1c push`): scanning the
+    // tree is the honest answer here, and no Worker ever imports this module.
+    findMirrored(hashes) {
+      return scanMirrored(store, hashes)
     },
 
     async list() {
@@ -132,4 +139,5 @@ export function fsReferenceStore(cwd: string): ReferenceStore {
       return out.sort()
     },
   }
+  return store
 }
